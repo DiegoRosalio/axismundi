@@ -15,6 +15,7 @@
 #include "ui/BreakdownPanel.hpp"
 #include "ui/ColorPopover.hpp"
 #include "ui/ComplexPanel.hpp"
+#include "ui/GalleryPanel.hpp"
 #include "ui/HelpOverlay.hpp"
 #include "ui/InfoPanel.hpp"
 #include "ui/InputPanel.hpp"
@@ -155,6 +156,9 @@ private:
     StepsPanel m_stepsPanel;
     ui::FloatingPanel m_breakdownWindow;
     BreakdownPanel m_breakdownPanel;
+    ui::FloatingPanel m_galleryWindow;
+    GalleryPanel m_galleryPanel;
+    float m_galleryHeight = 0.0f;
     float m_breakdownHeight = 0.0f;
     bool m_breakdownWasVisible = false;
     float m_stepsHeight = 0.0f;

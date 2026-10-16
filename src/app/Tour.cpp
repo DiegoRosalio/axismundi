@@ -1,5 +1,6 @@
 #include "app/Tour.hpp"
 #include "app/App.hpp"
+#include "edu/Examples.hpp"
 #include <raylib.h>
 #include <rlgl.h>
 #include <cstdio>
@@ -84,6 +85,15 @@ void Tour::buildSteps() {
         app.setMatrix3(Matrix3D({{{{1, 0.8f, 0}}, {{0, 1, 0}}, {{0, 0, 1.4f}}}}));
         if (auto* p = app.panel("breakdown")) p->setVisible(true);
     }, 150);
+    step("10f_gallery", [](App& app) {
+        if (auto* p = app.panel("breakdown")) p->setVisible(false);
+        if (auto* p = app.panel("gallery")) p->setVisible(true);
+    });
+    step("10g_gallery_example", [](App& app) {
+        if (auto* p = app.panel("gallery")) p->setVisible(false);
+        examples()[3].apply(app);  // projection
+        app.toast(std::string("Example: ") + examples()[3].title);
+    });
     step("11_settings", [](App& app) {
         if (auto* p = app.panel("breakdown")) p->setVisible(false);
         if (auto* p = app.panel("steps")) p->setVisible(false);

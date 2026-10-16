@@ -1,5 +1,6 @@
 #include "app/App.hpp"
 #include "app/Tour.hpp"
+#include "edu/Examples.hpp"
 #include "rendering/Labels.hpp"
 #include "ui/SceneIO.hpp"
 #include "ui/Widgets.hpp"
@@ -40,7 +41,8 @@ App::App(const AppOptions& options)
       m_analysisWindow("analysis", "Analysis", 356.0f, {1.0f, 0.0f}),
       m_animationWindow("animation", "Animation", 640.0f, {0.5f, 1.0f}),
       m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false),
-      m_breakdownWindow("breakdown", "Transformation breakdown", 380.0f, {0.0f, 0.4f}, false) {
+      m_breakdownWindow("breakdown", "Transformation breakdown", 380.0f, {0.0f, 0.4f}, false),
+      m_galleryWindow("gallery", "Example gallery", 700.0f, {0.5f, 0.2f}, false) {
     // Preferences (not during the tour, which must be reproducible)
     SceneData prefs;
     if (options.tourDir.empty()) loadPreferences(prefs);
@@ -62,6 +64,7 @@ App::App(const AppOptions& options)
     m_panels.add(&m_analysisWindow);
     m_panels.add(&m_stepsWindow);
     m_panels.add(&m_breakdownWindow);
+    m_panels.add(&m_galleryWindow);
 
     applyPreferences(prefs);
     if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
@@ -350,6 +353,10 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
     if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
     if (IsKeyPressed(KEY_B)) m_breakdownWindow.toggle();
+    if (IsKeyPressed(KEY_E)) {
+        m_galleryWindow.toggle();
+        if (m_galleryWindow.visible()) m_panels.bringToFront(&m_galleryWindow);
+    }
     if (IsKeyPressed(KEY_C)) resetCamera();
     if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::LinearAlgebra;
     if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
@@ -547,12 +554,17 @@ void App::drawUi(float deltaTime) {
     state.fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
     state.stepsVisible = m_stepsWindow.visible();
     state.breakdownVisible = m_breakdownWindow.visible();
+    state.galleryVisible = m_galleryWindow.visible();
     state.matricesMode = (m_mode == AppMode::LinearAlgebra);
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
     if (actions.toggleFullscreen) toggleFullscreen();
     if (actions.screenshot) requestScreenshot(false);
+    if (actions.toggleGallery) {
+        m_galleryWindow.toggle();
+        if (m_galleryWindow.visible()) m_panels.bringToFront(&m_galleryWindow);
+    }
     if (actions.toggleBreakdown) {
         m_breakdownWindow.toggle();
         if (m_breakdownWindow.visible()) m_panels.bringToFront(&m_breakdownWindow);
@@ -609,6 +621,18 @@ void App::drawFloatingPanels() {
             if (p->begin(m_breakdownHeight, content)) {
                 m_breakdownHeight = m_breakdownPanel.drawContent(content);
                 p->end();
+            }
+        } else if (p == &m_galleryWindow) {
+            if (p->begin(m_galleryHeight, content)) {
+                int chosen = -1;
+                m_galleryHeight = m_galleryPanel.drawContent(content, chosen);
+                p->end();
+                if (chosen >= 0) {
+                    const Example& e = examples()[chosen];
+                    e.apply(*this);
+                    m_galleryWindow.setVisible(false);
+                    toast(std::string("Example: ") + e.title);
+                }
             }
         } else if (p == &m_stepsWindow) {
             if (p->begin(m_stepsHeight, content)) {

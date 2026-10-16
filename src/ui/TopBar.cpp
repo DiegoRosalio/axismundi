@@ -63,6 +63,9 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     if (rightButton(t.dark ? ui::Icon::Sun : ui::Icon::Moon, false)) actions.toggleTheme = true;
     ui::tooltip(last, t.dark ? "Switch to the light theme (T)" : "Switch to the dark theme (T)", "Theme");
     divider();
+    if (rightButton(ui::Icon::Gallery, state.galleryVisible)) actions.toggleGallery = true;
+    ui::tooltip(last, "Ready-made examples for every mode, each with a note on what to look at (E)",
+                "Example gallery");
     if (rightButton(ui::Icon::Steps, state.stepsVisible)) actions.toggleSteps = true;
     ui::tooltip(last, "Worked, step-by-step calculations for the current inputs (K)", "Calculation steps");
     if (state.matricesMode) {
