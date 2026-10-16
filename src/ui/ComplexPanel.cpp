@@ -48,6 +48,12 @@ void ComplexPanel::finishEditing() {
     finishField(id);
 }
 
+void ComplexPanel::cancelEditing() {
+    if (m_activeField < 0) return;
+    formatNumber(m_text[m_activeField], kTextSize, fieldValue(m_activeField));
+    m_activeField = -1;
+}
+
 void ComplexPanel::update(float deltaTime) {
     if (m_activeField >= 0 && IsKeyPressed(KEY_TAB)) {
         int current = m_activeField;

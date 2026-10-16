@@ -168,6 +168,14 @@ int main() {
         //----------------
         bool editing = inputPanel.isEditing() || complexPanel.isEditing() || plotPanel.isEditing();
 
+        // Escape cancels an edit in progress; otherwise it quits (raylib default)
+        if (editing && IsKeyPressed(KEY_ESCAPE)) {
+            inputPanel.cancelEditing();
+            complexPanel.cancelEditing();
+            plotPanel.cancelEditing();
+            editing = false;
+        }
+
         // TAB switches between camera mode (cursor captured) and UI mode.
         // While a field is being edited, TAB moves to the next field instead.
         if (!editing && IsKeyPressed(KEY_TAB)) {
@@ -350,6 +358,11 @@ int main() {
             help.draw();
 
         EndDrawing();
+
+        // Fields are activated while drawing, so decide here whether Escape
+        // should quit (checked by WindowShouldClose() on the next frame)
+        bool stillEditing = inputPanel.isEditing() || complexPanel.isEditing() || plotPanel.isEditing();
+        SetExitKey(stillEditing ? KEY_NULL : KEY_ESCAPE);
     }
 
     CloseWindow();

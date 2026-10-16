@@ -96,6 +96,13 @@ void InputPanel::finishEditing() {
     finishField(id);
 }
 
+void InputPanel::cancelEditing() {
+    if (m_activeField < 0) return;
+    char* text = fieldText(m_state, m_activeField);
+    std::snprintf(text, kTextSize, "%s", fieldText(m_committed, m_activeField));
+    m_activeField = -1;
+}
+
 void InputPanel::finishField(int id) {
     char* text = fieldText(m_state, id);
     if (isValid(text)) {

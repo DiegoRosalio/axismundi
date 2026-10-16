@@ -17,6 +17,7 @@ public:
     const ComplexScene& scene() const { return m_scene; }
     bool isEditing() const { return m_activeField >= 0; }
     void finishEditing();
+    void cancelEditing();
 
     void saveState(SceneData& data) const;
     void loadState(const SceneData& data);

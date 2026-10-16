@@ -120,6 +120,17 @@ void PlotPanel::finishEditing() {
     finishField(id);
 }
 
+void PlotPanel::cancelEditing() {
+    if (m_activeField < 0) return;
+    if (m_activeField >= kRangeBase) {
+        int r = m_activeField - kRangeBase;
+        formatNumber(m_rangeText[r], kNumSize, m_range[r]);
+    }
+    // Expressions have no separate committed copy: keep the text as typed
+    m_activeField = -1;
+    m_changed = true;
+}
+
 void PlotPanel::update() {
     if (m_activeField < 0 || !IsKeyPressed(KEY_TAB)) return;
 
