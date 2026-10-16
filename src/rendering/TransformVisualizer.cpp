@@ -58,6 +58,19 @@ void TransformVisualizer::draw() const {
     drawBasis(transformed, 1.0f);
 }
 
+void TransformVisualizer::drawGhost(const Matrix4D& m, float alpha) const {
+    Basis b;
+    b.xAxis = m.transformDirection(Vector3D(1, 0, 0));
+    b.yAxis = m.transformDirection(Vector3D(0, 1, 0));
+    b.zAxis = m.transformDirection(Vector3D(0, 0, 1));
+    b.origin = m.transform(Vector3D(0, 0, 0));
+    const ui::Theme& t = ui::theme();
+    b.xColor = t.basisX;
+    b.yColor = t.basisY;
+    b.zColor = t.basisZ;
+    drawBasis(b, alpha);
+}
+
 void TransformVisualizer::drawEigenvectors(const EigenResult& eigen, float extent) {
     const Color color = ui::theme().eigen;
     for (const auto& ev : eigen.values) {

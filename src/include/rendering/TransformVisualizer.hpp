@@ -36,6 +36,9 @@ public:
     // Eigenvector lines through the origin: a dashed line along v, the unit
     // vector v and a marker at λv (where the matrix sends v)
     static void drawEigenvectors(const EigenResult& eigen, float extent);
+
+    // Faded copy of the basis transformed by m (completed breakdown steps)
+    void drawGhost(const Matrix4D& m, float alpha) const;
     static void drawEigenLabels(const Camera3D& camera, const EigenResult& eigen);
 
     // Show/hide transformed basis

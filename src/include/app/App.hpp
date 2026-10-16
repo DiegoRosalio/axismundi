@@ -12,6 +12,7 @@
 #include "rendering/VectorRenderer.hpp"
 #include "ui/AnimationPanel.hpp"
 #include "ui/AppMode.hpp"
+#include "ui/BreakdownPanel.hpp"
 #include "ui/ColorPopover.hpp"
 #include "ui/ComplexPanel.hpp"
 #include "ui/HelpOverlay.hpp"
@@ -86,6 +87,8 @@ public:
     const EigenResult& eigen() const { return m_infoPanel.eigen(); }
     ViewSettings& view() { return m_viewPanel.settings(); }
     bool uiMode() const;
+    bool breakdownActive() const;
+    BreakdownPanel& breakdownPanel() { return m_breakdownPanel; }
 
     void saveScene();
     void loadScene();
@@ -150,6 +153,10 @@ private:
     ui::FloatingPanel m_animationWindow;
     ui::FloatingPanel m_stepsWindow;
     StepsPanel m_stepsPanel;
+    ui::FloatingPanel m_breakdownWindow;
+    BreakdownPanel m_breakdownPanel;
+    float m_breakdownHeight = 0.0f;
+    bool m_breakdownWasVisible = false;
     float m_stepsHeight = 0.0f;
     ui::PanelManager m_panels;
     float m_analysisHeight = 0.0f;

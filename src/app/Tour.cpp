@@ -79,7 +79,13 @@ void Tour::buildSteps() {
         if (auto* p = app.panel("steps")) p->setVisible(true);
         if (auto* p = app.panel("analysis")) p->setVisible(false);
     });
+    step("10e_breakdown", [](App& app) {
+        if (auto* p = app.panel("steps")) p->setVisible(false);
+        app.setMatrix3(Matrix3D({{{{1, 0.8f, 0}}, {{0, 1, 0}}, {{0, 0, 1.4f}}}}));
+        if (auto* p = app.panel("breakdown")) p->setVisible(true);
+    }, 150);
     step("11_settings", [](App& app) {
+        if (auto* p = app.panel("breakdown")) p->setVisible(false);
         if (auto* p = app.panel("steps")) p->setVisible(false);
         if (auto* p = app.panel("analysis")) p->setVisible(true);
         SetMousePosition(GetScreenWidth() / 2, GetScreenHeight() / 2);

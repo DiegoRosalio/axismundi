@@ -65,6 +65,11 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     divider();
     if (rightButton(ui::Icon::Steps, state.stepsVisible)) actions.toggleSteps = true;
     ui::tooltip(last, "Worked, step-by-step calculations for the current inputs (K)", "Calculation steps");
+    if (state.matricesMode) {
+        if (rightButton(ui::Icon::Layers, state.breakdownVisible)) actions.toggleBreakdown = true;
+        ui::tooltip(last, "Split the matrix into rotate, stretch, rotate (and move) steps and watch them one "
+                          "at a time (B)", "Transformation breakdown");
+    }
     divider();
     if (rightButton(ui::Icon::Camera, false)) actions.screenshot = true;
     ui::tooltip(last, "Save a PNG of the window in the current folder (F12; Shift+F12 for the 3D view only)",

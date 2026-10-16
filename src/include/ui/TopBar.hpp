@@ -13,6 +13,7 @@ struct TopBarActions {
     bool toggleFullscreen = false;
     bool screenshot = false;
     bool toggleSteps = false;
+    bool toggleBreakdown = false;
 };
 
 // Which toggles are currently on (drawn as selected)
@@ -21,6 +22,8 @@ struct TopBarState {
     bool settingsOpen = false;
     bool fullscreen = false;
     bool stepsVisible = false;
+    bool breakdownVisible = false;
+    bool matricesMode = true;
 };
 
 // Full-width bar at the top: app name, mode tabs and action buttons.

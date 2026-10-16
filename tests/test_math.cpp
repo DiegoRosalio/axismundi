@@ -6,6 +6,8 @@
 #include "math/Decompositions.hpp"
 #include "math/Expression.hpp"
 #include "math/Explain.hpp"
+#include "math/Breakdown.hpp"
+#include "math/Quaternion.hpp"
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
@@ -358,6 +360,79 @@ void testExplain() {
     CHECK(contains(explainEuler(3.14159265f), "e^(iθ) = −1 + 0i"));
 }
 
+void testQuaternion() {
+    Quaternion q = Quaternion::fromAxisAngle(Vector3D(0, 0, 1), 3.14159265f / 2);
+    CHECK(near(q.toMatrix(), Matrix3D::rotation(3.14159265f / 2)));
+    CHECK_NEAR(q.angle(), 3.14159265f / 2, 1e-5f);
+    CHECK_NEAR(q.axis().z, 1.0f, 1e-5f);
+
+    // Round trip through a matrix, including a 180° turn
+    for (float angle : {0.3f, 1.7f, 3.14159265f}) {
+        Quaternion r = Quaternion::fromAxisAngle(Vector3D(1, 2, 2), angle);
+        Quaternion back = Quaternion::fromMatrix(r.toMatrix());
+        CHECK(near(back.toMatrix(), r.toMatrix()));
+    }
+
+    // Slerp halfway is half the angle, about the same axis
+    Quaternion half = Quaternion::slerp(Quaternion::identity(), q, 0.5f);
+    CHECK_NEAR(half.angle(), 3.14159265f / 4, 1e-5f);
+    CHECK(near(Quaternion::slerp(Quaternion::identity(), q, 1.0f).toMatrix(), q.toMatrix()));
+}
+
+void testBreakdown() {
+    std::vector<Matrix4D> samples;
+    for (const auto& m3 : sampleMatrices()) {
+        Matrix4D m = Matrix4D::identity();
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) m.m[i][j] = m3.m[i][j];
+        samples.push_back(m);
+    }
+    samples.push_back(Matrix4D::translation(1, -2, 0.5f) * Matrix4D::rotationY(0.8f) * Matrix4D::scale(2, 1, 0.5f));
+    samples.push_back(Matrix4D::scale(3, 3, 3));
+    samples.push_back(Matrix4D::scale(-2, 2, 2));
+
+    for (const auto& m : samples) {
+        TransformBreakdown b = breakdown(m);
+        // All steps together rebuild M (affine part)
+        CHECK(near(b.at(static_cast<float>(b.steps.size())), m, 2e-3f));
+        CHECK(near(b.at(0.0f), Matrix4D::identity()));
+        for (const auto& s : b.steps) {
+            if (s.kind != BreakdownStep::Kind::Rotation) continue;
+            Matrix4D r = s.matrix();
+            CHECK_NEAR(r.determinant(), 1.0f, 1e-4f);
+            // Halfway through a rotation is still a rotation
+            CHECK_NEAR(s.partial(0.5f).determinant(), 1.0f, 1e-4f);
+        }
+    }
+
+    // A pure rotation is one step; identity has none
+    CHECK(breakdown(Matrix4D::rotationZ(0.7f)).steps.size() == 1);
+    CHECK(breakdown(Matrix4D::identity()).steps.empty());
+
+    // A plain mirror is a single "flip x"
+    TransformBreakdown mirror = breakdown(Matrix4D::scale(-1, 1, 1));
+    CHECK(mirror.steps.size() == 1);
+    if (mirror.steps.size() == 1) {
+        CHECK(mirror.steps[0].title == "Mirror");
+        CHECK(mirror.steps[0].description == "flip x");
+    }
+
+    // Uniform scale: one "Enlarge" step
+    TransformBreakdown big = breakdown(Matrix4D::scale(2, 2, 2));
+    CHECK(big.steps.size() == 1 && big.steps[0].title == "Enlarge");
+
+    // Translation comes last
+    TransformBreakdown moved = breakdown(Matrix4D::translation(1, 2, 3));
+    CHECK(moved.steps.size() == 1 && moved.steps[0].kind == BreakdownStep::Kind::Translation);
+
+    // Singular: a squash
+    TransformBreakdown flat = breakdown(Matrix4D::scale(1, 1, 0));
+    bool squashed = false;
+    for (const auto& s : flat.steps)
+        if (s.title == "Flatten") squashed = true;
+    CHECK(squashed);
+}
+
 } // namespace
 
 int main() {
@@ -374,6 +449,8 @@ int main() {
         {"Expression", testExpression},
         {"Animator", testAnimator},
         {"Explain", testExplain},
+        {"Quaternion", testQuaternion},
+        {"Breakdown", testBreakdown},
     };
 
     for (const auto& t : tests) {

@@ -39,7 +39,8 @@ App::App(const AppOptions& options)
     : m_options(options), m_grid(10, 1.0f),
       m_analysisWindow("analysis", "Analysis", 356.0f, {1.0f, 0.0f}),
       m_animationWindow("animation", "Animation", 640.0f, {0.5f, 1.0f}),
-      m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false) {
+      m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false),
+      m_breakdownWindow("breakdown", "Transformation breakdown", 380.0f, {0.0f, 0.4f}, false) {
     // Preferences (not during the tour, which must be reproducible)
     SceneData prefs;
     if (options.tourDir.empty()) loadPreferences(prefs);
@@ -60,6 +61,7 @@ App::App(const AppOptions& options)
     m_panels.add(&m_animationWindow);
     m_panels.add(&m_analysisWindow);
     m_panels.add(&m_stepsWindow);
+    m_panels.add(&m_breakdownWindow);
 
     applyPreferences(prefs);
     if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
@@ -88,6 +90,10 @@ void App::setMode(AppMode mode) {
 
 void App::resetCamera() {
     m_camera.reset(m_mode, m_mode == AppMode::Plotting && !m_plotRenderer.is3D());
+}
+
+bool App::breakdownActive() const {
+    return m_mode == AppMode::LinearAlgebra && m_breakdownWindow.visible();
 }
 
 bool App::uiMode() const {
@@ -343,6 +349,7 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_L)) view.showLabels = !view.showLabels;
     if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
     if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
+    if (IsKeyPressed(KEY_B)) m_breakdownWindow.toggle();
     if (IsKeyPressed(KEY_C)) resetCamera();
     if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::LinearAlgebra;
     if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
@@ -382,9 +389,20 @@ void App::update(float deltaTime) {
     }
     m_inputPanel.resetChangedFlags();
 
-    // While animating, the scene shows the animated matrix instead of the input
+    // The breakdown and the animator both replace the matrix shown in the
+    // scene; opening the breakdown stops any animation
+    m_breakdownPanel.setMatrix(m_matrix);
+    bool breakdown = breakdownActive();
+    if (breakdown && !m_breakdownWasVisible) {
+        m_animator.stop();
+        m_breakdownPanel.restart();
+    }
+    m_breakdownWasVisible = breakdown;
+    if (breakdown) m_breakdownPanel.update(deltaTime);
+
     m_animator.update(deltaTime);
-    m_shown = m_animator.active() ? m_animator.current() : m_matrix;
+    if (breakdown) m_shown = m_breakdownPanel.current();
+    else m_shown = m_animator.active() ? m_animator.current() : m_matrix;
     m_transformViz.setTransform4D(m_shown);
 
     m_vectorRenderer.clearVectors();
@@ -427,6 +445,15 @@ void App::drawScene() {
         case AppMode::LinearAlgebra:
             m_grid.draw();
             m_grid.drawAxes(view.axisLength);
+            if (breakdownActive()) {
+                // Faded bases for the steps already done
+                int done = std::min(m_breakdownPanel.completedSteps(),
+                                    static_cast<int>(m_breakdownPanel.breakdown().steps.size()));
+                for (int k = 1; k <= done; k++) {
+                    if (k == static_cast<int>(m_breakdownPanel.breakdown().steps.size())) break;
+                    m_transformViz.drawGhost(m_breakdownPanel.breakdown().after(k), 0.22f);
+                }
+            }
             m_transformViz.draw();
             m_vectorRenderer.draw();
             if (view.showEigenvectors) {
@@ -519,11 +546,17 @@ void App::drawUi(float deltaTime) {
     state.settingsOpen = m_settingsPopover.isOpen();
     state.fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
     state.stepsVisible = m_stepsWindow.visible();
+    state.breakdownVisible = m_breakdownWindow.visible();
+    state.matricesMode = (m_mode == AppMode::LinearAlgebra);
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
     if (actions.toggleFullscreen) toggleFullscreen();
     if (actions.screenshot) requestScreenshot(false);
+    if (actions.toggleBreakdown) {
+        m_breakdownWindow.toggle();
+        if (m_breakdownWindow.visible()) m_panels.bringToFront(&m_breakdownWindow);
+    }
     if (actions.toggleSteps) {
         m_stepsWindow.toggle();
         if (m_stepsWindow.visible()) m_panels.bringToFront(&m_stepsWindow);
@@ -569,6 +602,12 @@ void App::drawFloatingPanels() {
             if (!matrices) continue;
             if (p->begin(m_animationHeight, content)) {
                 m_animationHeight = m_animationPanel.drawContent(content, m_animator, m_matrix);
+                p->end();
+            }
+        } else if (p == &m_breakdownWindow) {
+            if (!matrices) continue;
+            if (p->begin(m_breakdownHeight, content)) {
+                m_breakdownHeight = m_breakdownPanel.drawContent(content);
                 p->end();
             }
         } else if (p == &m_stepsWindow) {
