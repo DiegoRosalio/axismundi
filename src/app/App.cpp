@@ -9,7 +9,9 @@
 
 #include <raylib.h>
 #include <raygui.h>
+#include <rlgl.h>
 #include <algorithm>
+#include <ctime>
 
 namespace linalg {
 
@@ -33,14 +35,34 @@ void drawAxisLabels(const Camera3D& camera, float length) {
 
 } // namespace
 
-App::App(const AppOptions& options) : m_options(options), m_grid(10, 1.0f) {
+App::App(const AppOptions& options)
+    : m_options(options), m_grid(10, 1.0f),
+      m_analysisWindow("analysis", "Analysis", 356.0f, {1.0f, 0.0f}),
+      m_animationWindow("animation", "Animation", 640.0f, {0.5f, 1.0f}) {
+    // Preferences (not during the tour, which must be reproducible)
+    SceneData prefs;
+    if (options.tourDir.empty()) loadPreferences(prefs);
+
+    int width = options.width, height = options.height;
+    if (!options.sizeGiven) {
+        getInt(prefs, "window.width", width);
+        getInt(prefs, "window.height", height);
+        width = std::max(width, 800);
+        height = std::max(height, 600);
+    }
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
-    InitWindow(options.width, options.height, "axismundi - Linear Algebra 3D Visualizer");
+    InitWindow(width, height, "axismundi - Linear Algebra 3D Visualizer");
     SetWindowMinSize(800, 600);
     SetTargetFPS(60);
-    ui::init();
+
+    m_panels.add(&m_animationWindow);
+    m_panels.add(&m_analysisWindow);
+
+    applyPreferences(prefs);
     if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
     else if (options.theme == "dark") ui::setTheme(ui::ThemeKind::Dark);
+    ui::init();
 
     if (!options.tourDir.empty()) m_tour = std::make_unique<Tour>(options.tourDir);
 
@@ -49,6 +71,7 @@ App::App(const AppOptions& options) : m_options(options), m_grid(10, 1.0f) {
 }
 
 App::~App() {
+    if (!m_tour) savePreferences();
     ui::shutdown();
     CloseWindow();
 }
@@ -61,6 +84,14 @@ void App::setMode(AppMode mode) {
     m_mode = mode;
 }
 
+void App::resetCamera() {
+    m_camera.reset(m_mode, m_mode == AppMode::Plotting && !m_plotRenderer.is3D());
+}
+
+bool App::uiMode() const {
+    return !IsCursorHidden();
+}
+
 void App::setUiMode(bool ui) {
     if (ui) EnableCursor();
     else DisableCursor();
@@ -70,15 +101,39 @@ void App::showHelp(bool show) {
     if (show != m_help.visible()) m_help.toggle();
 }
 
+void App::showSettings(bool show) {
+    if (show) m_settingsPopover.open(m_topBar.settingsButton());
+    else m_settingsPopover.close();
+}
+
+void App::setTheme(bool dark) {
+    ui::setTheme(dark ? ui::ThemeKind::Dark : ui::ThemeKind::Light);
+    m_plotPanel.markChanged();
+}
+
 void App::toggleTheme() {
     ui::toggleTheme();
     m_plotPanel.markChanged();  // plot colors are baked into its geometry
+}
+
+void App::toggleFullscreen() {
+    ToggleBorderlessWindowed();
 }
 
 void App::toast(const std::string& message, bool error) {
     m_toast.text = message;
     m_toast.error = error;
     m_toast.timeLeft = 3.0f;
+}
+
+ui::FloatingPanel* App::panel(const std::string& id) {
+    for (auto* p : m_panels.panels())
+        if (p->id() == id) return p;
+    return nullptr;
+}
+
+void App::requestScreenshot(bool sceneOnly) {
+    m_screenshotRequest = sceneOnly ? 2 : 1;
 }
 
 void App::saveScene() {
@@ -131,6 +186,41 @@ void App::loadScene() {
 }
 
 // ---------------------------------------------------------------------------
+// Preferences
+// ---------------------------------------------------------------------------
+
+void App::loadPreferences(SceneData& prefs) {
+    Preferences::load(prefs);
+}
+
+void App::applyPreferences(const SceneData& prefs) {
+    std::string theme;
+    if (getString(prefs, "ui.theme", theme)) {
+        ui::setTheme(theme == "light" ? ui::ThemeKind::Light : ui::ThemeKind::Dark);
+    }
+    float zoom = 1.0f;
+    if (getFloat(prefs, "ui.zoom", zoom)) ui::setZoom(zoom);
+    getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
+    getBool(prefs, "ui.hud", m_uiSettings.showHud);
+    for (auto* p : m_panels.panels()) p->loadState(prefs);
+}
+
+void App::savePreferences() {
+    SceneData prefs;
+    putFloat(prefs, "ui.zoom", ui::zoom());
+    prefs["ui.theme"] = ui::themeKind() == ui::ThemeKind::Light ? "light" : "dark";
+    putBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
+    putBool(prefs, "ui.hud", m_uiSettings.showHud);
+    if (!IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE) && !IsWindowFullscreen()) {
+        putInt(prefs, "window.width", GetScreenWidth());
+        putInt(prefs, "window.height", GetScreenHeight());
+    }
+    for (auto* p : m_panels.panels()) p->saveState(prefs);
+    std::string error;
+    Preferences::save(prefs, error);  // best effort: nothing useful to show while closing
+}
+
+// ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
 
@@ -141,6 +231,7 @@ void App::run() {
         if (m_tour && !m_tour->advance(*this)) break;
 
         ui::beginFrame();
+        m_panels.beginFrame();
         handleInput(deltaTime);
         update(deltaTime);
 
@@ -148,14 +239,29 @@ void App::run() {
             ClearBackground(ui::theme().background);
             drawScene();
             drawSceneLabels();
-            drawUi(deltaTime);
+            if (m_screenshotRequest != 2) drawUi(deltaTime);
             if (m_tour) m_tour->capture();
+            if (m_screenshotRequest) takeScreenshot();
         EndDrawing();
 
         // Fields are activated while drawing, so decide here whether Escape
         // should quit (checked by WindowShouldClose() on the next frame)
-        SetExitKey(isEditing() ? KEY_NULL : KEY_ESCAPE);
+        SetExitKey(isEditing() || m_settingsPopover.isOpen() ? KEY_NULL : KEY_ESCAPE);
     }
+}
+
+void App::takeScreenshot() {
+    m_screenshotRequest = 0;
+    char name[64];
+    std::time_t now = std::time(nullptr);
+    std::strftime(name, sizeof(name), "axismundi_%Y%m%d_%H%M%S.png", std::localtime(&now));
+
+    rlDrawRenderBatchActive();  // flush pending draw calls into the framebuffer
+    Image image = LoadImageFromScreen();
+    bool ok = ExportImage(image, name);
+    UnloadImage(image);
+    if (ok) toast(std::string("Screenshot saved as ") + name);
+    else toast("Could not save the screenshot", true);
 }
 
 bool App::isEditing() const {
@@ -165,35 +271,39 @@ bool App::isEditing() const {
 void App::handleInput(float deltaTime) {
     bool editing = isEditing();
 
-    // Escape cancels an edit in progress; otherwise it quits (raylib default)
-    if (editing && IsKeyPressed(KEY_ESCAPE)) {
-        m_inputPanel.cancelEditing();
-        m_complexPanel.cancelEditing();
-        m_plotPanel.cancelEditing();
-        editing = false;
+    // Escape cancels an edit or closes a popup; otherwise it quits (raylib default)
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        if (editing) {
+            m_inputPanel.cancelEditing();
+            m_complexPanel.cancelEditing();
+            m_plotPanel.cancelEditing();
+            editing = false;
+        } else if (m_settingsPopover.isOpen()) {
+            m_settingsPopover.close();
+        }
     }
 
     // TAB switches between camera mode (cursor captured) and UI mode.
     // While a field is being edited, TAB moves to the next field instead.
     if (!editing && IsKeyPressed(KEY_TAB)) setUiMode(IsCursorHidden());
 
-    bool uiMode = !IsCursorHidden();
+    bool ui = uiMode();
     // Widgets only respond in UI mode, and not behind the help overlay
-    if (uiMode && !m_help.visible()) GuiUnlock();
+    if (ui && !m_help.visible()) GuiUnlock();
     else GuiLock();
 
     m_inputPanel.update();
     m_complexPanel.update(deltaTime);
     m_plotPanel.update();
 
-    if (!editing) handleShortcuts(uiMode);
+    if (!editing) handleShortcuts(ui);
 
     if (m_mode != m_lastMode) {
         // A field in the panel being hidden would otherwise stay "active"
         m_inputPanel.finishEditing();
         m_complexPanel.finishEditing();
         m_plotPanel.finishEditing();
-        m_camera.reset(m_mode);
+        resetCamera();
         m_lastMode = m_mode;
     }
 
@@ -203,16 +313,19 @@ void App::handleInput(float deltaTime) {
 void App::handleShortcuts(bool uiMode) {
     ViewSettings& view = m_viewPanel.settings();
     bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
 
     if (ctrl && (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD))) ui::zoomIn();
     if (ctrl && (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT))) ui::zoomOut();
     if (ctrl && IsKeyPressed(KEY_ZERO)) ui::setZoom(1.0f);
+    if (IsKeyPressed(KEY_F11)) toggleFullscreen();
+    if (IsKeyPressed(KEY_F12)) requestScreenshot(shift);
     if (IsKeyPressed(KEY_T)) toggleTheme();
     if (IsKeyPressed(KEY_H)) m_help.toggle();
     if (IsKeyPressed(KEY_G)) view.showGrid = !view.showGrid;
     if (IsKeyPressed(KEY_L)) view.showLabels = !view.showLabels;
-    if (IsKeyPressed(KEY_M)) m_infoPanel.toggleVisible();
-    if (IsKeyPressed(KEY_C)) m_camera.reset(m_mode);
+    if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
+    if (IsKeyPressed(KEY_C)) resetCamera();
     if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::LinearAlgebra;
     if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
     if (IsKeyPressed(KEY_THREE)) m_mode = AppMode::Plotting;
@@ -271,6 +384,11 @@ void App::update(float deltaTime) {
     if (m_plotPanel.changed()) {
         m_plotRenderer.rebuild(m_plotPanel.spec());
         m_plotPanel.clearChanged();
+        // Switching between 2D and 3D plots needs a different viewpoint
+        if (m_plotRenderer.is3D() != m_plotWas3D) {
+            m_plotWas3D = m_plotRenderer.is3D();
+            if (m_mode == AppMode::Plotting) resetCamera();
+        }
     }
 
     m_grid.setShowGrid(view.showGrid);
@@ -328,8 +446,21 @@ void App::drawSceneLabels() {
     }
 }
 
+float App::viewportLeft() const {
+    return SideBar::width();
+}
+
+float App::viewportRight() const {
+    return static_cast<float>(GetScreenWidth());
+}
+
 void App::drawUi(float deltaTime) {
-    drawHud();
+    // While the settings popover is open, it owns the mouse
+    bool popoverOwnsMouse = m_settingsPopover.contains(GetMousePosition());
+    bool wasLocked = GuiIsLocked();
+    if (popoverOwnsMouse) GuiLock();
+
+    if (m_uiSettings.showHud) drawHud();
 
     // Side bar
     Rectangle area = m_sideBar.begin();
@@ -348,42 +479,61 @@ void App::drawUi(float deltaTime) {
     y = m_viewPanel.draw(area.x, y, area.width, m_mode);
     m_sideBar.end(y);
 
-    if (m_viewPanel.takeResetCameraRequest()) m_camera.reset(m_mode);
+    if (m_viewPanel.takeResetCameraRequest()) resetCamera();
     if (m_viewPanel.takeSaveRequest()) saveScene();
     if (m_viewPanel.takeLoadRequest()) loadScene();
 
-    if (m_mode == AppMode::LinearAlgebra) {
-        m_infoPanel.draw();
-        float left = SideBar::width();
-        float right = GetScreenWidth() - m_infoPanel.width();
-        m_animationPanel.draw(m_animator, m_matrix, left, right);
-    }
+    drawFloatingPanels();
 
-    // The top bar is drawn last among the panels so dropdown-like content
-    // from the side bar never covers it
-    TopBarActions actions = m_topBar.draw(m_mode, m_help.visible());
+    TopBarState state{m_help.visible(), m_settingsPopover.isOpen(), IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)};
+    TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
+    if (actions.toggleFullscreen) toggleFullscreen();
+    if (actions.screenshot) requestScreenshot(false);
+    if (actions.toggleSettings) showSettings(!m_settingsPopover.isOpen());
+
+    if (popoverOwnsMouse && !wasLocked) GuiUnlock();
+
+    SettingsActions settingsActions = m_settingsPopover.draw(m_uiSettings);
+    if (settingsActions.themeChanged) m_plotPanel.markChanged();
+    if (settingsActions.resetLayout) {
+        m_panels.resetLayout();
+        toast("Panel layout reset");
+    }
 
     drawToast(deltaTime);
     m_help.draw();
 }
 
+void App::drawFloatingPanels() {
+    bool matrices = (m_mode == AppMode::LinearAlgebra);
+    for (ui::FloatingPanel* p : m_panels.panels()) {
+        Rectangle content;
+        if (p == &m_analysisWindow) {
+            if (!matrices) continue;
+            if (p->begin(m_analysisHeight, content)) {
+                m_analysisHeight = m_infoPanel.drawContent(content);
+                p->end();
+            }
+        } else if (p == &m_animationWindow) {
+            if (!matrices) continue;
+            if (p->begin(m_animationHeight, content)) {
+                m_animationHeight = m_animationPanel.drawContent(content, m_animator, m_matrix);
+                p->end();
+            }
+        }
+    }
+}
+
 void App::drawHud() {
     const ui::Theme& t = ui::theme();
-    bool uiMode = !IsCursorHidden();
-    float x = SideBar::width() + ui::px(16.0f);
+    bool ui = uiMode();
+    float x = viewportLeft() + ui::px(16.0f);
     float bottom = static_cast<float>(GetScreenHeight()) - ui::px(14.0f);
-    if (m_mode == AppMode::LinearAlgebra) {
-        // Keep clear of the animation bar
-        float left = SideBar::width();
-        float right = GetScreenWidth() - m_infoPanel.width();
-        Rectangle bar = AnimationPanel::bounds(left, right);
-        if (bar.x < x + ui::px(300.0f)) bottom = bar.y - ui::px(10.0f);
-    }
 
-    const char* modeText = uiMode ? "UI mode  ·  Tab: camera mode  ·  H: help"
-                                  : "Camera mode  ·  WASD move, mouse look  ·  Tab: UI mode";
+    const char* modeText = ui ? "UI mode  ·  Tab: camera mode  ·  H: help"
+                              : "Camera mode  ·  WASD move, mouse look  ·  Tab: UI mode";
     Vector3 p = m_camera.position();
     const char* camText = TextFormat("Camera (%.2f, %.2f, %.2f)  ·  %d FPS", p.x, p.y, p.z, GetFPS());
 
@@ -393,7 +543,7 @@ void App::drawHud() {
     ui::fillRounded(box, ui::px(8.0f), t.labelBg);
     float tx = box.x + ui::px(10.0f);
     // A small dot shows the input mode at a glance
-    DrawCircleV({tx + ui::px(3), box.y + ui::px(5) + lineH / 2}, ui::px(3.5f), uiMode ? t.accent : t.success);
+    DrawCircleV({tx + ui::px(3), box.y + ui::px(5) + lineH / 2}, ui::px(3.5f), ui ? t.accent : t.success);
     ui::textIn({tx + ui::px(12), box.y + ui::px(5), w, lineH}, modeText, ui::FontRole::Small, t.text);
     ui::textIn({tx, box.y + ui::px(5) + lineH, w, lineH}, camText, ui::FontRole::Small, t.textMuted);
 }
@@ -406,11 +556,8 @@ void App::drawToast(float deltaTime) {
     float alpha = m_toast.timeLeft < 0.4f ? m_toast.timeLeft / 0.4f : 1.0f;
     float w = ui::textWidth(m_toast.text.c_str(), ui::FontRole::Body) + ui::px(56.0f);
     float h = ui::px(42.0f);
-    float left = SideBar::width();
-    float right = static_cast<float>(GetScreenWidth()) - (m_mode == AppMode::LinearAlgebra ? m_infoPanel.width() : 0);
-    float bottom = static_cast<float>(GetScreenHeight()) - ui::px(24.0f);
-    if (m_mode == AppMode::LinearAlgebra) bottom = AnimationPanel::bounds(left, right).y - ui::px(14.0f);
-    Rectangle box = {left + (right - left - w) / 2, bottom - h, w, h};
+    float left = viewportLeft(), right = viewportRight();
+    Rectangle box = {left + (right - left - w) / 2, TopBar::height() + ui::px(16.0f), w, h};
 
     Color accent = m_toast.error ? t.danger : t.success;
     ui::shadow(box, ui::px(10), ui::px(10));

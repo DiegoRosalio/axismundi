@@ -64,6 +64,28 @@ void Tour::buildSteps() {
         app.showHelp(false);
         app.toast("Scene saved to scene.txt");
     }, 6);
+    step("11_settings", [](App& app) { app.showSettings(true); });
+    step("12_panels_moved", [](App& app) {
+        app.showSettings(false);
+        SceneData layout;
+        putFloat(layout, "panel.analysis.x", 0.0f);
+        putFloat(layout, "panel.analysis.y", 0.15f);
+        putBool(layout, "panel.animation.collapsed", true);
+        putFloat(layout, "panel.animation.x", 1.0f);
+        if (auto* p = app.panel("analysis")) p->loadState(layout);
+        if (auto* p = app.panel("animation")) p->loadState(layout);
+    });
+    step("13_light_complex", [](App& app) {
+        app.setTheme(false);
+        app.setMode(AppMode::Complex);
+    });
+    step("14_light_plot", [](App& app) {
+        app.setMode(AppMode::Plotting);
+        PlotSpec s;
+        s.type = PlotType::Function2D;
+        s.f = "x^3/10 - x";
+        app.setPlotSpec(s);
+    });
 }
 
 bool Tour::advance(App& app) {

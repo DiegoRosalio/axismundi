@@ -343,12 +343,32 @@ void line(Vector2 a, Vector2 b, float thickness, Color color) {
 // Interaction
 // ---------------------------------------------------------------------------
 
+namespace {
+bool g_hasClip = false;
+Rectangle g_clip = {0, 0, 0, 0};
+}
+
 bool canInteract() {
     return !GuiIsLocked();
 }
 
+void setClip(Rectangle r) {
+    g_clip = r;
+    g_hasClip = true;
+}
+
+void clearClip() {
+    g_hasClip = false;
+}
+
+bool mouseInClip() {
+    return !g_hasClip || CheckCollisionPointRec(GetMousePosition(), g_clip);
+}
+
 bool hovered(Rectangle r) {
-    return canInteract() && CheckCollisionPointRec(GetMousePosition(), r);
+    Vector2 m = GetMousePosition();
+    if (g_hasClip && !CheckCollisionPointRec(m, g_clip)) return false;
+    return canInteract() && CheckCollisionPointRec(m, r);
 }
 
 bool clicked(Rectangle r) {

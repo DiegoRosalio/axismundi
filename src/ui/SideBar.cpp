@@ -27,12 +27,14 @@ Rectangle SideBar::begin() {
     m_scroll = std::clamp(m_scroll, 0.0f, maxScroll);
 
     BeginScissorMode(0, static_cast<int>(viewTop), static_cast<int>(width()), static_cast<int>(viewHeight));
+    ui::setClip({0, viewTop, width(), viewHeight});
     float pad = ui::px(ui::kPad);
     return {pad, viewTop + pad - m_scroll, width() - 2 * pad, viewHeight};
 }
 
 void SideBar::end(float contentBottom) {
     EndScissorMode();
+    ui::clearClip();
 
     float viewTop = top();
     float viewHeight = GetScreenHeight() - viewTop;

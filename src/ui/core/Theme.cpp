@@ -8,7 +8,7 @@ const Theme kDark = {
     true,
     // Surfaces
     {22, 24, 30, 255},     // background
-    {31, 34, 42, 246},     // panel
+    {31, 34, 42, 255},     // panel
     {40, 44, 54, 255},     // panelAlt
     {50, 55, 68, 255},     // hover
     {60, 66, 82, 255},     // pressed
@@ -57,7 +57,7 @@ const Theme kLight = {
     false,
     // Surfaces
     {238, 241, 246, 255},  // background
-    {255, 255, 255, 246},  // panel
+    {255, 255, 255, 255},  // panel
     {242, 244, 248, 255},  // panelAlt
     {230, 234, 241, 255},  // hover
     {216, 222, 232, 255},  // pressed

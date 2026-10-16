@@ -11,7 +11,7 @@ CameraController::CameraController()
     reset(AppMode::LinearAlgebra);
 }
 
-void CameraController::reset(AppMode mode) {
+void CameraController::reset(AppMode mode, bool flat2D) {
     switch (mode) {
         case AppMode::LinearAlgebra:
             setView({5.0f, 3.0f, 5.0f}, {0.0f, 0.0f, 0.0f});
@@ -21,7 +21,8 @@ void CameraController::reset(AppMode mode) {
             setView({0.5f, 0.5f, 7.0f}, {0.5f, 0.5f, 0.0f});
             break;
         case AppMode::Plotting:
-            setView({7.0f, 6.0f, 9.0f}, {0.0f, 0.0f, 0.0f});
+            if (flat2D) setView({0.0f, 0.0f, 13.0f}, {0.0f, 0.0f, 0.0f});
+            else setView({7.0f, 6.0f, 9.0f}, {0.0f, 0.0f, 0.0f});
             break;
     }
 }

@@ -14,8 +14,8 @@ public:
 
     void update(float deltaTime);
 
-    // Move back to the default view for the given mode
-    void reset(AppMode mode);
+    // Move back to the default view for the given mode (flat2D: face the XY plane)
+    void reset(AppMode mode, bool flat2D = false);
 
     Camera3D& camera() { return m_camera; }
     const Camera3D& camera() const { return m_camera; }

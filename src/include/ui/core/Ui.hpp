@@ -68,6 +68,10 @@ void line(Vector2 a, Vector2 b, float thickness, Color color);
 
 // --- Interaction -------------------------------------------------------------
 bool canInteract();               // false while the GUI is locked (camera mode, overlays)
+// Widgets only react inside the clip rectangle (set by scroll containers)
+void setClip(Rectangle r);
+void clearClip();
+bool mouseInClip();
 bool hovered(Rectangle r);        // mouse inside and interaction allowed
 bool clicked(Rectangle r);        // left button pressed inside this frame
 bool rightClicked(Rectangle r);

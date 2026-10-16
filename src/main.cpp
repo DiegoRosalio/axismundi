@@ -26,6 +26,7 @@ int main(int argc, char** argv) {
             if (std::sscanf(argv[++i], "%dx%d", &w, &h) == 2 && w >= 320 && h >= 240) {
                 options.width = w;
                 options.height = h;
+                options.sizeGiven = true;
             } else {
                 std::fprintf(stderr, "invalid --size, expected WxH\n");
                 return 1;

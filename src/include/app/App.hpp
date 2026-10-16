@@ -17,9 +17,12 @@
 #include "ui/InfoPanel.hpp"
 #include "ui/InputPanel.hpp"
 #include "ui/PlotPanel.hpp"
+#include "ui/Preferences.hpp"
+#include "ui/SettingsPopover.hpp"
 #include "ui/SideBar.hpp"
 #include "ui/TopBar.hpp"
 #include "ui/ViewPanel.hpp"
+#include "ui/core/FloatingPanel.hpp"
 
 #include <memory>
 #include <string>
@@ -31,8 +34,9 @@ class Tour;
 struct AppOptions {
     int width = 1600;
     int height = 900;
-    std::string tourDir;  // non-empty: run the scripted screenshot tour, then exit
-    std::string theme;    // "dark" or "light" (empty: default)
+    bool sizeGiven = false;  // --size was passed (overrides the saved window size)
+    std::string tourDir;     // non-empty: run the scripted screenshot tour, then exit
+    std::string theme;       // "dark" or "light" (empty: saved preference)
 };
 
 // Owns every component and runs the main loop. The public methods are the
@@ -54,11 +58,17 @@ public:
     void setComplexScene(const ComplexScene& scene) { m_complexPanel.setScene(scene); }
     void setPlotSpec(const PlotSpec& spec) { m_plotPanel.setSpec(spec); }
     void setCameraView(Vector3 position, Vector3 target) { m_camera.setView(position, target); }
-    void resetCamera() { m_camera.reset(m_mode); }
+    void resetCamera();
     void startAnimation(AnimationPreset preset) { m_animator.start(preset); }
+    void stopAnimation() { m_animator.stop(); }
     void setUiMode(bool ui);  // true: cursor visible, panels active
     void showHelp(bool show);
+    void showSettings(bool show);
+    void setTheme(bool dark);
     void toast(const std::string& message, bool error = false);
+
+    // Floating panels by id ("analysis", "animation", ...)
+    ui::FloatingPanel* panel(const std::string& id);
 
     // --- Read-only state (tutorial checks) ----------------------------------
     const Matrix4D& matrix() const { return m_matrix; }
@@ -69,10 +79,14 @@ public:
     PlotSpec plotSpec() const { return m_plotPanel.spec(); }
     const PlotRenderer& plot() const { return m_plotRenderer; }
     const Animator& animator() const { return m_animator; }
+    const EigenResult& eigen() const { return m_infoPanel.eigen(); }
     ViewSettings& view() { return m_viewPanel.settings(); }
+    bool uiMode() const;
 
     void saveScene();
     void loadScene();
+    // Screenshot at the end of this frame (sceneOnly hides the UI)
+    void requestScreenshot(bool sceneOnly);
 
 private:
     struct Toast {
@@ -88,9 +102,20 @@ private:
     void drawScene();
     void drawSceneLabels();
     void drawUi(float deltaTime);
+    void drawFloatingPanels();
     void drawToast(float deltaTime);
     void drawHud();
     void toggleTheme();
+    void toggleFullscreen();
+    void takeScreenshot();
+
+    void loadPreferences(SceneData& prefs);
+    void applyPreferences(const SceneData& prefs);
+    void savePreferences();
+
+    // Space between the side bar and any panel docked on the right (pixels)
+    float viewportLeft() const;
+    float viewportRight() const;
 
     AppOptions m_options;
 
@@ -110,8 +135,17 @@ private:
     SideBar m_sideBar;
     TopBar m_topBar;
     HelpOverlay m_help;
+    SettingsPopover m_settingsPopover;
+    UiSettings m_uiSettings;
     Toast m_toast;
     std::unique_ptr<Tour> m_tour;
+
+    // Floating panels
+    ui::FloatingPanel m_analysisWindow;
+    ui::FloatingPanel m_animationWindow;
+    ui::PanelManager m_panels;
+    float m_analysisHeight = 0.0f;
+    float m_animationHeight = 0.0f;
 
     AppMode m_mode = AppMode::LinearAlgebra;
     AppMode m_lastMode = AppMode::LinearAlgebra;
@@ -120,6 +154,9 @@ private:
     Matrix4D m_matrix = Matrix4D::identity();
     Vector3D m_vecA, m_vecB;
     Matrix4D m_shown = Matrix4D::identity();  // what the scene displays (may be animated)
+
+    int m_screenshotRequest = 0;  // 0 none, 1 full window, 2 scene only
+    bool m_plotWas3D = true;
 };
 
 } // namespace linalg

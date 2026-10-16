@@ -1,6 +1,4 @@
 #include "ui/InfoPanel.hpp"
-#include "ui/SideBar.hpp"
-#include "ui/TopBar.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
@@ -12,9 +10,6 @@
 namespace linalg {
 
 namespace {
-
-constexpr float kWidthDesign = 356.0f;
-constexpr float kMarginDesign = 12.0f;
 
 std::string fmt(const char* format, ...) __attribute__((format(printf, 1, 2)));
 
@@ -40,12 +35,7 @@ const char* subscript(int i) {
 
 } // namespace
 
-InfoPanel::InfoPanel()
-    : m_eigen{}, m_bounds{0, 0, 0, 0}, m_scroll(0.0f), m_contentHeight(0.0f), m_visible(true) {}
-
-float InfoPanel::width() const {
-    return m_visible ? ui::px(kWidthDesign + kMarginDesign) : 0.0f;
-}
+InfoPanel::InfoPanel() : m_eigen{} {}
 
 void InfoPanel::addMatrix(Section& s, const char* name, const float* values, int n) {
     s.lines.push_back({std::string(name) + " =", Tone::Muted, ui::FontRole::Body});
@@ -184,55 +174,16 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     }
 }
 
-bool InfoPanel::containsMouse() const {
-    return m_visible && CheckCollisionPointRec(GetMousePosition(), m_bounds);
-}
-
-void InfoPanel::draw() {
-    if (!m_visible) return;
+float InfoPanel::drawContent(Rectangle area) {
     const ui::Theme& t = ui::theme();
-
-    float screenW = static_cast<float>(GetScreenWidth());
-    float screenH = static_cast<float>(GetScreenHeight());
-    float margin = ui::px(kMarginDesign);
-    float top = TopBar::height() + margin;
-    float maxH = screenH - top - margin;
-    float headerH = ui::px(44.0f);
-    float height = std::min(m_contentHeight + headerH + ui::px(8.0f), maxH);
-    m_bounds = {screenW - ui::px(kWidthDesign) - margin, top, ui::px(kWidthDesign), std::max(height, headerH)};
-
-    ui::card(m_bounds);
-
-    // Header: title and close button
-    Rectangle header = {m_bounds.x + ui::px(ui::kPad), m_bounds.y, m_bounds.width - 2 * ui::px(ui::kPad), headerH};
-    Rectangle close = ui::takeRight(header, 28.0f, 4.0f);
-    close.y += (headerH - ui::px(28.0f)) / 2;
-    close.height = ui::px(28.0f);
-    ui::textIn(header, "Analysis", ui::FontRole::Title, t.text);
-    if (ui::iconButton(close, ui::Icon::Close)) m_visible = false;
-    DrawRectangleRec({m_bounds.x, m_bounds.y + headerH - ui::pxi(1), m_bounds.width, ui::pxi(1)}, t.border);
-
-    // Scrollable body
-    Rectangle bodyArea = {m_bounds.x, m_bounds.y + headerH, m_bounds.width, m_bounds.height - headerH};
-    float maxScroll = std::max(0.0f, m_contentHeight + ui::px(8.0f) - bodyArea.height);
-    if (CheckCollisionPointRec(GetMousePosition(), bodyArea) && ui::canInteract()) {
-        m_scroll -= GetMouseWheelMove() * ui::px(48.0f);
-    }
-    m_scroll = std::clamp(m_scroll, 0.0f, maxScroll);
-
-    BeginScissorMode(static_cast<int>(bodyArea.x), static_cast<int>(bodyArea.y),
-                     static_cast<int>(bodyArea.width), static_cast<int>(bodyArea.height));
-
-    float x = bodyArea.x + ui::px(ui::kPad);
-    float w = bodyArea.width - 2 * ui::px(ui::kPad);
-    float y = bodyArea.y + ui::px(8.0f) - m_scroll;
-    float startY = y;
+    float x = area.x + ui::px(ui::kPad);
+    float w = area.width - 2 * ui::px(ui::kPad);
+    float y = area.y + ui::px(8.0f);
+    float startY = area.y;
 
     for (auto& s : m_sections) {
-        // Headers outside the visible body must not react to clicks
         Rectangle headerRect = {x, y, w, ui::px(28.0f)};
-        bool visibleHeader = CheckCollisionRecs(headerRect, bodyArea);
-        if (visibleHeader) ui::sectionHeader(headerRect, s.title.c_str(), s.expanded);
+        ui::sectionHeader(headerRect, s.title.c_str(), s.expanded);
         y += headerRect.height + ui::px(2.0f);
 
         if (s.expanded) {
@@ -241,7 +192,7 @@ void InfoPanel::draw() {
                 if (line.tone == Tone::Muted) c = t.textMuted;
                 else if (line.tone == Tone::Eigen) c = t.eigen;
                 else if (line.tone == Tone::Danger) c = t.danger;
-                float lineH = ui::fontSize(line.role) * 1.45f;
+                float lineH = std::round(ui::fontSize(line.role) * 1.45f);
                 std::string shown = ui::ellipsize(line.text.c_str(), line.role, w - ui::px(14.0f));
                 ui::text(shown.c_str(), x + ui::px(14.0f), y + (lineH - ui::fontSize(line.role)) / 2, line.role, c);
                 y += lineH;
@@ -249,9 +200,7 @@ void InfoPanel::draw() {
             y += ui::px(10.0f);
         }
     }
-    m_contentHeight = y - startY;
-
-    EndScissorMode();
+    return y - startY + ui::px(4.0f);
 }
 
 } // namespace linalg

@@ -7,7 +7,7 @@ namespace linalg {
 
 float TopBar::height() { return ui::px(52.0f); }
 
-TopBarActions TopBar::draw(AppMode& mode, bool helpVisible) {
+TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     const ui::Theme& t = ui::theme();
     TopBarActions actions;
     float w = static_cast<float>(GetScreenWidth());
@@ -38,14 +38,25 @@ TopBarActions TopBar::draw(AppMode& mode, bool helpVisible) {
 
     // Actions on the right
     float btn = ui::px(36.0f);
-    auto rightButton = [&](ui::Icon icon, bool selected) {
-        Rectangle r = ui::takeRight(bar, 36.0f, 4.0f);
+    Rectangle last = {0, 0, 0, 0};
+    auto rightButton = [&](ui::Icon icon, bool selected, float gapAfter = 4.0f) {
+        Rectangle r = ui::takeRight(bar, 36.0f, gapAfter);
         r.y = (h - btn) / 2;
         r.height = btn;
+        last = r;
         return ui::iconButton(r, icon, selected);
     };
-    if (rightButton(ui::Icon::Help, helpVisible)) actions.toggleHelp = true;
+    auto divider = [&]() {
+        Rectangle d = ui::takeRight(bar, 1.0f, 8.0f);
+        DrawRectangleRec({d.x, (h - ui::px(20.0f)) / 2, ui::pxi(1.0f), ui::px(20.0f)}, t.border);
+    };
+    if (rightButton(ui::Icon::Gear, state.settingsOpen)) actions.toggleSettings = true;
+    m_settingsButton = last;
+    if (rightButton(ui::Icon::Help, state.helpVisible)) actions.toggleHelp = true;
     if (rightButton(t.dark ? ui::Icon::Sun : ui::Icon::Moon, false)) actions.toggleTheme = true;
+    divider();
+    if (rightButton(ui::Icon::Camera, false)) actions.screenshot = true;
+    if (rightButton(ui::Icon::Fullscreen, state.fullscreen)) actions.toggleFullscreen = true;
 
     return actions;
 }

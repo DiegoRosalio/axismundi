@@ -9,22 +9,9 @@
 
 namespace linalg {
 
-Rectangle AnimationPanel::bounds(float left, float right) {
-    float screenH = static_cast<float>(GetScreenHeight());
-    float margin = ui::px(12.0f);
-    float width = std::min(ui::px(kWidthDesign), right - left - 2 * margin);
-    width = std::max(width, std::min(ui::px(420.0f), static_cast<float>(GetScreenWidth()) - left - margin));
-    float height = ui::px(kHeightDesign);
-    float x = left + std::max(margin, (right - left - width) / 2.0f);
-    return {x, screenH - height - margin, width, height};
-}
-
-void AnimationPanel::draw(Animator& animator, const Matrix4D& inputMatrix, float left, float right) {
+float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matrix4D& inputMatrix) {
     const ui::Theme& t = ui::theme();
-    Rectangle bar = bounds(left, right);
-    ui::card(bar);
-
-    ui::Column col(bar.x + ui::px(12.0f), bar.y + ui::px(10.0f), bar.width - ui::px(24.0f), 8.0f);
+    ui::Column col(area.x + ui::px(12.0f), area.y + ui::px(10.0f), area.width - ui::px(24.0f), 8.0f);
 
     // Row 1: transport controls and timeline
     Rectangle row = col.row(32.0f);
@@ -91,6 +78,7 @@ void AnimationPanel::draw(Animator& animator, const Matrix4D& inputMatrix, float
         snprintf(buf, sizeof(buf), "%.1f×", animator.speed());
         ui::textIn(speedValue, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
     }
+    return col.y() - area.y + ui::px(2.0f);
 }
 
 void AnimationPanel::saveState(const Animator& animator, SceneData& data) {

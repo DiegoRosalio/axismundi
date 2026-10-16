@@ -273,8 +273,14 @@ bool textField(Rectangle r, char* text, int textSize, int id, int& activeId, boo
     GuiSetFont(font(FontRole::Mono));
     GuiSetStyle(DEFAULT, TEXT_SIZE, static_cast<int>(fontSize(FontRole::Mono)));
 
+    // raygui does not know our clip area: keep it from reacting to clicks on
+    // the part of a field scrolled out of view
+    bool lockHere = !editing && !mouseInClip() && !GuiIsLocked();
+    if (lockHere) GuiLock();
+
     bool finished = false;
     int result = GuiTextBox(r, text, textSize, editing);
+    if (lockHere) GuiUnlock();
 
     GuiSetFont(previousFont);
     GuiSetStyle(DEFAULT, TEXT_SIZE, previousSize);
