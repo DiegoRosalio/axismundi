@@ -187,9 +187,14 @@ void InputPanel::applyPreset(MatrixPreset preset) {
 
 float InputPanel::draw(float x, float y, float width) {
     setGuiTextSize(kUiTextLarge);
+    int previous = m_activeField;
     y = drawMatrixGroup(x, y, width) + 10.0f;
     y = drawVectorGroup(x, y, width) + 10.0f;
     y = drawPresetGroup(x, y, width);
+
+    // Clicking straight into another field can move focus before the old
+    // field sees its "finished" event; make sure it gets validated.
+    if (previous >= 0 && m_activeField != previous) finishField(previous);
     return y;
 }
 

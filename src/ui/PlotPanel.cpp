@@ -209,6 +209,7 @@ float PlotPanel::draw(float x, float y, float width, const PlotRenderer& rendere
     float cx = x + pad;
     float top = y;
     float cy = y + 30.0f;
+    int previous = m_activeField;
 
     // Plot type selector
     setGuiTextSize(kUiTextSmall);
@@ -260,6 +261,9 @@ float PlotPanel::draw(float x, float y, float width, const PlotRenderer& rendere
             cy = drawRange(cx, cy, inner, "y", YMin, YMax);
             break;
     }
+
+    // Focus moved straight to another field: finish the old one too
+    if (previous >= 0 && m_activeField != previous) finishField(previous);
 
     // Resolution and heat map
     char resText[16];

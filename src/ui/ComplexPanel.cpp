@@ -67,6 +67,7 @@ float ComplexPanel::draw(float x, float y, float width) {
     const float pad = 15.0f;
     float inner = width - 2 * pad;
     float cx = x + pad;
+    int previous = m_activeField;
 
     // --- Complex numbers ---------------------------------------------------
     float top = y;
@@ -118,6 +119,9 @@ float ComplexPanel::draw(float x, float y, float width) {
 
     GuiGroupBox({x, top, width, cy - top}, "Complex Numbers");
     y = cy + 10.0f;
+
+    // Focus moved straight to another field: validate the old one too
+    if (previous >= 0 && m_activeField != previous) finishField(previous);
 
     // --- Euler's formula -------------------------------------------------
     top = y;
