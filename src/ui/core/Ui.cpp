@@ -233,13 +233,20 @@ float textWrapped(Rectangle r, const char* s, FontRole role, Color color, bool d
     std::string line;
     std::string word;
 
+    // Leading spaces become an indent for every wrapped line (keeps aligned formulas aligned)
+    const char* p = s;
+    std::string lead;
+    while (*p == ' ') lead += *p++;
+    float indent = lead.empty() ? 0.0f : textWidth(lead.c_str(), role);
+    r.x += indent;
+    r.width = std::max(1.0f, r.width - indent);
+
     auto flushLine = [&]() {
         if (draw) text(line.c_str(), r.x, y, role, color);
         y += lineHeight;
         line.clear();
     };
 
-    const char* p = s;
     while (true) {
         char c = *p;
         if (c == ' ' || c == '\n' || c == '\0') {

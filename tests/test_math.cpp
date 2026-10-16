@@ -5,6 +5,7 @@
 #include "math/Complex.hpp"
 #include "math/Decompositions.hpp"
 #include "math/Expression.hpp"
+#include "math/Explain.hpp"
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
@@ -299,6 +300,64 @@ void testAnimator() {
     CHECK(!a.active() && !a.playing());
 }
 
+// Text of the last Result line in an explanation
+std::string lastResult(const Explanation& e) {
+    std::string r;
+    for (const auto& l : e)
+        if (l.kind == ExplainLine::Kind::Result) r = l.text;
+    return r;
+}
+
+bool contains(const Explanation& e, const std::string& needle) {
+    for (const auto& l : e)
+        if (l.text.find(needle) != std::string::npos) return true;
+    return false;
+}
+
+void testExplain() {
+    CHECK(explainNumber(2.0f) == "2");
+    CHECK(explainNumber(0.70710678f) == "0.707");
+    CHECK(explainNumber(-1.5f) == "−1.5");
+    CHECK(explainNumber(1e-6f) == "0");
+
+    Explanation dot = explainDot(Vector3D(1, 2, 3), Vector3D(4, -5, 6));
+    CHECK(contains(dot, "A · B = 12"));
+    CHECK(contains(dot, "2·(−5)"));  // negative factors in parentheses
+
+    Explanation cross = explainCross(Vector3D(1, 0, 0), Vector3D(0, 1, 0));
+    CHECK(lastResult(cross) == "A × B = (0, 0, 1)");
+
+    Matrix4D m = Matrix4D::identity();
+    m.m[0][1] = 2;  // shear
+    Explanation mv = explainMatVec(m, false, Vector3D(1, 1, 0));
+    CHECK(lastResult(mv) == "M · A = (3, 1, 0)");
+    Explanation mv4 = explainMatVec(Matrix4D::translation(1, 2, 3), true, Vector3D(0, 0, 0));
+    CHECK(lastResult(mv4) == "M · A = (1, 2, 3)");
+
+    Matrix3D a({{{{2, 1, 0}}, {{1, 3, 1}}, {{0, 1, 4}}}});
+    Matrix4D a4 = Matrix4D::identity();
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) a4.m[i][j] = a.m[i][j];
+    CHECK(lastResult(explainDeterminant(a4, false)) == "det M = 18");
+    Matrix4D s4 = Matrix4D::scale(2, 3, 4);
+    CHECK(lastResult(explainDeterminant(s4, true)) == "det M = 24");
+
+    Explanation inv = explainInverse(a4, false);
+    CHECK(contains(inv, "det M = 18"));
+    CHECK(lastResult(inv) == "M⁻¹ · M = I");
+    Matrix4D singular = Matrix4D::scale(1, 1, 0);
+    CHECK(lastResult(explainInverse(singular, false)).find("no inverse") != std::string::npos);
+
+    Explanation eig = explainEigen(Matrix3D({{{{2, 0, 0}}, {{0, 3, 0}}, {{0, 0, 5}}}}));
+    CHECK(contains(eig, "λ³ − 10λ² + 31λ − 30 = 0"));
+    CHECK(contains(eig, "λ₁ = 5"));
+
+    Explanation prod = explainComplexProduct(Complex(1, 2), Complex(3, -1));
+    CHECK(contains(prod, "z₁z₂ = 5 + 5i"));
+    CHECK(contains(explainPolar(Complex(0, 2), "z"), "arg z = atan2(2, 0) = 90°"));
+    CHECK(contains(explainEuler(3.14159265f), "e^(iθ) = −1 + 0i"));
+}
+
 } // namespace
 
 int main() {
@@ -314,6 +373,7 @@ int main() {
         {"Complex", testComplex},
         {"Expression", testExpression},
         {"Animator", testAnimator},
+        {"Explain", testExplain},
     };
 
     for (const auto& t : tests) {

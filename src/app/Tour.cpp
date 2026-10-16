@@ -73,7 +73,15 @@ void Tour::buildSteps() {
     step("10c_tooltip_analysis", [](App&) {
         SetMousePosition(GetScreenWidth() - static_cast<int>(ui::px(280)), static_cast<int>(ui::px(330)));
     }, 45);
+    step("10d_steps_det", [](App& app) {
+        SetMousePosition(GetScreenWidth() / 2, GetScreenHeight() / 2);
+        app.setMatrix3(Matrix3D({{{{2, 1, 0}}, {{1, 3, 1}}, {{0, 1, 4}}}}));
+        if (auto* p = app.panel("steps")) p->setVisible(true);
+        if (auto* p = app.panel("analysis")) p->setVisible(false);
+    });
     step("11_settings", [](App& app) {
+        if (auto* p = app.panel("steps")) p->setVisible(false);
+        if (auto* p = app.panel("analysis")) p->setVisible(true);
         SetMousePosition(GetScreenWidth() / 2, GetScreenHeight() / 2);
         app.showSettings(true);
     });
@@ -94,8 +102,10 @@ void Tour::buildSteps() {
     step("13_light_complex", [](App& app) {
         app.setTheme(false);
         app.setMode(AppMode::Complex);
+        if (auto* p = app.panel("steps")) p->setVisible(true);
     });
     step("14_light_plot", [](App& app) {
+        if (auto* p = app.panel("steps")) p->setVisible(false);
         app.setMode(AppMode::Plotting);
         PlotSpec s;
         s.type = PlotType::Function2D;

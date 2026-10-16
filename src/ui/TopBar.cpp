@@ -63,6 +63,9 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     if (rightButton(t.dark ? ui::Icon::Sun : ui::Icon::Moon, false)) actions.toggleTheme = true;
     ui::tooltip(last, t.dark ? "Switch to the light theme (T)" : "Switch to the dark theme (T)", "Theme");
     divider();
+    if (rightButton(ui::Icon::Steps, state.stepsVisible)) actions.toggleSteps = true;
+    ui::tooltip(last, "Worked, step-by-step calculations for the current inputs (K)", "Calculation steps");
+    divider();
     if (rightButton(ui::Icon::Camera, false)) actions.screenshot = true;
     ui::tooltip(last, "Save a PNG of the window in the current folder (F12; Shift+F12 for the 3D view only)",
                 "Screenshot");

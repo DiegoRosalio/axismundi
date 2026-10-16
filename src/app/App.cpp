@@ -38,7 +38,8 @@ void drawAxisLabels(const Camera3D& camera, float length) {
 App::App(const AppOptions& options)
     : m_options(options), m_grid(10, 1.0f),
       m_analysisWindow("analysis", "Analysis", 356.0f, {1.0f, 0.0f}),
-      m_animationWindow("animation", "Animation", 640.0f, {0.5f, 1.0f}) {
+      m_animationWindow("animation", "Animation", 640.0f, {0.5f, 1.0f}),
+      m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false) {
     // Preferences (not during the tour, which must be reproducible)
     SceneData prefs;
     if (options.tourDir.empty()) loadPreferences(prefs);
@@ -58,6 +59,7 @@ App::App(const AppOptions& options)
 
     m_panels.add(&m_animationWindow);
     m_panels.add(&m_analysisWindow);
+    m_panels.add(&m_stepsWindow);
 
     applyPreferences(prefs);
     if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
@@ -340,6 +342,7 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_G)) view.showGrid = !view.showGrid;
     if (IsKeyPressed(KEY_L)) view.showLabels = !view.showLabels;
     if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
+    if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
     if (IsKeyPressed(KEY_C)) resetCamera();
     if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::LinearAlgebra;
     if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
@@ -511,12 +514,20 @@ void App::drawUi(float deltaTime) {
 
     drawFloatingPanels();
 
-    TopBarState state{m_help.visible(), m_settingsPopover.isOpen(), IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)};
+    TopBarState state;
+    state.helpVisible = m_help.visible();
+    state.settingsOpen = m_settingsPopover.isOpen();
+    state.fullscreen = IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE);
+    state.stepsVisible = m_stepsWindow.visible();
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
     if (actions.toggleFullscreen) toggleFullscreen();
     if (actions.screenshot) requestScreenshot(false);
+    if (actions.toggleSteps) {
+        m_stepsWindow.toggle();
+        if (m_stepsWindow.visible()) m_panels.bringToFront(&m_stepsWindow);
+    }
     if (actions.toggleSettings) {
         m_colorPopover.close();
         showSettings(!m_settingsPopover.isOpen());
@@ -558,6 +569,12 @@ void App::drawFloatingPanels() {
             if (!matrices) continue;
             if (p->begin(m_animationHeight, content)) {
                 m_animationHeight = m_animationPanel.drawContent(content, m_animator, m_matrix);
+                p->end();
+            }
+        } else if (p == &m_stepsWindow) {
+            if (p->begin(m_stepsHeight, content)) {
+                StepsInput input{m_mode, m_matrix, m_inputPanel.isUsing4x4(), m_vecA, m_vecB, m_complexPanel.scene()};
+                m_stepsHeight = m_stepsPanel.drawContent(content, input);
                 p->end();
             }
         }

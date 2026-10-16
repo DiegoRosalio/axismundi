@@ -21,6 +21,7 @@
 #include "ui/Preferences.hpp"
 #include "ui/SettingsPopover.hpp"
 #include "ui/SideBar.hpp"
+#include "ui/StepsPanel.hpp"
 #include "ui/TopBar.hpp"
 #include "ui/ViewPanel.hpp"
 #include "ui/core/FloatingPanel.hpp"
@@ -147,6 +148,9 @@ private:
     // Floating panels
     ui::FloatingPanel m_analysisWindow;
     ui::FloatingPanel m_animationWindow;
+    ui::FloatingPanel m_stepsWindow;
+    StepsPanel m_stepsPanel;
+    float m_stepsHeight = 0.0f;
     ui::PanelManager m_panels;
     float m_analysisHeight = 0.0f;
     float m_animationHeight = 0.0f;
