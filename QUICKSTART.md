@@ -11,7 +11,7 @@ make run
 ## First minute
 
 1. The app starts in **camera mode**: move the mouse to look around, W A S D to move.
-2. Press **Tab** to get the cursor back (**UI mode**).
+2. Press **Esc** (or **Tab**) to get the cursor back (**UI mode**). Esc never closes the app.
 3. Press **F1** (or the book icon in the top bar) and pick **Getting around**: the tutorial walks you through
    the rest, one small task at a time.
 4. Press **E** for the example gallery and click any card.

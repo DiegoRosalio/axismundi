@@ -90,7 +90,8 @@ docs/screenshots/     images for the docs, produced by --tour
   panels not on top), the clip rectangle (scroll containers) and popovers. raygui is only used for
   text boxes (drawn transparent inside our rounded box) and the color picker.
 - **Text fields**: `ui::textField(rect, buf, size, id, activeId, invalid)`; panels expose
-  `isEditing/finishEditing/cancelEditing`; Esc cancels an edit (quits only when nothing is edited).
+  `isEditing/finishEditing/cancelEditing`. Esc never quits (`SetExitKey(KEY_NULL)`): it cancels an edit,
+  closes a popover or the help, or leaves camera mode, in that order.
 - **Tooltips**: `ui::tooltip(rect, body, title)` after drawing a widget; `segmented()` takes per-segment tips.
 - **Anchors**: `ui::anchor("id", rect)` names a control so tutorial steps can highlight it.
 - **Theme colors** are read at draw time; plot geometry bakes colors, so theme changes call

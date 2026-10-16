@@ -61,6 +61,7 @@ App::App(const AppOptions& options)
     InitWindow(width, height, "axismundi - Linear Algebra 3D Visualizer");
     SetWindowMinSize(800, 600);
     SetTargetFPS(60);
+    SetExitKey(KEY_NULL);  // Esc never quits; close the window to exit
 
     m_panels.add(&m_animationWindow);
     m_panels.add(&m_analysisWindow);
@@ -272,10 +273,6 @@ void App::run() {
             if (m_tour) m_tour->capture();
             if (m_screenshotRequest) takeScreenshot();
         EndDrawing();
-
-        // Fields are activated while drawing, so decide here whether Escape
-        // should quit (checked by WindowShouldClose() on the next frame)
-        SetExitKey(isEditing() || m_settingsPopover.isOpen() || m_colorPopover.isOpen() ? KEY_NULL : KEY_ESCAPE);
     }
 }
 
@@ -300,7 +297,8 @@ bool App::isEditing() const {
 void App::handleInput(float deltaTime) {
     bool editing = isEditing();
 
-    // Escape cancels an edit or closes a popup; otherwise it quits (raylib default)
+    // Escape steps back one level: cancel an edit, close a popup or the help,
+    // or leave camera mode (frees the mouse). It never quits the app.
     if (IsKeyPressed(KEY_ESCAPE)) {
         if (editing) {
             m_inputPanel.cancelEditing();
@@ -311,6 +309,10 @@ void App::handleInput(float deltaTime) {
             m_colorPopover.close();
         } else if (m_settingsPopover.isOpen()) {
             m_settingsPopover.close();
+        } else if (m_help.visible()) {
+            m_help.toggle();
+        } else if (IsCursorHidden()) {
+            setUiMode(true);
         }
     }
 
@@ -689,7 +691,7 @@ void App::drawHud() {
     float bottom = static_cast<float>(GetScreenHeight()) - ui::px(14.0f);
 
     const char* modeText = ui ? "UI mode  ·  Tab: camera mode  ·  H: help"
-                              : "Camera mode  ·  WASD move, mouse look  ·  Tab: UI mode";
+                              : "Camera mode  ·  WASD move, mouse look  ·  Esc or Tab: free the mouse";
     Vector3 p = m_camera.position();
     const char* camText = TextFormat("Camera (%.2f, %.2f, %.2f)  ·  %d FPS", p.x, p.y, p.z, GetFPS());
 

@@ -99,11 +99,13 @@ make test                      # math, animation and explanation unit tests (no 
 
 The app has two input states. In **camera mode** (cursor hidden) the mouse looks around, WASD move,
 Space/Ctrl go up and down, and Shift moves faster. In **UI mode** (cursor visible) you click fields, buttons
-and panels. Press **Tab** to switch.
+and panels. Press **Tab** to switch; **Esc** always gives the mouse back. Esc never quits: close the window
+to exit.
 
 | Key | Action |
 |-----|--------|
 | Tab | Camera mode ⟷ UI mode |
+| Esc | Leave camera mode, close a popup or the help, cancel an edit |
 | 1 / 2 / 3 | Matrices / Complex / Plots |
 | F1 / E / K / B / M | Tutorial / gallery / calculation steps / breakdown / analysis |
 | H | Help with all shortcuts |
@@ -115,7 +117,7 @@ and panels. Press **Tab** to switch.
 | Ctrl+Z / Ctrl+Y | Undo / redo (UI mode) |
 | P | Play / pause animation |
 | F5 / F9 | Save / load `scene.txt` |
-| Enter / Tab / Esc | Confirm field / next field / cancel the edit |
+| Enter / Tab | Confirm field / next field |
 
 Shortcuts are ignored while a text field is being edited.
 

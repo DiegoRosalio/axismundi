@@ -16,6 +16,7 @@ struct Entry {
 
 const Entry kView[] = {
     {"Tab", "Camera mode / UI mode"},
+    {"Esc", "Leave camera mode (free the mouse)"},
     {"W|A|S|D", "Move (camera mode)"},
     {"Space|Ctrl", "Up / down (camera mode)"},
     {"Shift", "Move faster"},
@@ -46,7 +47,7 @@ const Entry kEdit[] = {
     {"P", "Play / pause animation"},
     {"Enter", "Confirm a field"},
     {"Tab", "Confirm and go to the next field"},
-    {"Esc", "Cancel the edit (quits otherwise)"},
+    {"Esc", "Cancel the edit, close a popup"},
 };
 
 float drawColumn(const char* title, const Entry* entries, int count, float x, float y, float width) {
@@ -100,7 +101,7 @@ void HelpOverlay::draw() const {
                           box.x + 2 * pad + colW, colY, colW);
     drawColumn("Editing", kEdit, sizeof(kEdit) / sizeof(kEdit[0]), box.x + 2 * pad + colW, y2 + ui::px(12.0f), colW);
 
-    ui::textIn({box.x, box.y + boxH - pad, boxW - pad, ui::px(20.0f)}, "Press H or click the ? button to close",
+    ui::textIn({box.x, box.y + boxH - pad, boxW - pad, ui::px(20.0f)}, "Press H or Esc to close",
                ui::FontRole::Small, t.textFaint, ui::Align::Right);
 }
 

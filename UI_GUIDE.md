@@ -31,6 +31,8 @@
   Panels ignore the mouse.
 - **UI mode** (cursor visible, blue status dot): click fields, buttons and panels; letter keys are shortcuts.
 - **Tab** switches between them (while no field is being edited).
+- **Esc** steps back one level: it cancels an edit, closes a popover or the help, or leaves camera mode.
+  It never quits the app; close the window to exit.
 
 ## Resolution independence
 

@@ -38,8 +38,8 @@ std::vector<Lesson> build() {
          nullptr, nullptr, nullptr, nullptr, nullptr},
         {"Move the camera",
          "There are two input modes. In camera mode the mouse looks around and W A S D move you; in UI mode the "
-         "cursor is free to click fields and buttons. Tab switches between them.",
-         nullptr, "Press Tab, look around, then press Tab again to come back.",
+         "cursor is free to click fields and buttons. Tab switches between them; Esc always gives the mouse back.",
+         nullptr, "Press Tab, look around, then press Esc (or Tab) to get the cursor back.",
          [](App& app, const TutorialContext& ctx) { return ctx.cameraModeUsed && app.uiMode(); },
          "Tab toggles the mode. The dot in the bottom-left status turns green in camera mode.", nullptr},
         {"Three modes",
