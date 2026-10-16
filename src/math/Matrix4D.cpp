@@ -1,5 +1,6 @@
 #include "math/Matrix4D.hpp"
 #include <cmath>
+#include <utility>
 
 namespace linalg {
 
@@ -52,6 +53,83 @@ Matrix4D Matrix4D::operator*(float scalar) const {
             result.m[i][j] = m[i][j] * scalar;
         }
     }
+    return result;
+}
+
+float Matrix4D::determinant() const {
+    // Gaussian elimination with partial pivoting (in double precision)
+    double a[4][4];
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            a[i][j] = m[i][j];
+
+    double det = 1.0;
+    for (int col = 0; col < 4; col++) {
+        int pivot = col;
+        for (int r = col + 1; r < 4; r++) {
+            if (std::fabs(a[r][col]) > std::fabs(a[pivot][col])) pivot = r;
+        }
+        if (a[pivot][col] == 0.0) return 0.0f;
+        if (pivot != col) {
+            for (int j = 0; j < 4; j++) std::swap(a[col][j], a[pivot][j]);
+            det = -det;
+        }
+        det *= a[col][col];
+        for (int r = col + 1; r < 4; r++) {
+            double f = a[r][col] / a[col][col];
+            for (int j = col; j < 4; j++) a[r][j] -= f * a[col][j];
+        }
+    }
+    return static_cast<float>(det);
+}
+
+float Matrix4D::trace() const {
+    return m[0][0] + m[1][1] + m[2][2] + m[3][3];
+}
+
+Matrix4D Matrix4D::transposed() const {
+    Matrix4D result;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            result.m[i][j] = m[j][i];
+        }
+    }
+    return result;
+}
+
+std::optional<Matrix4D> Matrix4D::inverse(float epsilon) const {
+    if (std::fabs(determinant()) < epsilon) return std::nullopt;
+
+    // Gauss-Jordan elimination on [A | I]
+    double a[4][8];
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            a[i][j] = m[i][j];
+            a[i][j + 4] = (i == j) ? 1.0 : 0.0;
+        }
+    }
+
+    for (int col = 0; col < 4; col++) {
+        int pivot = col;
+        for (int r = col + 1; r < 4; r++) {
+            if (std::fabs(a[r][col]) > std::fabs(a[pivot][col])) pivot = r;
+        }
+        if (pivot != col) {
+            for (int j = 0; j < 8; j++) std::swap(a[col][j], a[pivot][j]);
+        }
+        double p = a[col][col];
+        for (int j = 0; j < 8; j++) a[col][j] /= p;
+        for (int r = 0; r < 4; r++) {
+            if (r == col) continue;
+            double f = a[r][col];
+            for (int j = 0; j < 8; j++) a[r][j] -= f * a[col][j];
+        }
+    }
+
+    Matrix4D result;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            result.m[i][j] = static_cast<float>(a[i][j + 4]);
     return result;
 }
 

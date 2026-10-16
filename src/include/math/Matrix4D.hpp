@@ -2,6 +2,7 @@
 
 #include "Vector3D.hpp"
 #include <array>
+#include <optional>
 #include <ostream>
 
 namespace linalg {
@@ -24,6 +25,14 @@ public:
     Matrix4D operator-(const Matrix4D& other) const;
     Matrix4D operator*(const Matrix4D& other) const;
     Matrix4D operator*(float scalar) const;
+
+    // Properties
+    float determinant() const;
+    float trace() const;
+    Matrix4D transposed() const;
+
+    // Inverse, or std::nullopt when the matrix is singular (|det| < epsilon)
+    std::optional<Matrix4D> inverse(float epsilon = 1e-6f) const;
 
     // Transform a 3D vector (treats as homogeneous with w=1)
     Vector3D transform(const Vector3D& v) const;

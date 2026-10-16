@@ -55,6 +55,44 @@ Matrix3D Matrix3D::operator*(float scalar) const {
     return result;
 }
 
+float Matrix3D::determinant() const {
+    return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+         - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+         + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+}
+
+float Matrix3D::trace() const {
+    return m[0][0] + m[1][1] + m[2][2];
+}
+
+Matrix3D Matrix3D::transposed() const {
+    Matrix3D result;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            result.m[i][j] = m[j][i];
+        }
+    }
+    return result;
+}
+
+std::optional<Matrix3D> Matrix3D::inverse(float epsilon) const {
+    float det = determinant();
+    if (std::fabs(det) < epsilon) return std::nullopt;
+
+    // Adjugate (transposed cofactor matrix) divided by the determinant
+    Matrix3D adj;
+    adj.m[0][0] =  (m[1][1] * m[2][2] - m[1][2] * m[2][1]);
+    adj.m[0][1] = -(m[0][1] * m[2][2] - m[0][2] * m[2][1]);
+    adj.m[0][2] =  (m[0][1] * m[1][2] - m[0][2] * m[1][1]);
+    adj.m[1][0] = -(m[1][0] * m[2][2] - m[1][2] * m[2][0]);
+    adj.m[1][1] =  (m[0][0] * m[2][2] - m[0][2] * m[2][0]);
+    adj.m[1][2] = -(m[0][0] * m[1][2] - m[0][2] * m[1][0]);
+    adj.m[2][0] =  (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    adj.m[2][1] = -(m[0][0] * m[2][1] - m[0][1] * m[2][0]);
+    adj.m[2][2] =  (m[0][0] * m[1][1] - m[0][1] * m[1][0]);
+    return adj * (1.0f / det);
+}
+
 Vector3D Matrix3D::transform(const Vector3D& v) const {
     return Vector3D(
         m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z,

@@ -19,7 +19,14 @@ OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(SRCS))
 DEPS := $(OBJS:.o=.d)
 TARGET   := $(BIN_DIR)/linalg_viz
 
-.PHONY: default build run clean help
+# Math library + unit tests (no raylib needed)
+MATH_SRCS != find $(SRC_DIR)/math -type f -name '*.cpp'
+TEST_SRCS != find $(TEST_DIR) -type f -name '*.cpp' 2>/dev/null
+TEST_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(MATH_SRCS)) \
+             $(patsubst $(TEST_DIR)/%.cpp, $(BIN_DIR)/tests/%.o, $(TEST_SRCS))
+TEST_TARGET := $(BIN_DIR)/run_tests
+
+.PHONY: default build run clean help test
 default: run
 
 list:
@@ -76,8 +83,21 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BIN_DIR)
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 
+## build and run the math unit tests
+test: $(TEST_TARGET)
+	@$(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_OBJS) | $(BIN_DIR)
+	@echo "linking: $@"
+	@$(CXX) $(TEST_OBJS) -o $@
+
+$(BIN_DIR)/tests/%.o: $(TEST_DIR)/%.cpp | $(BIN_DIR)
+	@echo "compiling: $<"
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
+
 # create directories if they don't exist
 $(BIN_DIR):
 	@mkdir -p $@
 
--include $(DEPS)
+-include $(DEPS) $(TEST_OBJS:.o=.d)
