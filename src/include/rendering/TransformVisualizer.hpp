@@ -3,6 +3,7 @@
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
+#include "math/Decompositions.hpp"
 #include <raylib.h>
 #include <vector>
 
@@ -31,6 +32,11 @@ public:
 
     // Draw original and transformed bases
     void draw() const;
+
+    // Eigenvector lines through the origin: a dashed line along v, the unit
+    // vector v and a marker at λv (where the matrix sends v)
+    static void drawEigenvectors(const EigenResult& eigen, float extent);
+    static void drawEigenLabels(const Camera3D& camera, const EigenResult& eigen);
 
     // Show/hide transformed basis
     void setShowTransformed(bool show) { m_showTransformed = show; }

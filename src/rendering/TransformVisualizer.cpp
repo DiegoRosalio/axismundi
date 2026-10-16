@@ -1,6 +1,10 @@
 #include "rendering/TransformVisualizer.hpp"
 #include <raylib.h>
 #include <raymath.h>
+#include "rendering/Labels.hpp"
+#include "rendering/VectorRenderer.hpp"
+#include <cmath>
+#include <cstdio>
 
 namespace linalg {
 
@@ -47,6 +51,37 @@ void TransformVisualizer::draw() const {
     transformed.zColor = ColorAlpha(SKYBLUE, 1.0f);
 
     drawBasis(transformed, 1.0f);
+}
+
+void TransformVisualizer::drawEigenvectors(const EigenResult& eigen, float extent) {
+    const Color color = PURPLE;
+    for (const auto& ev : eigen.values) {
+        if (!ev.isReal() || !ev.hasVector) continue;
+        Vector3D v = ev.vector;
+
+        // Dashed line through the origin along v
+        const float dash = 0.25f;
+        for (float s = -extent; s < extent; s += 2.0f * dash) {
+            Vector3D a = v * s;
+            Vector3D b = v * std::fmin(s + dash, extent);
+            DrawLine3D({a.x, a.y, a.z}, {b.x, b.y, b.z}, Fade(color, 0.7f));
+        }
+
+        // Unit eigenvector and its image λv
+        VectorRenderer::drawArrow(Vector3D::zero(), v, Fade(color, 0.8f), 0.015f, 0.15f);
+        Vector3D lv = v * ev.re;
+        DrawSphere({lv.x, lv.y, lv.z}, 0.07f, color);
+    }
+}
+
+void TransformVisualizer::drawEigenLabels(const Camera3D& camera, const EigenResult& eigen) {
+    for (const auto& ev : eigen.values) {
+        if (!ev.isReal() || !ev.hasVector) continue;
+        Vector3D lv = ev.vector * ev.re;
+        char text[48];
+        snprintf(text, sizeof(text), "lambda = %.2f", ev.re);
+        drawWorldLabel(camera, {lv.x, lv.y, lv.z}, text, 20, PURPLE, {8.0f, 14.0f});
+    }
 }
 
 void TransformVisualizer::drawBasis(const Basis& basis, float alpha) const {
