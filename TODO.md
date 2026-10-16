@@ -54,18 +54,18 @@
 ## Low Priority (Nice to Have)
 
 ### UI Improvements
-- [ ] Add color picker for vectors
-- [ ] Implement draggable UI panels
-- [ ] Add fullscreen mode
-- [ ] Create dark/light theme toggle
-- [ ] Add screenshot capture (F12)
+- [x] Add color picker for vectors
+- [x] Implement draggable UI panels
+- [x] Add fullscreen mode
+- [x] Create dark/light theme toggle
+- [x] Add screenshot capture (F12)
 
 ### Educational Features
-- [ ] Step-by-step transformation breakdown
-- [ ] Show intermediate calculation steps
-- [ ] Add explanatory tooltips
-- [ ] Implement tutorial mode
-- [ ] Add example gallery
+- [x] Step-by-step transformation breakdown
+- [x] Show intermediate calculation steps
+- [x] Add explanatory tooltips
+- [x] Implement tutorial mode
+- [x] Add example gallery
 
 ### Advanced Math
 - [ ] Quaternion visualization
@@ -114,7 +114,7 @@
 - [ ] Add architecture diagrams
 
 ### Refactoring
-- [ ] Extract UI components into separate files
+- [x] Extract UI components into separate files
 - [ ] Create preset system (JSON-based)
 - [ ] Implement event system for better decoupling
 - [ ] Add configuration file support
@@ -138,8 +138,11 @@
 
 ## Known Issues
 
-- The bundled `include/raygui.h` (5.1-dev) needs raylib 5.x; with raylib 4.5
-  the link fails on `TextToFloat`.
+- The bundled `include/raygui.h` (5.1-dev) needs **raylib 5.5** (it calls
+  `TextToFloat`, added in 5.5). Distribution packages of raylib 5.0 or older
+  fail to link.
+- Stock raylib builds also save `screenshotNNN.png` on F12 (raylib's own
+  `SUPPORT_SCREEN_CAPTURE`), next to axismundi's timestamped screenshot.
 
 ## Getting Started with Development
 

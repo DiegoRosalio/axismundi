@@ -1,119 +1,114 @@
-# UI Guide - Linear Algebra Visualizer
+# UI Guide
 
-## Overview
-
-The screen has a scrollable side bar on the left, the 3D view in the middle and, in Matrices mode,
-an analysis panel on the right plus an animation bar at the bottom.
+## Layout
 
 ```
-┌──────────────┬──────────────────────────────────┬──────────────┐
-│ [Matrices][Complex][Plots]                       │  Analysis    │
-│              │  HUD: mode hint, camera position │  - Vectors   │
-│  Mode panel  │                                  │  - Matrix    │
-│  (inputs)    │            3D view               │  - Eigen...  │
-│              │                                  │  + LU        │
-│  View panel  │                                  │  + QR        │
-│              ├──────────────────────────────────┤  + SVD       │
-│              │  Animation bar (Matrices mode)   │              │
-└──────────────┴──────────────────────────────────┴──────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ ▣ axismundi  [Matrices|Complex|Plots]        ⛶ 📷 │ ≡ ▦ 📖 ⧉ │ ☀ ? ⚙           │  top bar
+├──────────────┬───────────────────────────────────────────────────────────────────┤
+│ ▾ MATRIX     │                                         ┌──────────────┐          │
+│ ▾ VECTORS    │            3D view                      │ Analysis     │          │
+│ ▾ PRESETS    │                                         │  ...         │          │
+│ ▾ VIEW       │    floating panels: Tutorial, Gallery,  └──────────────┘          │
+│              │    Calculation steps, Breakdown, ...                              │
+│  side bar    │  ● UI mode · status        ┌── Animation ──────────────┐          │
+│  (scrolls)   │                            └───────────────────────────┘          │
+└──────────────┴───────────────────────────────────────────────────────────────────┘
 ```
 
-## Camera Mode and UI Mode
+- **Top bar**: the mode tabs, then fullscreen, screenshot, breakdown (Matrices only), calculation steps, gallery
+  and tutorial, then theme, help and settings. Every button has a tooltip.
+- **Side bar**: inputs for the current mode plus the View section. Section headers collapse when clicked, and the
+  side bar scrolls with the mouse wheel.
+- **Floating panels**: drag them by the title bar, collapse them with the chevron, close them with ×. Clicking
+  a panel brings it to the front, and only the top panel under the mouse reacts to clicks. Positions are kept
+  as a fraction of the free space, so they stay in place when the window is resized. Settings → "Reset panel
+  layout" puts everything back.
 
-- **Camera mode** (cursor hidden): mouse look, WASD move, Space/Ctrl up/down, Shift for speed.
-  The panels ignore the mouse in this mode.
-- **UI mode** (cursor visible): click fields and buttons. The camera stays still, so letter keys
-  can be used for typing and shortcuts.
-- **TAB** switches modes (when no field is being edited).
+## Camera mode and UI mode
 
-## Text Fields
+- **Camera mode** (cursor hidden, green status dot): mouse look, WASD move, Space/Ctrl up/down, Shift faster.
+  Panels ignore the mouse.
+- **UI mode** (cursor visible, blue status dot): click fields, buttons and panels; letter keys are shortcuts.
+- **Tab** switches between them (while no field is being edited).
+
+## Resolution independence
+
+Layout is written for a 1600×900 reference and scaled to the window, so the interface keeps its proportions from
+800×600 up to 4K. On top of that, the interface size setting (Settings, or Ctrl+= / Ctrl+− / Ctrl+0) scales
+everything from 70% to 200%. Fonts are rasterized at the exact pixel size they are drawn at and rebuilt when the
+size changes, so text stays sharp. Small text never drops below a readable minimum.
+
+## Text fields
 
 1. Click a field to edit it.
 2. Type a number or an expression: `2`, `-0.5`, `1e-3`, `sqrt(2)/2`, `cos(pi/4)`, `2pi/3`.
-3. Confirm:
-   - **Enter** or clicking elsewhere applies the value
-   - **Tab** / **Shift+Tab** applies it and moves to the next / previous field
-   - **Esc** cancels and restores the previous value
-4. A red outline means the text can't be parsed. Invalid numbers are rejected and the previous
-   value comes back. In Plots mode the expression is kept and the error is shown below it.
+3. **Enter** or clicking elsewhere confirms, **Tab** / **Shift+Tab** confirms and moves on, **Esc** cancels.
+4. A red outline means the text can't be read. Invalid numbers are rejected. In Plots mode the expression is
+   kept and the error appears below.
 
-Available in expressions: `+ - * / ^`, parentheses, implicit multiplication (`2x`, `3(x+1)`),
-variables `x y t`, constants `pi e`, and functions
-`sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil`.
+Expressions support `+ - * / ^`, parentheses, implicit multiplication (`2x`, `3(x+1)`), the variables
+`x y t`, the constants `pi e`, and `sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil`.
 
-## Matrices Mode
+## Matrices mode
 
-### Matrix Transformation
-- Toggle **3x3 / 4x4**. Presets fill both, so they work in either size.
-- **Undo / Redo** buttons (also Ctrl+Z / Ctrl+Y in UI mode). The history keeps 100 steps and
-  covers matrix and vector edits, presets, the size toggle and scene loads.
+- **Matrix**: 3×3 or 4×4 (the 4th column is a translation), undo/redo. Hover a cell to see what its column
+  means.
+- **Vectors**: A and B. Their colors are set in View → Vector colors.
+- **Presets**: each button shows its shortcut, and its tooltip gives the formula and determinant.
+- **Analysis** (M): vectors, matrix properties, eigenvalues, LU/QR/SVD. Hover any line for an explanation.
+- **Animation**: play/pause (P), stop, loop, timeline, Rotate/Scale/Morph presets, keyframes, speed.
+- **Transformation breakdown** (B): the matrix as numbered steps (rotate, stretch, rotate, move). Use
+  restart / previous / play / next or click a step. While the panel is open, the 3D view shows the matrix part
+  way through, with faded copies of the finished steps.
 
-### Vectors
-One row per vector (A, B) with x, y, z fields.
+## Complex mode
 
-### Preset Transformations
+- z₁ and z₂ with their rectangular and polar forms and the product z₁z₂.
+- "Show product and angles" draws the rotation step (faint arrow), the scaling step (dashed) and the angle arcs.
+- Euler's formula: show or animate e^(iθ), or drag θ.
 
-| Button | Key | Matrix |
-|--------|-----|--------|
-| Identity | I | diagonal 1s |
-| Rot 45 | R | rotation by 45° about Z |
-| Scale 2 | S | diag(2, 2, 1) |
-| Shear | X | top row [1, 0.5, 0] |
-| Reflect | F | diag(-1, 1, 1) |
+## Plots mode
 
-### Analysis Panel (right, toggle with M)
-Click a section header to collapse or expand it, and scroll with the mouse wheel over the panel.
-- **Vectors**: A·B, |A|, |B|, angle, A×B and its length (parallelogram area)
-- **Matrix**: determinant (and whether volume is scaled, flipped or squashed), trace, inverse
-- **Eigenvalues**: real and complex eigenvalues with eigenvectors. Defective matrices are flagged.
-- **LU / QR / SVD**: factor matrices (collapsed by default)
+- Tabs: y = f(x), Curve (parametric), Surface (z = f(x, y)), Implicit (f(x, y) = 0).
+- Ranges, Detail (sampling), Heat map, Next example. The value range or the parse error is shown below.
 
-In 4x4 mode the determinant, trace and inverse use the full matrix. The eigenvalues and
-factorizations use the upper-left 3x3 part.
+## Learning tools
 
-### Animation Bar
-- **Play/Pause (P)**, **Stop**, **Loop**, and a timeline slider (drag it to scrub)
-- **Rotate**: a full turn about Y. **Scale**: 1x → 2x. **Morph**: identity → your matrix.
-- **+ Key** captures the current matrix as a keyframe. With two or more keys the animation
-  plays through them. **Clear** removes them.
-- Speed slider from 0.1x to 4x
+- **Tutorial** (F1): pick a lesson. Each step explains one idea and usually asks for a small change, which is
+  checked automatically. The control it talks about pulses with an outline. Next unlocks when the task is done,
+  or press Skip. Finished lessons get a checkmark and are remembered.
+- **Example gallery** (E): filter by mode and click a card to load it.
+- **Calculation steps** (K): pick a topic (A·B, A×B, M·A, det M, M⁻¹, eigenvalues; or z₁·z₂, polar forms, Euler).
+  The formula, the numbers filled in and the result follow your inputs live.
+- **Tooltips**: hover almost anything. They can be turned off in Settings.
 
-## Complex Mode
-- Fields for z₁ and z₂ (real and imaginary parts)
-- Results in rectangular and polar form, the product's modulus as |z₁|·|z₂|, and its argument
-  as the sum of arguments
-- "Show z1 z2 and angles" draws the product, the rotation and scaling steps, and the angle arcs
-- **Euler's Formula**: show/animate e^(it), drag t from 0 to 2π
+## View section
 
-## Plots Mode
-- Tabs: **y=f(x)**, **Curve** (parametric), **Surface** (z = f(x, y)), **Implicit** (f(x, y) = 0)
-- Range fields for x, y or t, depending on the type
-- **Detail** sets the sampling resolution
-- **Heat map** colors by value. For implicit plots it shades the sign of f behind the curve.
-- **Example** cycles through sample functions for the current type
-- The value range or the parse error is shown under the controls
+- Grid (G), Axes, Labels (L), Eigenvectors and Transformed A, B (Matrices only)
+- Vector colors: click a swatch for the color picker (presets, hex value, "Theme color" resets it)
+- Axis length, Reset camera (C), Save (F5) / Load (F9) of `scene.txt`
 
-## View Panel (all modes)
-- Grid (G), Axes, Labels (L), Eigenvectors, Transformed A/B toggles
-- Axis length slider
-- **Reset Camera (C)** returns to the default view for the current mode
-- **Save (F5) / Load (F9)** write and read `scene.txt` in the working directory. The file is
-  plain `key = value` text and can be edited by hand.
+## Settings (gear icon)
 
-## Window Size
-- Default 1600×900, minimum 800×600
-- The side bar scrolls with the mouse wheel when its content is taller than the window
-- On narrow windows the animation bar extends under the analysis panel. Press M to hide the panel.
+Theme, interface size, tooltips, status overlay, reset panel layout. Preferences are saved in
+`$XDG_CONFIG_HOME/axismundi/settings.txt` (usually `~/.config/axismundi/settings.txt`) when the app closes.
 
-## Quick Reference
+## Screenshots and fullscreen
 
-| Action | Method |
-|--------|--------|
-| Switch camera / UI mode | TAB |
-| Switch app mode | 1 / 2 / 3 or the tabs |
+- **F12** or the camera icon saves `axismundi_YYYYMMDD_HHMMSS.png` in the current folder. **Shift+F12** leaves the
+  UI out.
+- **F11** or the corners icon toggles borderless fullscreen.
+
+## Quick reference
+
+| Action | How |
+|--------|-----|
+| Camera ⟷ UI mode | Tab |
+| Switch mode | 1 / 2 / 3 or the tabs |
 | Edit a value | Click, type, Enter |
-| Next field | Tab |
-| Cancel edit | Esc |
 | Undo / redo | Ctrl+Z / Ctrl+Y |
+| Tutorial / gallery / steps / breakdown / analysis | F1 / E / K / B / M |
+| Theme / interface size | T / Ctrl+= Ctrl+− Ctrl+0 |
 | Help | H |
-| Save / load | F5 / F9 |
+| Save / load / screenshot | F5 / F9 / F12 |

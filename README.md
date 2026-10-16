@@ -1,81 +1,86 @@
-# Linear Algebra 3D Visualizer
+# axismundi: Linear Algebra 3D Visualizer
 
-An interactive 3D visualization tool for exploring linear algebra, complex numbers and functions.
+An interactive 3D tool for exploring linear algebra, complex numbers and functions, with guided lessons
+and worked calculations.
+
+![Matrices mode](docs/screenshots/matrices.png)
 
 ## Features
 
-The app has three modes, selected with the tabs at the top of the left panel (or keys **1**, **2**, **3**).
+The app has three modes, selected with the tabs in the top bar (or keys **1**, **2**, **3**).
 
-### Matrices (linear algebra)
-- **3x3 and 4x4 matrix transformations** applied live to the coordinate basis
-- **Editable fields** for every matrix cell and for vectors A and B. Fields accept numbers or
-  expressions such as `cos(pi/4)` or `sqrt(2)/2`. Invalid input gets a red outline and is rejected.
-- **Presets**: identity, 45° rotation, 2x scale, shear, reflection, with keyboard shortcuts
-- **Undo / redo** for every change (buttons or Ctrl+Z / Ctrl+Y)
-- **Vectors**: A, B, A+B, A×B and the transformed vectors MA, MB, each labeled with its magnitude
-- **Analysis panel** (right side, toggle with **M**):
-  - dot product, angle between A and B, cross product and the parallelogram area
-  - determinant (with what it means geometrically), trace, inverse
-  - eigenvalues (including complex pairs) and eigenvectors, which are also drawn in the scene
-  - LU (with pivoting), QR and SVD factorizations
-- **Animations** (bottom bar): rotation, scaling and morph (identity → your matrix), or
-  keyframes you capture yourself. Play/pause, loop, timeline scrubber and speed control.
+### Matrices
+- **3×3 and 4×4 transformations** applied live to the coordinate basis, with undo/redo
+- **Editable fields** that accept numbers or expressions (`cos(pi/4)`, `sqrt(2)/2`); invalid input is outlined
+  in red and rejected
+- **Presets** (identity, 45° rotation, 2× scale, shear, reflection) with keyboard shortcuts
+- **Vectors** A, B, A+B, A×B and the transformed vectors MA, MB, labeled with their lengths; colors can be changed
+- **Analysis panel**: dot and cross products, angle, determinant (and what it means), trace, inverse,
+  eigenvalues and eigenvectors (also drawn in the scene), LU, QR and SVD
+- **Animations**: rotation, scaling, morph (identity → your matrix) or your own keyframes, with a timeline
+- **Transformation breakdown**: any matrix shown as *rotate → stretch → rotate (→ move)*, played step by step
+  with faded copies of the finished steps
 
 ### Complex numbers
-- Argand diagram with unit circle and axes
-- z₁, z₂ and z₁·z₂ in rectangular and polar form
-- Multiplication shown as **rotation + scaling**, with the angle arcs adding up
-- **Euler's formula**: e^(it) on the unit circle with its cos/sin projections, plus the helix
-  e^(it) rising along Z. The angle t can be dragged or animated.
+- Argand diagram with z₁, z₂ and z₁z₂ in rectangular and polar form
+- Multiplication shown as a rotation plus a scaling, with the angles adding up
+- Euler's formula: e^(iθ) on the unit circle, its cos/sin projections and the helix e^(it)
 
 ### Plots
-- `y = f(x)` curves (asymptotes are not joined)
-- Parametric curves `(x(t), y(t), z(t))`
-- Surfaces `z = f(x, y)` with wireframe
-- Implicit curves `f(x, y) = 0` (marching squares)
-- Heat-map coloring by value, adjustable ranges and detail, and built-in examples
+- `y = f(x)`, parametric curves, surfaces `z = f(x, y)` and implicit curves `f(x, y) = 0`
+- Heat-map coloring, adjustable ranges and detail, built-in examples
 
-### General
-- First-person camera (WASD + mouse) with a reset per mode
-- Grid and axes toggles, adjustable axis length, labels on/off
-- Help overlay (**H**) listing every shortcut
-- **Save / load** the whole scene to `scene.txt` (F5 / F9)
+### Learning tools
+- **Tutorial** (F1): 9 short lessons. Each step sets up the scene, highlights the control it talks about and gives
+  a small task that is checked as you work.
+- **Example gallery** (E): 20 ready-made scenes, each with a note on what to look at.
+- **Calculation steps** (K): worked, step-by-step calculations for the current inputs, such as the determinant by
+  cofactor expansion, the inverse via the adjugate, the characteristic polynomial, or complex multiplication.
+- **Tooltips** on controls and results explain what each one means.
+
+### Interface
+- **Resolution independent**: the whole UI scales with the window (design reference 1600×900) and has a user
+  size setting (Ctrl+= / Ctrl+− / Ctrl+0). Text uses embedded fonts rendered at the exact pixel size, with real
+  math symbols (λ, θ, ×, ·, ², ₁).
+- **Dark and light themes** (T), dark by default
+- **Floating panels** you can drag, collapse and close; their layout is remembered
+- **Fullscreen** (F11) and **screenshots** (F12 for the window, Shift+F12 for the 3D view only)
+- **Preferences** saved in `~/.config/axismundi/settings.txt`: theme, size, tooltips, panel layout, vector
+  colors, finished lessons, window size
+- **Scenes** saved and loaded with F5 / F9 (`scene.txt`)
+
+| | |
+|---|---|
+| ![Light theme](docs/screenshots/matrices-light.png) | ![Breakdown](docs/screenshots/breakdown.png) |
+| ![Tutorial](docs/screenshots/tutorial.png) | ![Gallery](docs/screenshots/gallery.png) |
+| ![Complex numbers with worked steps](docs/screenshots/complex-steps.png) | ![Surface plot](docs/screenshots/plot-surface.png) |
 
 ## Requirements
 
 - C++20 compiler (the Makefile uses `clang++`)
 - GNU Make
-- Raylib **5.x** with development headers (the bundled `include/raygui.h` is 5.1-dev and needs raylib 5)
+- **raylib 5.5** with development headers. The bundled `include/raygui.h` (5.1-dev) uses `TextToFloat`, which
+  first appeared in raylib 5.5, so older distribution packages (5.0 and below) will not link.
 - Linux
 
 ## Installation
 
-### Install Raylib
+### raylib 5.5
 
-On Arch Linux:
-```bash
-sudo pacman -S raylib
-```
+If your distribution ships raylib 5.5 or newer, install its development package (Arch: `raylib`,
+Debian/Ubuntu: `libraylib-dev`). Otherwise build it from source:
 
-On Debian/Ubuntu:
 ```bash
-sudo apt install libraylib-dev
-```
-
-On Alpine:
-```bash
-sudo apk add raylib-dev
-```
-
-Or build from source:
-```bash
-git clone https://github.com/raysan5/raylib.git
+git clone --depth 1 --branch 5.5 https://github.com/raysan5/raylib.git
 cd raylib/src
 make PLATFORM=PLATFORM_DESKTOP
 sudo make install
 ```
 
-### Build the Project
+Building raylib needs the X11 and OpenGL development headers (for example on Alpine:
+`mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev`).
+
+### Build
 
 ```bash
 make build
@@ -84,85 +89,71 @@ make build
 ## Usage
 
 ```bash
-make run          # build and run
-./bin/linalg_viz  # or run directly
-make test         # run the math unit tests (no raylib needed)
+make run                       # build and run
+./bin/linalg_viz --theme light # start with the light theme
+./bin/linalg_viz --size 1280x720
+make test                      # math, animation and explanation unit tests (no raylib needed)
 ```
 
 ### Controls
 
-The app has two input states:
-
-- **Camera mode** (cursor hidden): mouse looks around, WASD moves, Space/Ctrl go up/down, Shift moves faster.
-- **UI mode** (cursor visible): click fields and buttons. Letter keys are free for typing and shortcuts.
-
-Press **TAB** to switch between them.
+The app has two input states. In **camera mode** (cursor hidden) the mouse looks around, WASD move,
+Space/Ctrl go up and down, and Shift moves faster. In **UI mode** (cursor visible) you click fields, buttons
+and panels. Press **Tab** to switch.
 
 | Key | Action |
 |-----|--------|
-| TAB | Camera mode ⟷ UI mode |
-| 1 / 2 / 3 | Matrices / Complex / Plots mode |
-| H | Help overlay |
-| C | Reset camera |
-| G / L / M | Toggle grid / labels / analysis panel |
-| I / R / X / F | Identity / Rotate 45° / Shear / Reflect presets |
-| S | Scale 2x preset (UI mode only; S moves the camera in camera mode) |
+| Tab | Camera mode ⟷ UI mode |
+| 1 / 2 / 3 | Matrices / Complex / Plots |
+| F1 / E / K / B / M | Tutorial / gallery / calculation steps / breakdown / analysis |
+| H | Help with all shortcuts |
+| T | Dark / light theme |
+| Ctrl+= / Ctrl+− / Ctrl+0 | Bigger / smaller / default UI size |
+| F11 / F12 | Fullscreen / screenshot (Shift+F12: 3D view only) |
+| C / G / L | Reset camera / grid / labels |
+| I / R / S / X / F | Presets (S in UI mode) |
 | Ctrl+Z / Ctrl+Y | Undo / redo (UI mode) |
 | P | Play / pause animation |
 | F5 / F9 | Save / load `scene.txt` |
-| Enter / Tab / Shift+Tab | Confirm field / next field / previous field |
-| Esc | Cancel the field edit (quits when not editing) |
+| Enter / Tab / Esc | Confirm field / next field / cancel the edit |
 
 Shortcuts are ignored while a text field is being edited.
-
-### Colors
-
-- Red/Green/Blue axes: original coordinate system
-- Orange/Lime/Sky blue axes: transformed basis
-- Yellow/Magenta: vectors A and B; Orange: A+B; Sky blue: A×B
-- Gold/Pink: transformed vectors MA and MB
-- Purple dashed lines: eigenvector directions, with a dot at λv
 
 ## Project Structure
 
 ```
 .
 ├── Makefile
+├── assets/fonts/             # subset Inter and JetBrains Mono (SIL OFL) + licenses
+├── docs/screenshots/         # images used by the docs (made with --tour)
 ├── include/raygui.h          # raygui (single header)
-├── tests/test_math.cpp       # unit tests for math + animator
+├── tests/test_math.cpp       # unit tests
+├── tools/fonts.py            # font subsetting and embedding
 └── src/
-    ├── main.cpp              # window, main loop, shortcuts, save/load wiring
-    ├── include/              # headers, mirroring the folders below
-    ├── math/                 # Vector3D, Matrix3D/4D, Decompositions, Complex, Expression
-    ├── animation/            # Animator (matrix animation state)
-    ├── rendering/            # Grid, vectors, transforms, Argand, plots, camera, labels
-    └── ui/                   # side bar, panels, info panel, help, scene file I/O
+    ├── main.cpp              # command-line options
+    ├── app/                  # App (main loop, shortcuts, save/load, preferences) and Tour
+    ├── math/                 # vectors, matrices, decompositions, complex, expressions,
+    │                         #   quaternions, breakdown, worked explanations
+    ├── animation/            # Animator
+    ├── edu/                  # tutorial lessons and gallery examples
+    ├── rendering/            # grid, vectors, transforms, Argand, plots, camera, labels
+    ├── ui/                   # panels, top bar, side bar, popovers, widgets
+    │   ├── core/             # scaling, fonts, theme, layout, icons, floating panels
+    │   └── generated/        # fonts.inc (embedded font data)
+    └── include/              # headers, mirroring the folders above
 ```
 
 `src/math` and `src/animation` have no raylib dependency, which keeps them unit-testable.
 
-## Extending the Project
+## Development
 
-- **New matrix preset**: add a value to `MatrixPreset` and a case in `InputPanel::applyPreset`
-  (`src/ui/InputPanel.cpp`), then a button in `drawPresetGroup`.
-- **New animation**: add an `AnimationPreset` and its case in `Animator::matrixAt`.
-- **New plot example**: add an entry to the example tables at the top of `src/ui/PlotPanel.cpp`.
-- **New expression function**: add it to the table in `lookupFunction` (`src/math/Expression.cpp`).
-- **Saving more state**: give the component `saveState(SceneData&)` / `loadState(const SceneData&)`
-  and call them from `saveScene` / `loadScene` in `main.cpp`.
-
-## Makefile Targets
-
-- `make` or `make run`: build and run the application
-- `make build`: build the executable only
-- `make test`: build and run the unit tests
-- `make clean`: remove build artifacts
-- `make help`: list targets
-
-## Future Enhancements
-
-See [TODO.md](TODO.md). The high- and medium-priority items are done.
+- `make test` runs the unit tests.
+- `make fonts` regenerates `src/ui/generated/fonts.inc` after changing `assets/fonts` (see `tools/fonts.py`).
+- `./bin/linalg_viz --tour DIR [--size WxH] [--theme dark|light]` walks through every mode and panel, saves a
+  PNG per step into `DIR` and exits. It is used to check the UI at different sizes, also headlessly with
+  `xvfb-run`.
 
 ## License
 
-This project is provided as-is for educational purposes.
+The code is provided as-is for educational purposes. The embedded fonts are under the SIL Open Font License 1.1
+(see `assets/fonts/`).
