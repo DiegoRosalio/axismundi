@@ -1,6 +1,7 @@
 #include "rendering/Grid.hpp"
 #include <raylib.h>
 #include <raymath.h>
+#include "ui/core/Theme.hpp"
 
 namespace linalg {
 
@@ -11,6 +12,7 @@ Grid::Grid(int size, float spacing)
 
 void Grid::draw() const {
     if (!m_showGrid) return;
+    Color color = ui::theme().grid;
 
     float extent = m_size * m_spacing;
 
@@ -20,7 +22,7 @@ void Grid::draw() const {
         DrawLine3D(
             {-extent, 0, z},
             {extent, 0, z},
-            m_gridColor
+            color
         );
     }
 
@@ -30,41 +32,33 @@ void Grid::draw() const {
         DrawLine3D(
             {x, 0, -extent},
             {x, 0, extent},
-            m_gridColor
+            color
         );
     }
 }
 
 void Grid::drawPlaneXY() const {
     if (!m_showGrid) return;
+    Color color = ui::theme().grid;
 
     float extent = m_size * m_spacing;
     for (int i = -m_size; i <= m_size; i++) {
         float t = i * m_spacing;
-        DrawLine3D({-extent, t, 0}, {extent, t, 0}, m_gridColor);
-        DrawLine3D({t, -extent, 0}, {t, extent, 0}, m_gridColor);
+        DrawLine3D({-extent, t, 0}, {extent, t, 0}, color);
+        DrawLine3D({t, -extent, 0}, {t, extent, 0}, color);
     }
 }
 
 void Grid::drawAxes(float axisLength) const {
     if (!m_showAxes) return;
 
-    // X axis - Red
-    DrawLine3D({0, 0, 0}, {axisLength, 0, 0}, RED);
-    DrawSphere({axisLength, 0, 0}, 0.1f, RED);
-
-    // Y axis - Green
-    DrawLine3D({0, 0, 0}, {0, axisLength, 0}, GREEN);
-    DrawSphere({0, axisLength, 0}, 0.1f, GREEN);
-
-    // Z axis - Blue
-    DrawLine3D({0, 0, 0}, {0, 0, axisLength}, BLUE);
-    DrawSphere({0, 0, axisLength}, 0.1f, BLUE);
-
-    // Draw thicker lines for better visibility
-    DrawCylinderEx({0, 0, 0}, {axisLength, 0, 0}, 0.02f, 0.02f, 8, RED);
-    DrawCylinderEx({0, 0, 0}, {0, axisLength, 0}, 0.02f, 0.02f, 8, GREEN);
-    DrawCylinderEx({0, 0, 0}, {0, 0, axisLength}, 0.02f, 0.02f, 8, BLUE);
+    const ui::Theme& t = ui::theme();
+    DrawCylinderEx({0, 0, 0}, {axisLength, 0, 0}, 0.02f, 0.02f, 8, t.axisX);
+    DrawCylinderEx({0, 0, 0}, {0, axisLength, 0}, 0.02f, 0.02f, 8, t.axisY);
+    DrawCylinderEx({0, 0, 0}, {0, 0, axisLength}, 0.02f, 0.02f, 8, t.axisZ);
+    DrawSphere({axisLength, 0, 0}, 0.08f, t.axisX);
+    DrawSphere({0, axisLength, 0}, 0.08f, t.axisY);
+    DrawSphere({0, 0, axisLength}, 0.08f, t.axisZ);
 }
 
 } // namespace linalg

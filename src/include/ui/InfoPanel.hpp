@@ -3,15 +3,16 @@
 #include "math/Decompositions.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
+#include "ui/core/Ui.hpp"
 #include <raylib.h>
 #include <string>
 #include <vector>
 
 namespace linalg {
 
-// Right-hand panel with computed results: dot/cross products, determinant,
-// trace, inverse, eigenvalues and LU / QR / SVD factorizations.
-// Sections can be collapsed by clicking their headers.
+// Right-hand "Analysis" card with computed results: dot/cross products,
+// determinant, trace, inverse, eigenvalues and LU / QR / SVD factorizations.
+// Sections collapse when their headers are clicked.
 class InfoPanel {
 public:
     InfoPanel();
@@ -22,20 +23,21 @@ public:
     void draw();
 
     void toggleVisible() { m_visible = !m_visible; }
+    void setVisible(bool v) { m_visible = v; }
     bool visible() const { return m_visible; }
-    float width() const { return m_visible ? kWidth + kMargin : 0.0f; }
+    float width() const;            // pixels, including the margin (0 when hidden)
     bool containsMouse() const;
+    Rectangle bounds() const { return m_bounds; }
 
     // Eigen-decomposition of the linear (3x3) part, for drawing eigenvectors
     const EigenResult& eigen() const { return m_eigen; }
 
-    static constexpr float kWidth = 440.0f;
-    static constexpr float kMargin = 10.0f;
-
 private:
+    enum class Tone { Normal, Muted, Eigen, Danger };
     struct Line {
         std::string text;
-        Color color;
+        Tone tone;
+        ui::FontRole role;
     };
     struct Section {
         std::string title;
@@ -43,7 +45,7 @@ private:
         std::vector<Line> lines;
     };
 
-    void addMatrix(Section& s, const char* name, const float* values, int n);
+    static void addMatrix(Section& s, const char* name, const float* values, int n);
 
     std::vector<Section> m_sections;
     EigenResult m_eigen;

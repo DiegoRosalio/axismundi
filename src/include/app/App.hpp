@@ -18,6 +18,7 @@
 #include "ui/InputPanel.hpp"
 #include "ui/PlotPanel.hpp"
 #include "ui/SideBar.hpp"
+#include "ui/TopBar.hpp"
 #include "ui/ViewPanel.hpp"
 
 #include <memory>
@@ -31,6 +32,7 @@ struct AppOptions {
     int width = 1600;
     int height = 900;
     std::string tourDir;  // non-empty: run the scripted screenshot tour, then exit
+    std::string theme;    // "dark" or "light" (empty: default)
 };
 
 // Owns every component and runs the main loop. The public methods are the
@@ -87,6 +89,8 @@ private:
     void drawSceneLabels();
     void drawUi(float deltaTime);
     void drawToast(float deltaTime);
+    void drawHud();
+    void toggleTheme();
 
     AppOptions m_options;
 
@@ -104,6 +108,7 @@ private:
     InfoPanel m_infoPanel;
     ViewPanel m_viewPanel;
     SideBar m_sideBar;
+    TopBar m_topBar;
     HelpOverlay m_help;
     Toast m_toast;
     std::unique_ptr<Tour> m_tour;

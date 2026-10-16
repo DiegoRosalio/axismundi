@@ -26,7 +26,7 @@ public:
     // Keyboard handling for the fields (Tab = next field)
     void update();
 
-    // Draws the matrix, vector and preset groups at (x, y); returns the bottom y.
+    // Draws the matrix, vector and preset sections at (x, y) in pixels; returns the bottom y.
     float draw(float x, float y, float width);
 
     // Committed values (what the visualization uses)
@@ -102,6 +102,9 @@ private:
     std::vector<State> m_redo;
 
     int m_activeField;
+    bool m_showMatrix = true;
+    bool m_showVectors = true;
+    bool m_showPresets = true;
     bool m_matrixChanged;
     bool m_vectorsChanged;
 };

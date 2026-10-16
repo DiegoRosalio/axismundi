@@ -30,11 +30,8 @@ void VectorRenderer::drawLabels(const Camera3D& camera) const {
 
         Vector3D end = vec.position + vec.direction;
         char text[96];
-        snprintf(text, sizeof(text), "%s  |%.2f|", vec.label.c_str(), vec.direction.magnitude());
-
-        // Darken the vector color a little so light colors stay readable
-        Color c = ColorBrightness(vec.color, -0.35f);
-        drawWorldLabel(camera, {end.x, end.y, end.z}, text, 22, c);
+        snprintf(text, sizeof(text), "%s  %.2f", vec.label.c_str(), vec.direction.magnitude());
+        drawWorldLabel(camera, {end.x, end.y, end.z}, text, vec.color);
     }
 }
 

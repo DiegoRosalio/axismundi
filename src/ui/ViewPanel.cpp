@@ -1,51 +1,46 @@
 #include "ui/ViewPanel.hpp"
 #include "ui/SceneIO.hpp"
 #include "ui/Widgets.hpp"
-#include <raygui.h>
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
 #include <cstdio>
 
 namespace linalg {
 
 float ViewPanel::draw(float x, float y, float width, AppMode mode) {
-    const float pad = 15.0f;
-    const float rowH = 40.0f;
-    const float boxSize = 28.0f;
-    float top = y;
-    float cx = x + pad;
-    float cy = y + 30.0f;
-    float half = (width - 2 * pad) / 2.0f;
+    const ui::Theme& t = ui::theme();
+    ui::Column col(x, y, width, 4.0f);
+    ui::sectionHeader(col.row(24), "View", m_expanded);
+    if (!m_expanded) return col.y() + ui::px(6.0f);
 
-    // Checkboxes, two per row
-    GuiCheckBox({cx, cy, boxSize, boxSize}, "Grid [G]", &m_settings.showGrid);
-    GuiCheckBox({cx + half, cy, boxSize, boxSize}, "Axes", &m_settings.showAxes);
-    cy += rowH;
-    GuiCheckBox({cx, cy, boxSize, boxSize}, "Labels [L]", &m_settings.showLabels);
+    ui::toggleRow(col.row(30), "Grid", m_settings.showGrid, "G");
+    ui::toggleRow(col.row(30), "Axes", m_settings.showAxes);
+    ui::toggleRow(col.row(30), "Labels", m_settings.showLabels, "L");
     if (mode == AppMode::LinearAlgebra) {
-        GuiCheckBox({cx + half, cy, boxSize, boxSize}, "Eigenvecs", &m_settings.showEigenvectors);
-        cy += rowH;
-        GuiCheckBox({cx, cy, boxSize, boxSize}, "Transformed A, B (MA, MB)",
-                    &m_settings.showTransformedVectors);
+        ui::toggleRow(col.row(30), "Eigenvectors", m_settings.showEigenvectors);
+        ui::toggleRow(col.row(30), "Transformed A, B", m_settings.showTransformedVectors);
     }
-    cy += rowH + 5.0f;
+    col.space(4.0f);
 
     // Axis length
-    char lengthText[32];
+    Rectangle row = col.row(30);
+    Rectangle label = ui::takeLeft(row, 92.0f, 8.0f);
+    Rectangle value = ui::takeRight(row, 36.0f, 8.0f);
+    ui::textIn(label, "Axis length", ui::FontRole::Body, t.text);
+    ui::slider(row, m_settings.axisLength, 1.0f, 20.0f);
+    char lengthText[16];
     snprintf(lengthText, sizeof(lengthText), "%.1f", m_settings.axisLength);
-    GuiLabel({cx, cy, 120, 32}, "Axes len");
-    GuiSlider({cx + 130, cy, width - 2 * pad - 210, 32}, nullptr, lengthText,
-              &m_settings.axisLength, 1.0f, 20.0f);
-    cy += rowH + 5.0f;
+    ui::textIn(value, lengthText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+    col.space(6.0f);
 
-    // Buttons
-    float btnH = 46.0f;
-    if (GuiButton({cx, cy, width - 2 * pad, btnH}, "Reset Camera [C]")) m_resetCamera = true;
-    cy += btnH + 10.0f;
-    if (GuiButton({cx, cy, half - 5, btnH}, "Save [F5]")) m_save = true;
-    if (GuiButton({cx + half + 5, cy, half - 5, btnH}, "Load [F9]")) m_load = true;
-    cy += btnH + 15.0f;
-
-    GuiGroupBox({x, top, width, cy - top}, "View");
-    return cy;
+    if (ui::button(col.row(ui::kRowHeight), "Reset camera", ui::ButtonKind::Secondary, true, ui::Icon::Reset, "C")) {
+        m_resetCamera = true;
+    }
+    auto cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
+    if (ui::button(cells[0], "Save", ui::ButtonKind::Secondary, true, ui::Icon::Save, "F5")) m_save = true;
+    if (ui::button(cells[1], "Load", ui::ButtonKind::Secondary, true, ui::Icon::Load, "F9")) m_load = true;
+    col.space(10.0f);
+    return col.y();
 }
 
 void ViewPanel::saveState(SceneData& data) const {

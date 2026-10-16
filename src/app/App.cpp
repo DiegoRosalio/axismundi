@@ -3,9 +3,13 @@
 #include "rendering/Labels.hpp"
 #include "ui/SceneIO.hpp"
 #include "ui/Widgets.hpp"
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
+#include "ui/core/Ui.hpp"
 
 #include <raylib.h>
 #include <raygui.h>
+#include <algorithm>
 
 namespace linalg {
 
@@ -21,9 +25,10 @@ bool isIdentity(const Matrix4D& m) {
 }
 
 void drawAxisLabels(const Camera3D& camera, float length) {
-    drawWorldLabel(camera, {length, 0, 0}, "X", 22, RED);
-    drawWorldLabel(camera, {0, length, 0}, "Y", 22, DARKGREEN);
-    drawWorldLabel(camera, {0, 0, length}, "Z", 22, BLUE);
+    const ui::Theme& t = ui::theme();
+    drawWorldLabel(camera, {length, 0, 0}, "x", t.axisX);
+    drawWorldLabel(camera, {0, length, 0}, "y", t.axisY);
+    drawWorldLabel(camera, {0, 0, length}, "z", t.axisZ);
 }
 
 } // namespace
@@ -33,6 +38,9 @@ App::App(const AppOptions& options) : m_options(options), m_grid(10, 1.0f) {
     InitWindow(options.width, options.height, "axismundi - Linear Algebra 3D Visualizer");
     SetWindowMinSize(800, 600);
     SetTargetFPS(60);
+    ui::init();
+    if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
+    else if (options.theme == "dark") ui::setTheme(ui::ThemeKind::Dark);
 
     if (!options.tourDir.empty()) m_tour = std::make_unique<Tour>(options.tourDir);
 
@@ -41,6 +49,7 @@ App::App(const AppOptions& options) : m_options(options), m_grid(10, 1.0f) {
 }
 
 App::~App() {
+    ui::shutdown();
     CloseWindow();
 }
 
@@ -59,6 +68,11 @@ void App::setUiMode(bool ui) {
 
 void App::showHelp(bool show) {
     if (show != m_help.visible()) m_help.toggle();
+}
+
+void App::toggleTheme() {
+    ui::toggleTheme();
+    m_plotPanel.markChanged();  // plot colors are baked into its geometry
 }
 
 void App::toast(const std::string& message, bool error) {
@@ -126,11 +140,12 @@ void App::run() {
 
         if (m_tour && !m_tour->advance(*this)) break;
 
+        ui::beginFrame();
         handleInput(deltaTime);
         update(deltaTime);
 
         BeginDrawing();
-            ClearBackground(RAYWHITE);
+            ClearBackground(ui::theme().background);
             drawScene();
             drawSceneLabels();
             drawUi(deltaTime);
@@ -189,6 +204,10 @@ void App::handleShortcuts(bool uiMode) {
     ViewSettings& view = m_viewPanel.settings();
     bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
 
+    if (ctrl && (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD))) ui::zoomIn();
+    if (ctrl && (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT))) ui::zoomOut();
+    if (ctrl && IsKeyPressed(KEY_ZERO)) ui::setZoom(1.0f);
+    if (IsKeyPressed(KEY_T)) toggleTheme();
     if (IsKeyPressed(KEY_H)) m_help.toggle();
     if (IsKeyPressed(KEY_G)) view.showGrid = !view.showGrid;
     if (IsKeyPressed(KEY_L)) view.showLabels = !view.showLabels;
@@ -237,15 +256,16 @@ void App::update(float deltaTime) {
     m_shown = m_animator.active() ? m_animator.current() : m_matrix;
     m_transformViz.setTransform4D(m_shown);
 
+    const ui::Theme& t = ui::theme();
     m_vectorRenderer.clearVectors();
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA, YELLOW, "A"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecB, MAGENTA, "B"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA + m_vecB, ORANGE, "A+B"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA.cross(m_vecB), SKYBLUE, "AxB"));
+    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA, t.vecA, "A"));
+    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecB, t.vecB, "B"));
+    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA + m_vecB, t.vecSum, "A+B"));
+    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA.cross(m_vecB), t.vecCross, "A×B"));
     if (view.showTransformedVectors && !isIdentity(m_shown)) {
         Vector3D origin = m_shown.transform(Vector3D::zero());
-        m_vectorRenderer.addVector(VectorObject(origin, m_shown.transform(m_vecA) - origin, GOLD, "MA"));
-        m_vectorRenderer.addVector(VectorObject(origin, m_shown.transform(m_vecB) - origin, PINK, "MB"));
+        m_vectorRenderer.addVector(VectorObject(origin, m_shown.transform(m_vecA) - origin, t.vecMA, "MA"));
+        m_vectorRenderer.addVector(VectorObject(origin, m_shown.transform(m_vecB) - origin, t.vecMB, "MB"));
     }
 
     if (m_plotPanel.changed()) {
@@ -309,34 +329,23 @@ void App::drawSceneLabels() {
 }
 
 void App::drawUi(float deltaTime) {
-    bool uiMode = !IsCursorHidden();
-
-    // HUD (drawn before the panels so they cover it on narrow windows)
-    int hudX = static_cast<int>(SideBar::kWidth) + 12;
-    if (uiMode) {
-        DrawText("UI mode: click fields to edit | TAB: camera | H: help", hudX, 12, kUiTextSmall, DARKGRAY);
-    } else {
-        DrawText("Camera: WASD + mouse, Space/Ctrl up/down | TAB: UI | H: help", hudX, 12, kUiTextSmall,
-                 DARKBLUE);
-    }
-    Vector3 p = m_camera.position();
-    DrawText(TextFormat("Camera position: (%.2f, %.2f, %.2f)", p.x, p.y, p.z), hudX, 38, kUiTextSmall, GRAY);
-    DrawFPS(hudX, 64);
+    drawHud();
 
     // Side bar
-    float y = m_sideBar.begin(m_mode);
+    Rectangle area = m_sideBar.begin();
+    float y = area.y;
     switch (m_mode) {
         case AppMode::LinearAlgebra:
-            y = m_inputPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth) + SideBar::kGap;
+            y = m_inputPanel.draw(area.x, y, area.width);
             break;
         case AppMode::Complex:
-            y = m_complexPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth) + SideBar::kGap;
+            y = m_complexPanel.draw(area.x, y, area.width);
             break;
         case AppMode::Plotting:
-            y = m_plotPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth, m_plotRenderer) + SideBar::kGap;
+            y = m_plotPanel.draw(area.x, y, area.width, m_plotRenderer);
             break;
     }
-    y = m_viewPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth, m_mode);
+    y = m_viewPanel.draw(area.x, y, area.width, m_mode);
     m_sideBar.end(y);
 
     if (m_viewPanel.takeResetCameraRequest()) m_camera.reset(m_mode);
@@ -345,28 +354,73 @@ void App::drawUi(float deltaTime) {
 
     if (m_mode == AppMode::LinearAlgebra) {
         m_infoPanel.draw();
-        float left = SideBar::kWidth + 10.0f;
-        float right = GetScreenWidth() - m_infoPanel.width() - 10.0f;
+        float left = SideBar::width();
+        float right = GetScreenWidth() - m_infoPanel.width();
         m_animationPanel.draw(m_animator, m_matrix, left, right);
     }
+
+    // The top bar is drawn last among the panels so dropdown-like content
+    // from the side bar never covers it
+    TopBarActions actions = m_topBar.draw(m_mode, m_help.visible());
+    if (actions.toggleTheme) toggleTheme();
+    if (actions.toggleHelp) m_help.toggle();
 
     drawToast(deltaTime);
     m_help.draw();
 }
 
+void App::drawHud() {
+    const ui::Theme& t = ui::theme();
+    bool uiMode = !IsCursorHidden();
+    float x = SideBar::width() + ui::px(16.0f);
+    float bottom = static_cast<float>(GetScreenHeight()) - ui::px(14.0f);
+    if (m_mode == AppMode::LinearAlgebra) {
+        // Keep clear of the animation bar
+        float left = SideBar::width();
+        float right = GetScreenWidth() - m_infoPanel.width();
+        Rectangle bar = AnimationPanel::bounds(left, right);
+        if (bar.x < x + ui::px(300.0f)) bottom = bar.y - ui::px(10.0f);
+    }
+
+    const char* modeText = uiMode ? "UI mode  ·  Tab: camera mode  ·  H: help"
+                                  : "Camera mode  ·  WASD move, mouse look  ·  Tab: UI mode";
+    Vector3 p = m_camera.position();
+    const char* camText = TextFormat("Camera (%.2f, %.2f, %.2f)  ·  %d FPS", p.x, p.y, p.z, GetFPS());
+
+    float lineH = ui::px(20.0f);
+    float w = std::max(ui::textWidth(modeText, ui::FontRole::Small), ui::textWidth(camText, ui::FontRole::Small));
+    Rectangle box = {x, bottom - 2 * lineH - ui::px(10.0f), w + ui::px(20.0f), 2 * lineH + ui::px(10.0f)};
+    ui::fillRounded(box, ui::px(8.0f), t.labelBg);
+    float tx = box.x + ui::px(10.0f);
+    // A small dot shows the input mode at a glance
+    DrawCircleV({tx + ui::px(3), box.y + ui::px(5) + lineH / 2}, ui::px(3.5f), uiMode ? t.accent : t.success);
+    ui::textIn({tx + ui::px(12), box.y + ui::px(5), w, lineH}, modeText, ui::FontRole::Small, t.text);
+    ui::textIn({tx, box.y + ui::px(5) + lineH, w, lineH}, camText, ui::FontRole::Small, t.textMuted);
+}
+
 void App::drawToast(float deltaTime) {
     if (m_toast.timeLeft <= 0.0f) return;
     m_toast.timeLeft -= deltaTime;
+    const ui::Theme& t = ui::theme();
 
-    Color color = m_toast.error ? MAROON : DARKGREEN;
-    int fontSize = 24;
-    int width = MeasureText(m_toast.text.c_str(), fontSize);
-    int x = (GetScreenWidth() - width) / 2;
-    int y = GetScreenHeight() - 180;
-    float alpha = m_toast.timeLeft < 0.5f ? m_toast.timeLeft / 0.5f : 1.0f;
-    DrawRectangle(x - 14, y - 10, width + 28, fontSize + 20, Fade(RAYWHITE, 0.95f * alpha));
-    DrawRectangleLines(x - 14, y - 10, width + 28, fontSize + 20, Fade(color, alpha));
-    DrawText(m_toast.text.c_str(), x, y, fontSize, Fade(color, alpha));
+    float alpha = m_toast.timeLeft < 0.4f ? m_toast.timeLeft / 0.4f : 1.0f;
+    float w = ui::textWidth(m_toast.text.c_str(), ui::FontRole::Body) + ui::px(56.0f);
+    float h = ui::px(42.0f);
+    float left = SideBar::width();
+    float right = static_cast<float>(GetScreenWidth()) - (m_mode == AppMode::LinearAlgebra ? m_infoPanel.width() : 0);
+    float bottom = static_cast<float>(GetScreenHeight()) - ui::px(24.0f);
+    if (m_mode == AppMode::LinearAlgebra) bottom = AnimationPanel::bounds(left, right).y - ui::px(14.0f);
+    Rectangle box = {left + (right - left - w) / 2, bottom - h, w, h};
+
+    Color accent = m_toast.error ? t.danger : t.success;
+    ui::shadow(box, ui::px(10), ui::px(10));
+    ui::fillRounded(box, ui::px(10), Fade(t.panel, alpha));
+    ui::strokeRounded(box, ui::px(10), ui::pxi(1), Fade(t.border, alpha));
+    float iconSize = ui::px(18.0f);
+    Rectangle icon = {box.x + ui::px(14), box.y + (h - iconSize) / 2, iconSize, iconSize};
+    ui::drawIcon(m_toast.error ? ui::Icon::Close : ui::Icon::Check, icon, Fade(accent, alpha));
+    ui::textIn({icon.x + iconSize + ui::px(10), box.y, w, h}, m_toast.text.c_str(), ui::FontRole::Body,
+               Fade(t.text, alpha));
 }
 
 } // namespace linalg

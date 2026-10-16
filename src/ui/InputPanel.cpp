@@ -1,5 +1,7 @@
 #include "ui/InputPanel.hpp"
 #include "ui/Widgets.hpp"
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
 #include <raygui.h>
 #include <algorithm>
 #include <cmath>
@@ -221,10 +223,9 @@ void InputPanel::setVectors(const Vector3D& a, const Vector3D& b) {
 // ---------------------------------------------------------------------------
 
 float InputPanel::draw(float x, float y, float width) {
-    setGuiTextSize(kUiTextLarge);
     int previous = m_activeField;
-    y = drawMatrixGroup(x, y, width) + 10.0f;
-    y = drawVectorGroup(x, y, width) + 10.0f;
+    y = drawMatrixGroup(x, y, width);
+    y = drawVectorGroup(x, y, width);
     y = drawPresetGroup(x, y, width);
 
     // Clicking straight into another field can move focus before the old
@@ -234,118 +235,100 @@ float InputPanel::draw(float x, float y, float width) {
 }
 
 float InputPanel::drawMatrixGroup(float x, float y, float width) {
-    const float pad = 15.0f;
-    float top = y;
-    float cx = x + pad;
-    float cy = y + 30.0f;
-    float inner = width - 2 * pad;
+    ui::Column col(x, y, width);
+    if (ui::sectionHeader(col.row(24), "Matrix", m_showMatrix)) {}
+    if (!m_showMatrix) return col.y() + ui::px(6.0f);
 
-    // 3x3 / 4x4 toggle
-    bool use4x4 = m_state.use4x4;
-    GuiToggle({cx, cy, 190, 40}, use4x4 ? "4x4 Matrix" : "3x3 Matrix", &use4x4);
-    if (use4x4 != m_state.use4x4) {
+    // 3x3 / 4x4 switch and undo / redo
+    Rectangle top = col.row(ui::kRowHeight);
+    Rectangle redoRect = ui::takeRight(top, ui::kRowHeight, 4.0f);
+    Rectangle undoRect = ui::takeRight(top, ui::kRowHeight, 8.0f);
+    top.width = std::min(top.width, ui::px(150.0f));
+    int size = m_state.use4x4 ? 1 : 0;
+    if (ui::segmented(top, {"3×3", "4×4"}, size)) {
         m_activeField = -1;
         m_state = m_committed;
-        m_state.use4x4 = use4x4;
+        m_state.use4x4 = (size == 1);
         commit();
     }
+    if (ui::iconButton(undoRect, ui::Icon::Undo, false, canUndo())) undo();
+    if (ui::iconButton(redoRect, ui::Icon::Redo, false, canRedo())) redo();
+    col.space(4.0f);
 
-    // Undo / redo
-    float btnW = (inner - 200) / 2.0f;
-    if (!canUndo()) GuiDisable();
-    if (GuiButton({cx + 200, cy, btnW - 5, 40}, "Undo")) undo();
-    GuiEnable();
-    if (!canRedo()) GuiDisable();
-    if (GuiButton({cx + 200 + btnW, cy, btnW - 5, 40}, "Redo")) redo();
-    GuiEnable();
-    cy += 55.0f;
-
+    // Cells
     int n = m_state.use4x4 ? 4 : 3;
-    float spacing = m_state.use4x4 ? 6.0f : 8.0f;
-    float cellW = (inner - (n - 1) * spacing) / n;
-    float cellH = m_state.use4x4 ? 46.0f : 50.0f;
-
+    float cellH = m_state.use4x4 ? 32.0f : 36.0f;
     for (int i = 0; i < n; i++) {
+        Rectangle row = col.row(cellH);
+        auto cells = n == 4 ? ui::splitRow(row, {1, 1, 1, 1}, 6.0f) : ui::splitRow(row, {1, 1, 1}, 6.0f);
         for (int j = 0; j < n; j++) {
             int id = i * n + j;
-            Rectangle rect = {cx + j * (cellW + spacing), cy + i * (cellH + spacing), cellW, cellH};
             char* text = fieldText(m_state, id);
-            if (textField(rect, text, kTextSize, id, m_activeField, !isValid(text))) {
-                finishField(id);
-            }
+            if (ui::textField(cells[j], text, kTextSize, id, m_activeField, !isValid(text))) finishField(id);
         }
     }
-    cy += n * (cellH + spacing) + 10.0f;
-
-    GuiGroupBox({x, top, width, cy - top}, "Matrix Transformation");
-    return cy;
+    col.space(10.0f);
+    return col.y();
 }
 
 float InputPanel::drawVectorGroup(float x, float y, float width) {
-    const float pad = 15.0f;
-    float top = y;
-    float cx = x + pad;
-    float cy = y + 25.0f;
-    float labelW = 40.0f;
-    float spacing = 8.0f;
-    float cellW = (width - 2 * pad - labelW - 2 * spacing) / 3.0f;
-    float cellH = 48.0f;
+    const ui::Theme& t = ui::theme();
+    ui::Column col(x, y, width);
+    ui::sectionHeader(col.row(24), "Vectors", m_showVectors);
+    if (!m_showVectors) return col.y() + ui::px(6.0f);
 
     // Column headers
+    Rectangle head = col.row(16);
+    ui::takeLeft(head, 28.0f, 6.0f);
+    auto heads = ui::splitRow(head, {1, 1, 1}, 6.0f);
     const char* axes[3] = {"x", "y", "z"};
-    for (int k = 0; k < 3; k++) {
-        GuiLabel({cx + labelW + k * (cellW + spacing) + cellW / 2 - 8, cy, 30, 28}, axes[k]);
-    }
-    cy += 30.0f;
+    for (int k = 0; k < 3; k++) ui::textIn(heads[k], axes[k], ui::FontRole::Small, t.textMuted, ui::Align::Center);
 
     const char* names[2] = {"A", "B"};
+    const Color colors[2] = {t.vecA, t.vecB};
     for (int v = 0; v < 2; v++) {
-        GuiLabel({cx, cy + 8, labelW, 32}, names[v]);
+        Rectangle row = col.row(36.0f);
+        Rectangle label = ui::takeLeft(row, 28.0f, 6.0f);
+        float dot = ui::px(8.0f);
+        DrawCircleV({label.x + dot / 2 + ui::px(2), label.y + label.height / 2}, dot / 2, colors[v]);
+        ui::textIn({label.x + dot + ui::px(6), label.y, label.width, label.height}, names[v],
+                   ui::FontRole::BodyStrong, t.text);
+        auto cells = ui::splitRow(row, {1, 1, 1}, 6.0f);
         for (int k = 0; k < 3; k++) {
             int id = kVectorFieldBase + v * 3 + k;
-            Rectangle rect = {cx + labelW + k * (cellW + spacing), cy, cellW, cellH};
             char* text = fieldText(m_state, id);
-            if (textField(rect, text, kTextSize, id, m_activeField, !isValid(text))) {
-                finishField(id);
-            }
+            if (ui::textField(cells[k], text, kTextSize, id, m_activeField, !isValid(text))) finishField(id);
         }
-        cy += cellH + spacing;
     }
-    cy += 8.0f;
-
-    GuiGroupBox({x, top, width, cy - top}, "Vectors");
-    return cy;
+    col.space(10.0f);
+    return col.y();
 }
 
 float InputPanel::drawPresetGroup(float x, float y, float width) {
-    const float pad = 15.0f;
-    float top = y;
-    float cx = x + pad;
-    float cy = y + 30.0f;
-    float btnW = (width - 2 * pad - 10.0f) / 2.0f;
-    float btnH = 48.0f;
+    ui::Column col(x, y, width);
+    ui::sectionHeader(col.row(24), "Presets", m_showPresets);
+    if (!m_showPresets) return col.y() + ui::px(6.0f);
 
-    struct Button { const char* label; MatrixPreset preset; };
+    struct Button { const char* label; const char* key; MatrixPreset preset; };
     const Button buttons[] = {
-        {"Identity [I]", MatrixPreset::Identity},
-        {"Rot 45 [R]", MatrixPreset::Rotate45Z},
-        {"Scale 2 [S]", MatrixPreset::Scale2},
-        {"Shear [X]", MatrixPreset::ShearX},
-        {"Reflect [F]", MatrixPreset::ReflectX},
+        {"Identity", "I", MatrixPreset::Identity},
+        {"Rotate 45°", "R", MatrixPreset::Rotate45Z},
+        {"Scale 2×", "S", MatrixPreset::Scale2},
+        {"Shear", "X", MatrixPreset::ShearX},
+        {"Reflect", "F", MatrixPreset::ReflectX},
     };
-
-    int count = static_cast<int>(sizeof(buttons) / sizeof(buttons[0]));
-    for (int i = 0; i < count; i++) {
-        float bx = cx + (i % 2) * (btnW + 10.0f);
-        float by = cy + (i / 2) * (btnH + 10.0f);
-        if (GuiButton({bx, by, btnW, btnH}, buttons[i].label)) {
-            applyPreset(buttons[i].preset);
+    const int count = static_cast<int>(sizeof(buttons) / sizeof(buttons[0]));
+    for (int i = 0; i < count; i += 2) {
+        auto cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
+        for (int k = 0; k < 2 && i + k < count; k++) {
+            const Button& b = buttons[i + k];
+            if (ui::button(cells[k], b.label, ui::ButtonKind::Secondary, true, ui::Icon::None, b.key)) {
+                applyPreset(b.preset);
+            }
         }
     }
-    cy += ((count + 1) / 2) * (btnH + 10.0f) + 5.0f;
-
-    GuiGroupBox({x, top, width, cy - top}, "Preset Transformations");
-    return cy;
+    col.space(10.0f);
+    return col.y();
 }
 
 // ---------------------------------------------------------------------------

@@ -9,8 +9,9 @@ using namespace linalg;
 namespace {
 
 void printUsage(const char* program) {
-    std::printf("usage: %s [--size WxH] [--tour OUTPUT_DIR]\n", program);
+    std::printf("usage: %s [--size WxH] [--theme dark|light] [--tour OUTPUT_DIR]\n", program);
     std::printf("  --size WxH     initial window size (default 1600x900)\n");
+    std::printf("  --theme NAME   start with the dark or light theme\n");
     std::printf("  --tour DIR     save screenshots of a scripted UI tour to DIR, then exit\n");
 }
 
@@ -27,6 +28,12 @@ int main(int argc, char** argv) {
                 options.height = h;
             } else {
                 std::fprintf(stderr, "invalid --size, expected WxH\n");
+                return 1;
+            }
+        } else if (std::strcmp(argv[i], "--theme") == 0 && i + 1 < argc) {
+            options.theme = argv[++i];
+            if (options.theme != "dark" && options.theme != "light") {
+                std::fprintf(stderr, "invalid --theme, expected dark or light\n");
                 return 1;
             }
         } else if (std::strcmp(argv[i], "--tour") == 0 && i + 1 < argc) {

@@ -1,5 +1,6 @@
 #include "rendering/PlotRenderer.hpp"
 #include "rendering/Labels.hpp"
+#include "ui/core/Theme.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -11,8 +12,6 @@ namespace {
 // Values beyond this are treated as off the chart (asymptotes, overflow)
 constexpr float kClip = 100.0f;
 
-const Color kCurveColor = DARKBLUE;
-const Color kSurfaceColor = {102, 191, 255, 230};
 
 bool usable(double v) {
     return std::isfinite(v) && std::fabs(v) <= kClip;
@@ -142,7 +141,7 @@ void PlotRenderer::buildFunction2D(const PlotSpec& spec, const Expression& f) {
         float x0 = spec.xMin + (spec.xMax - spec.xMin) * i / n;
         float x1 = spec.xMin + (spec.xMax - spec.xMin) * (i + 1) / n;
         Color c = spec.heatmap ? heatColor(normalize((ys[i] + ys[i + 1]) / 2, m_minValue, m_maxValue))
-                               : kCurveColor;
+                               : ui::theme().curve;
         m_curve.push_back({{x0, ys[i], 0.0f}, {x1, ys[i + 1], 0.0f}, c});
     }
 }
@@ -172,7 +171,7 @@ void PlotRenderer::buildParametric(const PlotSpec& spec, const Expression& ex, c
         const Sample& b = pts[i + 1];
         if (!a.ok || !b.ok) continue;
         // Color by height (math z)
-        Color c = spec.heatmap ? heatColor(normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : kCurveColor;
+        Color c = spec.heatmap ? heatColor(normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : ui::theme().curve;
         m_curve.push_back({mathToWorld(a.x, a.y, a.z), mathToWorld(b.x, b.y, b.z), c});
     }
 }
@@ -209,7 +208,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
 
             Vector3 p00 = point(i, j), p10 = point(i + 1, j), p11 = point(i + 1, j + 1), p01 = point(i, j + 1);
             float avg = (z[idx(i, j)] + z[idx(i + 1, j)] + z[idx(i + 1, j + 1)] + z[idx(i, j + 1)]) / 4.0f;
-            Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : kSurfaceColor;
+            Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : ui::theme().surface;
 
             // Both windings so the surface is visible from above and below
             m_triangles.push_back({p00, p10, p11, c});
@@ -217,7 +216,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
             m_triangles.push_back({p00, p11, p10, c});
             m_triangles.push_back({p00, p01, p11, c});
 
-            Color wire = Fade(BLACK, 0.25f);
+            Color wire = Fade(ui::theme().dark ? BLACK : WHITE, 0.3f);
             if (j % wireStep == 0) m_wireframe.push_back({p00, p10, wire});
             if (i % wireStep == 0) m_wireframe.push_back({p00, p01, wire});
             if (j + 1 == n) m_wireframe.push_back({p01, p11, wire});
@@ -288,7 +287,7 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
                 };
             };
             auto emit = [&](int e0, int e1) {
-                m_curve.push_back({edgePoint(e0), edgePoint(e1), kCurveColor});
+                m_curve.push_back({edgePoint(e0), edgePoint(e1), ui::theme().curve});
             };
 
             double center = (c[0] + c[1] + c[2] + c[3]) / 4.0;
@@ -321,26 +320,28 @@ void PlotRenderer::draw() const {
 
 void PlotRenderer::drawAxes(float length) const {
     // Math axes: x red, y green, z blue (3D) — mapped to world space
+    const ui::Theme& t = ui::theme();
     Vector3 o = {0, 0, 0};
     if (is3D()) {
-        DrawCylinderEx(o, mathToWorld(length, 0, 0), 0.02f, 0.02f, 6, RED);
-        DrawCylinderEx(o, mathToWorld(0, length, 0), 0.02f, 0.02f, 6, GREEN);
-        DrawCylinderEx(o, mathToWorld(0, 0, length), 0.02f, 0.02f, 6, BLUE);
+        DrawCylinderEx(o, mathToWorld(length, 0, 0), 0.02f, 0.02f, 6, t.axisX);
+        DrawCylinderEx(o, mathToWorld(0, length, 0), 0.02f, 0.02f, 6, t.axisY);
+        DrawCylinderEx(o, mathToWorld(0, 0, length), 0.02f, 0.02f, 6, t.axisZ);
     } else {
-        DrawCylinderEx({-length, 0, 0}, {length, 0, 0}, 0.02f, 0.02f, 6, RED);
-        DrawCylinderEx({0, -length, 0}, {0, length, 0}, 0.02f, 0.02f, 6, GREEN);
+        DrawCylinderEx({-length, 0, 0}, {length, 0, 0}, 0.02f, 0.02f, 6, t.axisX);
+        DrawCylinderEx({0, -length, 0}, {0, length, 0}, 0.02f, 0.02f, 6, t.axisY);
     }
 }
 
 void PlotRenderer::drawLabels(const Camera3D& camera, float axisLength, bool showAxes) const {
     if (!showAxes) return;
+    const ui::Theme& t = ui::theme();
     if (is3D()) {
-        drawWorldLabel(camera, mathToWorld(axisLength, 0, 0), "x", 22, RED);
-        drawWorldLabel(camera, mathToWorld(0, axisLength, 0), "y", 22, DARKGREEN);
-        drawWorldLabel(camera, mathToWorld(0, 0, axisLength), "z", 22, BLUE);
+        drawWorldLabel(camera, mathToWorld(axisLength, 0, 0), "x", t.axisX);
+        drawWorldLabel(camera, mathToWorld(0, axisLength, 0), "y", t.axisY);
+        drawWorldLabel(camera, mathToWorld(0, 0, axisLength), "z", t.axisZ);
     } else {
-        drawWorldLabel(camera, {axisLength, 0, 0}, "x", 22, RED);
-        drawWorldLabel(camera, {0, axisLength, 0}, "y", 22, DARKGREEN);
+        drawWorldLabel(camera, {axisLength, 0, 0}, "x", t.axisX);
+        drawWorldLabel(camera, {0, axisLength, 0}, "y", t.axisY);
     }
 }
 

@@ -1,6 +1,7 @@
 #include "ui/AnimationPanel.hpp"
 #include "ui/Widgets.hpp"
-#include <raygui.h>
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <sstream>
@@ -8,94 +9,88 @@
 
 namespace linalg {
 
-void AnimationPanel::draw(Animator& animator, const Matrix4D& inputMatrix, float left, float right) {
-    const float minWidth = 640.0f;
-    float screenW = static_cast<float>(GetScreenWidth());
+Rectangle AnimationPanel::bounds(float left, float right) {
     float screenH = static_cast<float>(GetScreenHeight());
+    float margin = ui::px(12.0f);
+    float width = std::min(ui::px(kWidthDesign), right - left - 2 * margin);
+    width = std::max(width, std::min(ui::px(420.0f), static_cast<float>(GetScreenWidth()) - left - margin));
+    float height = ui::px(kHeightDesign);
+    float x = left + std::max(margin, (right - left - width) / 2.0f);
+    return {x, screenH - height - margin, width, height};
+}
 
-    // Use the space between the panels, widening over the info panel if needed
-    float width = right - left;
-    if (width < minWidth) width = std::min(minWidth, screenW - left - 10.0f);
-    Rectangle bar = {left, screenH - kHeight - 10.0f, width, kHeight};
+void AnimationPanel::draw(Animator& animator, const Matrix4D& inputMatrix, float left, float right) {
+    const ui::Theme& t = ui::theme();
+    Rectangle bar = bounds(left, right);
+    ui::card(bar);
 
-    DrawRectangleRec(bar, Fade(RAYWHITE, 0.92f));
-    DrawRectangleLinesEx(bar, 1.0f, GRAY);
-    setGuiTextSize(kUiTextSmall);
-
-    float x = bar.x + 10.0f;
-    float y = bar.y + 10.0f;
-    const float h = 36.0f;
+    ui::Column col(bar.x + ui::px(12.0f), bar.y + ui::px(10.0f), bar.width - ui::px(24.0f), 8.0f);
 
     // Row 1: transport controls and timeline
-    const char* playLabel = animator.playing() ? "Pause [P]" : "Play [P]";
-    if (GuiButton({x, y, 110, h}, playLabel)) {
+    Rectangle row = col.row(32.0f);
+    Rectangle play = ui::takeLeft(row, 32.0f, 4.0f);
+    Rectangle stop = ui::takeLeft(row, 32.0f, 4.0f);
+    Rectangle loop = ui::takeLeft(row, 32.0f, 12.0f);
+    Rectangle timeText = ui::takeRight(row, 56.0f, 10.0f);
+
+    if (ui::iconButton(play, animator.playing() ? ui::Icon::Pause : ui::Icon::Play, animator.playing())) {
         if (animator.active()) animator.togglePlay();
         else animator.start(AnimationPreset::Morph);
     }
-    if (!animator.active()) GuiDisable();
-    if (GuiButton({x + 118, y, 70, h}, "Stop")) animator.stop();
-    GuiEnable();
+    if (ui::iconButton(stop, ui::Icon::Stop, false, animator.active())) animator.stop();
+    if (ui::iconButton(loop, ui::Icon::Loop, animator.loop())) animator.setLoop(!animator.loop());
 
-    bool loop = animator.loop();
-    GuiCheckBox({x + 200, y + 8, 20, 20}, "Loop", &loop);
-    animator.setLoop(loop);
-
-    float t = animator.time();
-    char timeText[32];
-    snprintf(timeText, sizeof(timeText), "t = %.2f", t);
-    float sliderX = x + 290;
-    float sliderW = bar.x + bar.width - sliderX - 100;
-    if (!animator.active()) GuiDisable();
-    GuiSlider({sliderX, y + 4, sliderW, h - 8}, nullptr, timeText, &t, 0.0f, 1.0f);
-    GuiEnable();
-    if (t != animator.time()) animator.setTime(t);
+    float tValue = animator.time();
+    if (animator.active()) {
+        if (ui::slider(row, tValue, 0.0f, 1.0f)) animator.setTime(tValue);
+    } else {
+        ui::textIn(row, "Pick an animation below, or press P to morph to your matrix",
+                   ui::FontRole::Small, t.textMuted);
+    }
+    char buf[48];
+    snprintf(buf, sizeof(buf), "t %.2f", tValue);
+    ui::textIn(timeText, buf, ui::FontRole::Mono, animator.active() ? t.text : t.textFaint, ui::Align::Right);
 
     // Row 2: presets, keyframes, speed
-    y += h + 12.0f;
-    struct PresetButton { const char* label; AnimationPreset preset; };
-    const PresetButton presets[] = {
-        {"Rotate", AnimationPreset::Rotation},
-        {"Scale", AnimationPreset::Scaling},
-        {"Morph", AnimationPreset::Morph},
-    };
-    float bx = x;
-    for (const auto& p : presets) {
-        bool current = animator.preset() == p.preset;
-        if (current) GuiSetState(STATE_PRESSED);
-        if (GuiButton({bx, y, 80, h}, p.label)) animator.start(p.preset);
-        GuiSetState(STATE_NORMAL);
-        bx += 86.0f;
+    row = col.row(32.0f);
+    Rectangle presets = ui::takeLeft(row, 250.0f, 10.0f);
+    int active = -1;
+    switch (animator.preset()) {
+        case AnimationPreset::Rotation: active = 0; break;
+        case AnimationPreset::Scaling:  active = 1; break;
+        case AnimationPreset::Morph:    active = 2; break;
+        default: break;
+    }
+    int chosen = active;
+    if (ui::segmented(presets, {"Rotate", "Scale", "Morph"}, chosen) || (chosen >= 0 && chosen != active)) {
+        const AnimationPreset map[3] = {AnimationPreset::Rotation, AnimationPreset::Scaling, AnimationPreset::Morph};
+        animator.start(map[chosen]);
     }
 
-    bx += 8.0f;
-    if (GuiButton({bx, y, 80, h}, "+ Key")) {
+    Rectangle addKey = ui::takeLeft(row, 76.0f, 4.0f);
+    Rectangle clear = ui::takeLeft(row, 32.0f, 8.0f);
+    if (ui::button(addKey, "Key", ui::ButtonKind::Secondary, true, ui::Icon::Plus)) {
         animator.addKeyframe(inputMatrix);
         if (animator.keyframes().size() >= 2 && animator.preset() != AnimationPreset::Keyframes) {
             animator.start(AnimationPreset::Keyframes);
         }
     }
-    bx += 86.0f;
-    if (animator.keyframes().empty()) GuiDisable();
-    if (GuiButton({bx, y, 70, h}, "Clear")) animator.clearKeyframes();
-    GuiEnable();
-    bx += 76.0f;
+    if (ui::iconButton(clear, ui::Icon::Close, false, !animator.keyframes().empty())) animator.clearKeyframes();
 
-    char keyText[32];
-    snprintf(keyText, sizeof(keyText), "%zu keys", animator.keyframes().size());
+    Rectangle keyText = ui::takeLeft(row, 56.0f, 10.0f);
+    snprintf(buf, sizeof(buf), "%zu key%s", animator.keyframes().size(), animator.keyframes().size() == 1 ? "" : "s");
     bool keysActive = animator.preset() == AnimationPreset::Keyframes;
-    DrawText(keyText, static_cast<int>(bx), static_cast<int>(y + 9), kUiTextSmall, keysActive ? DARKBLUE : GRAY);
-    bx += 80.0f;
+    ui::textIn(keyText, buf, ui::FontRole::Small, keysActive ? t.accent : t.textMuted);
 
-    float speed = animator.speed();
-    char speedText[32];
-    snprintf(speedText, sizeof(speedText), "%.1fx", speed);
-    float speedW = bar.x + bar.width - bx - 60.0f;
-    if (speedW > 60.0f) {
-        GuiSlider({bx, y + 4, speedW, h - 8}, nullptr, speedText, &speed, 0.1f, 4.0f);
-        animator.setSpeed(speed);
+    if (row.width > ui::px(120.0f)) {
+        Rectangle speedLabel = ui::takeLeft(row, 44.0f, 6.0f);
+        Rectangle speedValue = ui::takeRight(row, 34.0f, 6.0f);
+        ui::textIn(speedLabel, "Speed", ui::FontRole::Small, t.textMuted);
+        float speed = animator.speed();
+        if (ui::slider(row, speed, 0.1f, 4.0f)) animator.setSpeed(speed);
+        snprintf(buf, sizeof(buf), "%.1f×", animator.speed());
+        ui::textIn(speedValue, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
     }
-
-    setGuiTextSize(kUiTextLarge);
 }
 
 void AnimationPanel::saveState(const Animator& animator, SceneData& data) {

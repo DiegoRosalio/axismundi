@@ -36,6 +36,8 @@ private:
     char m_text[kFieldCount][kTextSize];
     int m_activeField;
     bool m_animateTheta;
+    bool m_showNumbers = true;
+    bool m_showEuler = true;
 };
 
 } // namespace linalg

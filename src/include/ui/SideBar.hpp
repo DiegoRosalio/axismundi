@@ -1,26 +1,20 @@
 #pragma once
 
-#include "ui/AppMode.hpp"
+#include <raylib.h>
 
 namespace linalg {
 
-// Left column: a fixed mode selector on top and a scrollable area below it.
+// Left column below the top bar: a themed background with a scrollable area.
 //
-//   float y = sideBar.begin(mode);
-//   y = somePanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth) + SideBar::kGap;
+//   Rectangle area = sideBar.begin();          // area.y already includes scrolling
+//   float y = somePanel.draw(area.x, area.y, area.width);
 //   sideBar.end(y);
 class SideBar {
 public:
-    static constexpr float kWidth = 470.0f;
-    static constexpr float kPanelX = 10.0f;
-    static constexpr float kPanelWidth = 450.0f;
-    static constexpr float kGap = 10.0f;
+    static float width();   // pixels
+    static float top();     // pixels (bottom of the top bar)
 
-    // Draws the background and mode selector, starts clipping, and returns
-    // the (scrolled) y where content should begin.
-    float begin(AppMode& mode);
-
-    // Ends clipping; `contentBottom` is the y returned by the last panel.
+    Rectangle begin();
     void end(float contentBottom);
 
     bool containsMouse() const;
@@ -28,7 +22,6 @@ public:
 private:
     float m_scroll = 0.0f;
     float m_contentHeight = 0.0f;
-    float m_viewTop = 0.0f;
 };
 
 } // namespace linalg

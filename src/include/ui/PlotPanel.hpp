@@ -21,6 +21,7 @@ public:
 
     bool changed() const { return m_changed; }
     void clearChanged() { m_changed = false; }
+    void markChanged() { m_changed = true; }
 
     bool isEditing() const { return m_activeField >= 0; }
     void finishEditing();
@@ -42,7 +43,7 @@ private:
     void loadExample();
     void syncRangeText();
 
-    float drawRange(float x, float y, float inner, const char* name, Range lo, Range hi);
+    float drawRange(float x, float y, float width, const char* name, Range lo, Range hi);
 
     int m_type;
     // Expressions per plot type (kept separately so switching types keeps them)
@@ -59,6 +60,7 @@ private:
     int m_exampleIndex[kPlotTypeCount];
     int m_activeField;
     bool m_changed;
+    bool m_expanded = true;
 };
 
 } // namespace linalg

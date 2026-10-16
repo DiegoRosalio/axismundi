@@ -39,6 +39,7 @@ private:
     bool m_resetCamera = false;
     bool m_save = false;
     bool m_load = false;
+    bool m_expanded = true;
 };
 
 } // namespace linalg

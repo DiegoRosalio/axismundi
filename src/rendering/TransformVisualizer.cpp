@@ -2,6 +2,7 @@
 #include <raylib.h>
 #include <raymath.h>
 #include "rendering/Labels.hpp"
+#include "ui/core/Theme.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include <cmath>
 #include <cstdio>
@@ -27,7 +28,10 @@ void TransformVisualizer::setTransform4D(const Matrix4D& mat) {
 void TransformVisualizer::draw() const {
     // Draw original basis (semi-transparent)
     Basis original;
-    drawBasis(original, 0.5f);
+    original.xColor = ui::theme().axisX;
+    original.yColor = ui::theme().axisY;
+    original.zColor = ui::theme().axisZ;
+    drawBasis(original, 0.45f);
 
     if (!m_showTransformed) return;
 
@@ -45,16 +49,17 @@ void TransformVisualizer::draw() const {
         transformed.zAxis = m_matrix3D.transform(Vector3D(0, 0, 1));
     }
 
-    // Use different colors for transformed basis
-    transformed.xColor = ColorAlpha(ORANGE, 1.0f);
-    transformed.yColor = ColorAlpha(LIME, 1.0f);
-    transformed.zColor = ColorAlpha(SKYBLUE, 1.0f);
+    // Transformed basis colors
+    const ui::Theme& t = ui::theme();
+    transformed.xColor = t.basisX;
+    transformed.yColor = t.basisY;
+    transformed.zColor = t.basisZ;
 
     drawBasis(transformed, 1.0f);
 }
 
 void TransformVisualizer::drawEigenvectors(const EigenResult& eigen, float extent) {
-    const Color color = PURPLE;
+    const Color color = ui::theme().eigen;
     for (const auto& ev : eigen.values) {
         if (!ev.isReal() || !ev.hasVector) continue;
         Vector3D v = ev.vector;
@@ -79,8 +84,8 @@ void TransformVisualizer::drawEigenLabels(const Camera3D& camera, const EigenRes
         if (!ev.isReal() || !ev.hasVector) continue;
         Vector3D lv = ev.vector * ev.re;
         char text[48];
-        snprintf(text, sizeof(text), "lambda = %.2f", ev.re);
-        drawWorldLabel(camera, {lv.x, lv.y, lv.z}, text, 20, PURPLE, {8.0f, 14.0f});
+        snprintf(text, sizeof(text), "λ = %.2f", ev.re);
+        drawWorldLabel(camera, {lv.x, lv.y, lv.z}, text, ui::theme().eigen, {8.0f, 14.0f});
     }
 }
 
@@ -110,7 +115,7 @@ void TransformVisualizer::drawBasis(const Basis& basis, float alpha) const {
     DrawSphere(zEndVec, 0.1f, zCol);
 
     // Draw origin sphere
-    DrawSphere(origin, 0.08f, ColorAlpha(WHITE, alpha));
+    DrawSphere(origin, 0.07f, ColorAlpha(ui::theme().text, alpha));
 }
 
 } // namespace linalg

@@ -3,6 +3,7 @@
 #include "animation/Animator.hpp"
 #include "math/Matrix4D.hpp"
 #include "ui/SceneIO.hpp"
+#include <raylib.h>
 
 namespace linalg {
 
@@ -10,11 +11,13 @@ namespace linalg {
 // scrubber, speed, animation presets and keyframe capture.
 class AnimationPanel {
 public:
-    // `left`/`right` are the free horizontal span between the side panels.
-    // `inputMatrix` is captured by "+ Key".
+    // `left`/`right` (pixels) are the free horizontal span between the side
+    // panels; the card is centered there. `inputMatrix` is captured by "+ Key".
     void draw(Animator& animator, const Matrix4D& inputMatrix, float left, float right);
+    static Rectangle bounds(float left, float right);
 
-    static constexpr float kHeight = 104.0f;
+    static constexpr float kWidthDesign = 660.0f;
+    static constexpr float kHeightDesign = 92.0f;
 
     static void saveState(const Animator& animator, SceneData& data);
     static void loadState(Animator& animator, const SceneData& data);

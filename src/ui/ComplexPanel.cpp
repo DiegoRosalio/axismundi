@@ -1,6 +1,7 @@
 #include "ui/ComplexPanel.hpp"
 #include "ui/Widgets.hpp"
-#include <raygui.h>
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -9,12 +10,19 @@ namespace linalg {
 
 namespace {
 
-void drawLine(const std::string& text, float x, float& y, Color color = {40, 40, 40, 255}) {
-    DrawText(text.c_str(), static_cast<int>(x), static_cast<int>(y), kUiTextSmall, color);
-    y += 26.0f;
+float degrees(float radians) { return radians * 180.0f / PI; }
+
+std::string rect(const Complex& z) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%.2f %c %.2fi", z.re, z.im < 0 ? '-' : '+', std::fabs(z.im));
+    return buf;
 }
 
-float degrees(float radians) { return radians * 180.0f / PI; }
+std::string polar(const Complex& z) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "|z| %.2f  arg %.1f°", z.abs(), degrees(z.arg()));
+    return buf;
+}
 
 } // namespace
 
@@ -75,88 +83,111 @@ void ComplexPanel::update(float deltaTime) {
 }
 
 float ComplexPanel::draw(float x, float y, float width) {
-    setGuiTextSize(kUiTextLarge);
-    const float pad = 15.0f;
-    float inner = width - 2 * pad;
-    float cx = x + pad;
+    const ui::Theme& t = ui::theme();
     int previous = m_activeField;
-
-    // --- Complex numbers ---------------------------------------------------
-    float top = y;
-    float cy = y + 30.0f;
-    float labelW = 50.0f;
-    float boxW = (inner - labelW - 60.0f) / 2.0f;
-
-    const char* names[2] = {"z1", "z2"};
-    for (int row = 0; row < 2; row++) {
-        GuiLabel({cx, cy + 8, labelW, 32}, names[row]);
-        for (int part = 0; part < 2; part++) {
-            int id = row * 2 + part;
-            float bx = cx + labelW + part * (boxW + 30.0f);
-            float dummy;
-            bool invalid = !parseNumber(m_text[id], dummy);
-            if (textField({bx, cy, boxW, 48}, m_text[id], kTextSize, id, m_activeField, invalid)) {
-                finishField(id);
-            }
-        }
-        GuiLabel({cx + labelW + boxW + 6, cy + 8, 24, 32}, "+");
-        GuiLabel({cx + labelW + 2 * boxW + 36, cy + 8, 24, 32}, "i");
-        cy += 58.0f;
-    }
-
-    const Complex& z1 = m_scene.z1;
-    const Complex& z2 = m_scene.z2;
-    Complex p = z1 * z2;
-
-    cy += 4.0f;
-    drawLine("z1 = " + z1.toRectString(), cx, cy);
-    drawLine("   = " + z1.toPolarString(), cx, cy, GRAY);
-    drawLine("z2 = " + z2.toRectString(), cx, cy);
-    drawLine("   = " + z2.toPolarString(), cx, cy, GRAY);
-    drawLine("z1 z2 = " + p.toRectString(), cx, cy, ColorBrightness(ORANGE, -0.3f));
-    drawLine("      = " + p.toPolarString(), cx, cy, GRAY);
-    cy += 6.0f;
-
+    ui::Column col(x, y, width);
     char buf[128];
-    drawLine("Multiplying = rotate + scale:", cx, cy, DARKBLUE);
-    snprintf(buf, sizeof(buf), "|z1 z2| = %.2f x %.2f = %.2f", z1.abs(), z2.abs(), p.abs());
-    drawLine(buf, cx, cy);
-    snprintf(buf, sizeof(buf), "arg: %.1f + %.1f = %.1f deg", degrees(z1.arg()), degrees(z2.arg()),
-             degrees(z1.arg() + z2.arg()));
-    drawLine(buf, cx, cy);
-    cy += 8.0f;
 
-    GuiCheckBox({cx, cy, 28, 28}, "Show z1 z2 and angles", &m_scene.showProduct);
-    cy += 45.0f;
+    // --- Numbers -----------------------------------------------------------
+    ui::sectionHeader(col.row(24), "Complex numbers", m_showNumbers);
+    if (m_showNumbers) {
+        const char* names[2] = {"z₁", "z₂"};
+        const Color colors[2] = {t.z1, t.z2};
+        for (int row = 0; row < 2; row++) {
+            Rectangle r = col.row(36.0f);
+            Rectangle label = ui::takeLeft(r, 34.0f, 6.0f);
+            float dot = ui::px(8.0f);
+            DrawCircleV({label.x + dot / 2 + ui::px(2), label.y + label.height / 2}, dot / 2, colors[row]);
+            ui::textIn({label.x + dot + ui::px(6), label.y, label.width, label.height}, names[row],
+                       ui::FontRole::BodyStrong, t.text);
+            Rectangle iLabel = ui::takeRight(r, 12.0f, 4.0f);
+            auto cells = ui::splitRow(r, {1, 1}, 22.0f);
+            for (int part = 0; part < 2; part++) {
+                int id = row * 2 + part;
+                float dummy;
+                bool invalid = !parseNumber(m_text[id], dummy);
+                if (ui::textField(cells[part], m_text[id], kTextSize, id, m_activeField, invalid)) finishField(id);
+            }
+            ui::textIn({cells[0].x + cells[0].width, r.y, ui::px(22.0f), r.height}, "+", ui::FontRole::Body,
+                       t.textMuted, ui::Align::Center);
+            ui::textIn(iLabel, "i", ui::FontRole::Body, t.textMuted, ui::Align::Left);
+        }
 
-    GuiGroupBox({x, top, width, cy - top}, "Complex Numbers");
-    y = cy + 10.0f;
+        const Complex& z1 = m_scene.z1;
+        const Complex& z2 = m_scene.z2;
+        Complex p = z1 * z2;
+
+        // Results block
+        col.space(2.0f);
+        float lineH = ui::px(21.0f);
+        float blockH = 6 * lineH + ui::px(16.0f);
+        Rectangle block = col.rowPx(blockH);
+        ui::fillRounded(block, ui::px(ui::kRadius), t.panelAlt);
+        Rectangle inner = ui::inset(block, 8.0f);
+        struct Line { std::string a, b; Color color; };
+        const Line lines[3] = {
+            {"z₁ = " + rect(z1), polar(z1), t.z1},
+            {"z₂ = " + rect(z2), polar(z2), t.z2},
+            {"z₁z₂ = " + rect(p), polar(p), t.zProduct},
+        };
+        float ly = inner.y;
+        for (const auto& l : lines) {
+            DrawCircleV({inner.x + ui::px(3), ly + lineH / 2}, ui::px(3), l.color);
+            ui::text(l.a.c_str(), inner.x + ui::px(12), ly + ui::px(2), ui::FontRole::Mono, t.text);
+            ly += lineH;
+            ui::text(l.b.c_str(), inner.x + ui::px(12), ly + ui::px(2), ui::FontRole::Mono, t.textMuted);
+            ly += lineH;
+        }
+
+        col.space(2.0f);
+        ui::textIn(col.row(20), "Multiplying rotates and scales:", ui::FontRole::Small, t.textMuted);
+        snprintf(buf, sizeof(buf), "|z₁z₂| = %.2f × %.2f = %.2f", z1.abs(), z2.abs(), p.abs());
+        ui::textIn(col.row(20), buf, ui::FontRole::Body, t.text);
+        snprintf(buf, sizeof(buf), "arg = %.1f° + %.1f° = %.1f°", degrees(z1.arg()), degrees(z2.arg()),
+                 degrees(z1.arg() + z2.arg()));
+        ui::textIn(col.row(20), buf, ui::FontRole::Body, t.text);
+        col.space(2.0f);
+        ui::toggleRow(col.row(30), "Show product and angles", m_scene.showProduct);
+        col.space(10.0f);
+    }
 
     // Focus moved straight to another field: validate the old one too
     if (previous >= 0 && m_activeField != previous) finishField(previous);
 
     // --- Euler's formula -------------------------------------------------
-    top = y;
-    cy = y + 30.0f;
-    GuiCheckBox({cx, cy, 28, 28}, "Show", &m_scene.showEuler);
-    GuiCheckBox({cx + inner / 2, cy, 28, 28}, "Animate", &m_animateTheta);
-    cy += 45.0f;
+    ui::sectionHeader(col.row(24), "Euler's formula", m_showEuler);
+    if (m_showEuler) {
+        ui::toggleRow(col.row(30), "Show e^(iθ)", m_scene.showEuler);
+        ui::toggleRow(col.row(30), "Animate θ", m_animateTheta);
 
-    snprintf(buf, sizeof(buf), "%.2f", m_scene.theta);
-    GuiLabel({cx, cy, 40, 32}, "t");
-    GuiSlider({cx + 40, cy, inner - 120, 32}, nullptr, buf, &m_scene.theta, 0.0f, 2.0f * PI);
-    cy += 45.0f;
+        Rectangle r = col.row(30);
+        Rectangle label = ui::takeLeft(r, 20.0f, 8.0f);
+        Rectangle value = ui::takeRight(r, 64.0f, 8.0f);
+        ui::textIn(label, "θ", ui::FontRole::BodyStrong, t.text);
+        ui::slider(r, m_scene.theta, 0.0f, 2.0f * PI);
+        snprintf(buf, sizeof(buf), "%.2f rad", m_scene.theta);
+        ui::textIn(value, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
 
-    float c = std::cos(m_scene.theta), s = std::sin(m_scene.theta);
-    drawLine("e^(i t) = cos t + i sin t", cx, cy, DARKBLUE);
-    snprintf(buf, sizeof(buf), "        = %.3f %c %.3fi", c, s < 0 ? '-' : '+', std::fabs(s));
-    drawLine(buf, cx, cy);
-    drawLine("t = pi gives e^(i pi) = -1", cx, cy, GRAY);
-    drawLine("Blue helix: e^(it) with t along Z", cx, cy, GRAY);
-    cy += 8.0f;
+        float c = std::cos(m_scene.theta), sn = std::sin(m_scene.theta);
+        float lineH = ui::px(21.0f);
+        Rectangle block = col.rowPx(3 * lineH + ui::px(16.0f));
+        ui::fillRounded(block, ui::px(ui::kRadius), t.panelAlt);
+        Rectangle inner = ui::inset(block, 8.0f);
+        ui::text("e^(iθ) = cos θ + i sin θ", inner.x, inner.y + ui::px(2), ui::FontRole::Mono, t.euler);
+        snprintf(buf, sizeof(buf), "       = %.3f %c %.3fi", c, sn < 0 ? '-' : '+', std::fabs(sn));
+        ui::text(buf, inner.x, inner.y + lineH + ui::px(2), ui::FontRole::Mono, t.text);
+        snprintf(buf, sizeof(buf), "θ = %.1f°", degrees(m_scene.theta));
+        ui::text(buf, inner.x, inner.y + 2 * lineH + ui::px(2), ui::FontRole::Mono, t.textMuted);
 
-    GuiGroupBox({x, top, width, cy - top}, "Euler's Formula");
-    return cy;
+        col.space(2.0f);
+        float h = ui::textWrapped({col.x(), col.y(), col.width(), 0},
+                                  "θ = π gives e^(iπ) = −1. The helix shows e^(it) with t rising along Z: "
+                                  "seen from the front it is the unit circle.",
+                                  ui::FontRole::Small, t.textMuted);
+        col.space(h / ui::scale());
+        col.space(10.0f);
+    }
+    return col.y();
 }
 
 void ComplexPanel::saveState(SceneData& data) const {

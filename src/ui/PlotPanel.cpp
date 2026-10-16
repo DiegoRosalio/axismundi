@@ -1,6 +1,7 @@
 #include "ui/PlotPanel.hpp"
 #include "ui/Widgets.hpp"
-#include <raygui.h>
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -51,10 +52,6 @@ const Example kImplicitExamples[] = {
 template <size_t N>
 int count(const Example (&)[N]) { return static_cast<int>(N); }
 
-void drawText(const std::string& text, float x, float& y, Color color) {
-    DrawText(text.c_str(), static_cast<int>(x), static_cast<int>(y), kUiTextSmall, color);
-    y += 26.0f;
-}
 
 } // namespace
 
@@ -218,122 +215,126 @@ void PlotPanel::setSpec(const PlotSpec& s) {
     m_changed = true;
 }
 
-float PlotPanel::drawRange(float x, float y, float inner, const char* name, Range lo, Range hi) {
-    float labelW = 40.0f, toW = 50.0f;
-    float boxW = (inner - labelW - toW) / 2.0f;
-    GuiLabel({x, y + 8, labelW, 32}, name);
+float PlotPanel::drawRange(float x, float y, float width, const char* name, Range lo, Range hi) {
+    const ui::Theme& t = ui::theme();
+    ui::Column col(x, y, width);
+    Rectangle r = col.row(34.0f);
+    Rectangle label = ui::takeLeft(r, 34.0f, 6.0f);
+    ui::textIn(label, name, ui::FontRole::Body, t.textMuted);
+    auto cells = ui::splitRow(r, {1, 1}, 30.0f);
     Range ids[2] = {lo, hi};
     for (int k = 0; k < 2; k++) {
-        int r = ids[k];
-        float bx = x + labelW + k * (boxW + toW);
+        int idx = ids[k];
         float dummy;
-        bool invalid = !parseNumber(m_rangeText[r], dummy);
-        if (textField({bx, y, boxW, 44}, m_rangeText[r], kNumSize, kRangeBase + r, m_activeField, invalid)) {
-            finishField(kRangeBase + r);
+        bool invalid = !parseNumber(m_rangeText[idx], dummy);
+        if (ui::textField(cells[k], m_rangeText[idx], kNumSize, kRangeBase + idx, m_activeField, invalid)) {
+            finishField(kRangeBase + idx);
         }
     }
-    GuiLabel({x + labelW + boxW + 8, y + 8, toW, 32}, "to");
-    return y + 52.0f;
+    ui::textIn({cells[0].x + cells[0].width, r.y, ui::px(30.0f), r.height}, "to", ui::FontRole::Small,
+               t.textMuted, ui::Align::Center);
+    return col.y();
 }
 
 float PlotPanel::draw(float x, float y, float width, const PlotRenderer& renderer) {
-    const float pad = 15.0f;
-    float inner = width - 2 * pad;
-    float cx = x + pad;
-    float top = y;
-    float cy = y + 30.0f;
+    const ui::Theme& t = ui::theme();
     int previous = m_activeField;
+    ui::Column col(x, y, width);
+
+    ui::sectionHeader(col.row(24), "Function", m_expanded);
+    if (!m_expanded) return col.y() + ui::px(6.0f);
 
     // Plot type selector
-    setGuiTextSize(kUiTextSmall);
     int type = m_type;
-    float tabW = (inner - 3 * 4.0f) / kPlotTypeCount;
-    GuiSetStyle(TOGGLE, GROUP_PADDING, 4);
-    GuiToggleGroup({cx, cy, tabW, 36}, "y=f(x);Curve;Surface;Implicit", &type);
-    if (type != m_type) {
+    if (ui::segmented(col.row(34.0f), {"y = f(x)", "Curve", "Surface", "Implicit"}, type)) {
         finishEditing();
         m_type = type;
         m_changed = true;
     }
-    cy += 48.0f;
-    setGuiTextSize(kUiTextLarge);
+    col.space(4.0f);
 
     // Expression inputs
-    auto exprField = [&](int slot, const char* label, float labelW) {
-        GuiLabel({cx, cy + 8, labelW, 32}, label);
+    auto exprField = [&](int slot, const char* label) {
+        Rectangle r = col.row(34.0f);
+        Rectangle l = ui::takeLeft(r, 34.0f, 6.0f);
+        ui::textIn(l, label, ui::FontRole::Body, t.textMuted);
         char* text = exprText(slot);
         Expression probe;
         bool invalid = !probe.parse(text);
-        if (textField({cx + labelW, cy, inner - labelW, 48}, text, kExprSize, slot, m_activeField, invalid)) {
-            finishField(slot);
-        }
-        cy += 56.0f;
+        if (ui::textField(r, text, kExprSize, slot, m_activeField, invalid)) finishField(slot);
     };
 
     switch (this->type()) {
         case PlotType::Function2D:
-            exprField(0, "y =", 70);
-            cy = drawRange(cx, cy, inner, "x", XMin, XMax);
+            exprField(0, "y =");
+            col.setY(drawRange(col.x(), col.y(), col.width(), "x", XMin, XMax));
             break;
         case PlotType::Parametric:
-            exprField(0, "x =", 70);
-            exprField(1, "y =", 70);
-            exprField(2, "z =", 70);
-            cy = drawRange(cx, cy, inner, "t", TMin, TMax);
+            exprField(0, "x =");
+            exprField(1, "y =");
+            exprField(2, "z =");
+            col.setY(drawRange(col.x(), col.y(), col.width(), "t", TMin, TMax));
             break;
         case PlotType::Surface:
-            exprField(0, "z =", 70);
-            cy = drawRange(cx, cy, inner, "x", XMin, XMax);
-            cy = drawRange(cx, cy, inner, "y", YMin, YMax);
+            exprField(0, "z =");
+            col.setY(drawRange(col.x(), col.y(), col.width(), "x", XMin, XMax));
+            col.setY(drawRange(col.x(), col.y(), col.width(), "y", YMin, YMax));
             break;
         case PlotType::Implicit:
-            GuiLabel({cx, cy + 8, 200, 32}, "f(x, y) = 0 with f =");
-            cy += 42.0f;
-            exprField(0, "", 0);
-            cy = drawRange(cx, cy, inner, "x", XMin, XMax);
-            cy = drawRange(cx, cy, inner, "y", YMin, YMax);
+            ui::textIn(col.row(20), "Curve where f(x, y) = 0, with f =", ui::FontRole::Small, t.textMuted);
+            exprField(0, "f =");
+            col.setY(drawRange(col.x(), col.y(), col.width(), "x", XMin, XMax));
+            col.setY(drawRange(col.x(), col.y(), col.width(), "y", YMin, YMax));
             break;
     }
 
     // Focus moved straight to another field: finish the old one too
     if (previous >= 0 && m_activeField != previous) finishField(previous);
 
-    // Resolution and heat map
+    // Detail and heat map
+    col.space(2.0f);
+    Rectangle r = col.row(30);
+    Rectangle label = ui::takeLeft(r, 52.0f, 8.0f);
+    Rectangle value = ui::takeRight(r, 30.0f, 8.0f);
+    ui::textIn(label, "Detail", ui::FontRole::Body, t.text);
+    float before = m_resolution;
+    ui::slider(r, m_resolution, 10.0f, 100.0f);
+    if (static_cast<int>(before) != static_cast<int>(m_resolution)) m_changed = true;
     char resText[16];
     snprintf(resText, sizeof(resText), "%d", static_cast<int>(m_resolution));
-    float before = m_resolution;
-    GuiLabel({cx, cy, 100, 32}, "Detail");
-    GuiSlider({cx + 100, cy, inner - 160, 32}, nullptr, resText, &m_resolution, 10.0f, 100.0f);
-    if (static_cast<int>(before) != static_cast<int>(m_resolution)) m_changed = true;
-    cy += 44.0f;
+    ui::textIn(value, resText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
 
-    bool heat = m_heatmap;
-    GuiCheckBox({cx, cy, 28, 28}, "Heat map", &heat);
-    if (heat != m_heatmap) {
-        m_heatmap = heat;
-        m_changed = true;
+    if (ui::toggleRow(col.row(30), "Heat map", m_heatmap)) m_changed = true;
+    if (ui::button(col.row(ui::kRowHeight), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
+        loadExample();
     }
-    if (GuiButton({cx + inner / 2, cy - 6, inner / 2, 42}, "Example")) loadExample();
-    cy += 48.0f;
+    col.space(4.0f);
 
     // Status: parse error or value range
+    char buf[128];
+    Color statusColor = t.textMuted;
+    std::string status;
     if (!renderer.error().empty()) {
-        drawText(renderer.error(), cx, cy, MAROON);
+        status = renderer.error();
+        statusColor = t.danger;
     } else {
         const char* name = this->type() == PlotType::Function2D ? "y"
                          : this->type() == PlotType::Implicit   ? "f" : "z";
-        char buf[96];
-        snprintf(buf, sizeof(buf), "%s range: [%.2f, %.2f]", name, renderer.minValue(), renderer.maxValue());
-        drawText(buf, cx, cy, GRAY);
+        snprintf(buf, sizeof(buf), "%s ranges over [%.2f, %.2f]", name, renderer.minValue(), renderer.maxValue());
+        status = buf;
     }
-    drawText("Variables: x, y, t   Constants: pi, e", cx, cy, GRAY);
-    drawText("sin cos tan exp log sqrt abs ...", cx, cy, GRAY);
-    if (this->type() == PlotType::Surface || this->type() == PlotType::Parametric)
-        drawText("3D plots: z is up", cx, cy, GRAY);
-    cy += 6.0f;
+    float h = ui::textWrapped({col.x(), col.y(), col.width(), 0}, status.c_str(), ui::FontRole::Small, statusColor);
+    col.space(h / ui::scale() + 4.0f);
 
-    GuiGroupBox({x, top, width, cy - top}, "Function Plot");
-    return cy;
+    const char* help = "Use x, y, t, pi, e and sin cos tan exp log sqrt abs. "
+                       "Write 2x for 2·x and x^2 for powers.";
+    h = ui::textWrapped({col.x(), col.y(), col.width(), 0}, help, ui::FontRole::Small, t.textFaint);
+    col.space(h / ui::scale());
+    if (this->type() == PlotType::Surface || this->type() == PlotType::Parametric) {
+        ui::textIn(col.row(18), "3D plots use z as the up axis.", ui::FontRole::Small, t.textFaint);
+    }
+    col.space(10.0f);
+    return col.y();
 }
 
 void PlotPanel::saveState(SceneData& data) const {

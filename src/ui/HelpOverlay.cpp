@@ -1,79 +1,99 @@
 #include "ui/HelpOverlay.hpp"
+#include "ui/Widgets.hpp"
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
 #include <raylib.h>
+#include <algorithm>
 
 namespace linalg {
 
 namespace {
 
 struct Entry {
-    const char* key;
+    const char* keys;   // keys separated by '|' are drawn as separate keycaps
     const char* action;
 };
 
-const Entry kCamera[] = {
-    {"TAB", "Toggle camera mode / UI mode"},
-    {"Mouse", "Look around (camera mode)"},
-    {"W A S D", "Move (camera mode)"},
-    {"Space / Ctrl", "Up / down (camera mode)"},
+const Entry kView[] = {
+    {"Tab", "Camera mode / UI mode"},
+    {"W|A|S|D", "Move (camera mode)"},
+    {"Space|Ctrl", "Up / down (camera mode)"},
     {"Shift", "Move faster"},
     {"C", "Reset camera"},
-    {"1 / 2 / 3", "Matrices / Complex / Plots mode"},
+    {"1|2|3", "Matrices / Complex / Plots"},
     {"G", "Toggle grid"},
     {"L", "Toggle labels"},
-    {"M", "Toggle matrix info panel"},
+    {"M", "Toggle analysis panel"},
+    {"T", "Dark / light theme"},
+    {"Ctrl+=|Ctrl+-", "Bigger / smaller UI"},
     {"H", "Toggle this help"},
 };
 
-const Entry kEditing[] = {
+const Entry kEdit[] = {
     {"I", "Identity matrix"},
-    {"R", "Rotate 45 deg (Z axis)"},
-    {"S", "Scale 2x (UI mode only)"},
-    {"X", "Shear X by 0.5"},
-    {"F", "Reflect across X axis"},
-    {"Ctrl+Z", "Undo (UI mode)"},
-    {"Ctrl+Y", "Redo (UI mode)"},
+    {"R", "Rotate 45° about Z"},
+    {"S", "Scale 2× (UI mode)"},
+    {"X", "Shear x by 0.5"},
+    {"F", "Reflect across the y-z plane"},
+    {"Ctrl+Z|Ctrl+Y", "Undo / redo (UI mode)"},
     {"P", "Play / pause animation"},
-    {"F5 / F9", "Save / load scene.txt"},
-    {"Enter", "Confirm a text field"},
-    {"Tab", "Confirm and go to next field"},
+    {"F5|F9", "Save / load scene.txt"},
+    {"Enter", "Confirm a field"},
+    {"Tab", "Confirm and go to the next field"},
     {"Esc", "Cancel the edit (quits otherwise)"},
 };
 
-void drawColumn(const char* title, const Entry* entries, int count, int x, int y) {
-    DrawText(title, x, y, 30, DARKBLUE);
-    y += 46;
+float drawColumn(const char* title, const Entry* entries, int count, float x, float y, float width) {
+    const ui::Theme& t = ui::theme();
+    ui::text(ui::upper(title).c_str(), x, y, ui::FontRole::Caption, t.accent);
+    y += ui::px(28.0f);
+    float keyColumn = ui::px(150.0f);
     for (int i = 0; i < count; i++) {
-        DrawText(entries[i].key, x, y, 24, MAROON);
-        DrawText(entries[i].action, x + 180, y, 24, DARKGRAY);
-        y += 34;
+        // Keycaps
+        float kx = x;
+        std::string keys = entries[i].keys;
+        size_t start = 0;
+        while (start <= keys.size()) {
+            size_t bar = keys.find('|', start);
+            std::string key = keys.substr(start, bar == std::string::npos ? std::string::npos : bar - start);
+            kx += ui::keycap(kx, y, key.c_str()) + ui::px(4.0f);
+            if (bar == std::string::npos) break;
+            start = bar + 1;
+        }
+        Rectangle label = {x + keyColumn, y, width - keyColumn, ui::px(24.0f)};
+        ui::textIn(label, entries[i].action, ui::FontRole::Body, t.text);
+        y += ui::px(34.0f);
     }
+    return y;
 }
 
 } // namespace
 
 void HelpOverlay::draw() const {
     if (!m_visible) return;
+    const ui::Theme& t = ui::theme();
 
-    int w = GetScreenWidth();
-    int h = GetScreenHeight();
-    DrawRectangle(0, 0, w, h, Fade(BLACK, 0.45f));
+    float w = static_cast<float>(GetScreenWidth());
+    float h = static_cast<float>(GetScreenHeight());
+    DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h), t.overlay);
 
-    int boxW = 1100 < w - 40 ? 1100 : w - 40;
-    int boxH = 640 < h - 40 ? 640 : h - 40;
-    int bx = (w - boxW) / 2;
-    int by = (h - boxH) / 2;
-    DrawRectangle(bx, by, boxW, boxH, Fade(RAYWHITE, 0.97f));
-    DrawRectangleLines(bx, by, boxW, boxH, DARKGRAY);
+    float boxW = std::min(ui::px(900.0f), w - ui::px(32.0f));
+    float boxH = std::min(ui::px(560.0f), h - ui::px(32.0f));
+    Rectangle box = {(w - boxW) / 2, (h - boxH) / 2, boxW, boxH};
+    ui::card(box);
 
-    DrawText("Keyboard Shortcuts", bx + 30, by + 20, 36, BLACK);
-    DrawText("Shortcuts are ignored while a text field is being edited.",
-             bx + 30, by + 62, 20, GRAY);
+    float pad = ui::px(28.0f);
+    ui::text("Keyboard shortcuts", box.x + pad, box.y + pad - ui::px(4.0f), ui::FontRole::Display, t.text);
+    ui::text("Shortcuts are ignored while you type in a field.", box.x + pad, box.y + pad + ui::px(32.0f),
+             ui::FontRole::Small, t.textMuted);
 
-    int colY = by + 100;
-    drawColumn("View & Camera", kCamera, sizeof(kCamera) / sizeof(kCamera[0]), bx + 30, colY);
-    drawColumn("Editing", kEditing, sizeof(kEditing) / sizeof(kEditing[0]), bx + boxW / 2 + 10, colY);
+    float colY = box.y + pad + ui::px(70.0f);
+    float colW = (boxW - 3 * pad) / 2;
+    drawColumn("View and camera", kView, sizeof(kView) / sizeof(kView[0]), box.x + pad, colY, colW);
+    drawColumn("Editing", kEdit, sizeof(kEdit) / sizeof(kEdit[0]), box.x + 2 * pad + colW, colY, colW);
 
-    DrawText("Press H to close", bx + boxW - 220, by + boxH - 36, 22, GRAY);
+    ui::textIn({box.x, box.y + boxH - pad, boxW - pad, ui::px(20.0f)}, "Press H or click the ? button to close",
+               ui::FontRole::Small, t.textFaint, ui::Align::Right);
 }
 
 } // namespace linalg
