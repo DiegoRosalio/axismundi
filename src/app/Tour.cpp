@@ -3,6 +3,7 @@
 #include <raylib.h>
 #include <rlgl.h>
 #include <cstdio>
+#include "ui/core/Ui.hpp"
 
 namespace linalg {
 
@@ -64,7 +65,18 @@ void Tour::buildSteps() {
         app.showHelp(false);
         app.toast("Scene saved to scene.txt");
     }, 6);
-    step("11_settings", [](App& app) { app.showSettings(true); });
+    step("10b_tooltip_preset", [](App& app) {
+        app.setMatrix3(Matrix3D::identity());
+        app.stopAnimation();
+        SetMousePosition(static_cast<int>(ui::px(250)), static_cast<int>(ui::px(487)));
+    }, 45);
+    step("10c_tooltip_analysis", [](App&) {
+        SetMousePosition(GetScreenWidth() - static_cast<int>(ui::px(280)), static_cast<int>(ui::px(330)));
+    }, 45);
+    step("11_settings", [](App& app) {
+        SetMousePosition(GetScreenWidth() / 2, GetScreenHeight() / 2);
+        app.showSettings(true);
+    });
     step("11b_color_picker", [](App& app) {
         app.showSettings(false);
         app.openColorPicker(kVecA);

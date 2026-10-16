@@ -33,11 +33,13 @@ private:
         std::string text;
         Tone tone;
         ui::FontRole role;
+        const char* tip = nullptr;
     };
     struct Section {
         std::string title;
         bool expanded;
         std::vector<Line> lines;
+        const char* tip = nullptr;
     };
 
     static void addMatrix(Section& s, const char* name, const float* values, int n);

@@ -246,7 +246,11 @@ float PlotPanel::draw(float x, float y, float width, const PlotRenderer& rendere
 
     // Plot type selector
     int type = m_type;
-    if (ui::segmented(col.row(34.0f), {"y = f(x)", "Curve", "Surface", "Implicit"}, type)) {
+    if (ui::segmented(col.row(34.0f), {"y = f(x)", "Curve", "Surface", "Implicit"}, type,
+                      {"The graph of a function of x, drawn in the vertical plane.",
+                       "A path traced as t runs through its range: (x(t), y(t), z(t)).",
+                       "A height z = f(x, y) above every point of the xy-plane.",
+                       "All points where f(x, y) = 0, found with marching squares."})) {
         finishEditing();
         m_type = type;
         m_changed = true;
@@ -304,10 +308,14 @@ float PlotPanel::draw(float x, float y, float width, const PlotRenderer& rendere
     snprintf(resText, sizeof(resText), "%d", static_cast<int>(m_resolution));
     ui::textIn(value, resText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
 
-    if (ui::toggleRow(col.row(30), "Heat map", m_heatmap)) m_changed = true;
-    if (ui::button(col.row(ui::kRowHeight), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
-        loadExample();
-    }
+    ui::tooltip(r, "How finely the function is sampled. Higher is smoother but slower.", "Detail");
+    Rectangle heat = col.row(30);
+    if (ui::toggleRow(heat, "Heat map", m_heatmap)) m_changed = true;
+    ui::tooltip(heat, "Color by value: blue is low, red is high. For implicit curves it shades where f is "
+                      "negative (blue) or positive (red).", "Heat map");
+    Rectangle example = col.row(ui::kRowHeight);
+    if (ui::button(example, "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) loadExample();
+    ui::tooltip(example, "Cycle through sample functions for this plot type.");
     col.space(4.0f);
 
     // Status: parse error or value range

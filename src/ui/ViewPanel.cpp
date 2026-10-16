@@ -41,8 +41,12 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
     ui::toggleRow(col.row(30), "Axes", m_settings.showAxes);
     ui::toggleRow(col.row(30), "Labels", m_settings.showLabels, "L");
     if (mode == AppMode::LinearAlgebra) {
-        ui::toggleRow(col.row(30), "Eigenvectors", m_settings.showEigenvectors);
-        ui::toggleRow(col.row(30), "Transformed A, B", m_settings.showTransformedVectors);
+        Rectangle eig = col.row(30);
+        ui::toggleRow(eig, "Eigenvectors", m_settings.showEigenvectors);
+        ui::tooltip(eig, "Dashed lines along the directions M only stretches; the dot marks λv.", "Eigenvectors");
+        Rectangle tr = col.row(30);
+        ui::toggleRow(tr, "Transformed A, B", m_settings.showTransformedVectors);
+        ui::tooltip(tr, "MA and MB: where the matrix sends the vectors A and B.", "Transformed vectors");
 
         // Vector colors: one swatch per vector, label underneath
         col.space(6.0f);
@@ -73,12 +77,17 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
     ui::textIn(value, lengthText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
     col.space(6.0f);
 
-    if (ui::button(col.row(ui::kRowHeight), "Reset camera", ui::ButtonKind::Secondary, true, ui::Icon::Reset, "C")) {
+    Rectangle reset = col.row(ui::kRowHeight);
+    if (ui::button(reset, "Reset camera", ui::ButtonKind::Secondary, true, ui::Icon::Reset, "C")) {
         m_resetCamera = true;
     }
+    ui::tooltip(reset, "Back to the default viewpoint for this mode.");
     auto cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
     if (ui::button(cells[0], "Save", ui::ButtonKind::Secondary, true, ui::Icon::Save, "F5")) m_save = true;
     if (ui::button(cells[1], "Load", ui::ButtonKind::Secondary, true, ui::Icon::Load, "F9")) m_load = true;
+    ui::tooltip(cells[0], "Save matrices, vectors, plots, camera and keyframes to scene.txt in the current folder.",
+                "Save scene");
+    ui::tooltip(cells[1], "Load scene.txt from the current folder. Loading can be undone.", "Load scene");
     col.space(10.0f);
     return col.y();
 }

@@ -541,6 +541,7 @@ void App::drawUi(float deltaTime) {
 
     drawToast(deltaTime);
     m_help.draw();
+    ui::drawTooltip(m_uiSettings.tooltips && !m_help.visible());
 }
 
 void App::drawFloatingPanels() {

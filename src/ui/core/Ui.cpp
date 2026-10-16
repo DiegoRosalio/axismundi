@@ -379,4 +379,82 @@ bool rightClicked(Rectangle r) {
     return hovered(r) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
 }
 
+// ---------------------------------------------------------------------------
+// Tooltips
+// ---------------------------------------------------------------------------
+
+namespace {
+
+struct TooltipState {
+    std::string title, body;          // candidate registered this frame
+    std::string shownTitle, shownBody;
+    Rectangle rect = {0, 0, 0, 0};
+    Rectangle lastRect = {0, 0, 0, 0};
+    bool hasCandidate = false;
+    double since = 0.0;
+};
+
+TooltipState g_tip;
+
+bool sameRect(Rectangle a, Rectangle b) {
+    return std::fabs(a.x - b.x) < 1 && std::fabs(a.y - b.y) < 1 && std::fabs(a.width - b.width) < 1 &&
+           std::fabs(a.height - b.height) < 1;
+}
+
+} // namespace
+
+void tooltip(Rectangle r, const char* body, const char* title) {
+    if (!hovered(r)) return;
+    // The last registration wins, so inner widgets override their containers
+    g_tip.hasCandidate = true;
+    g_tip.rect = r;
+    g_tip.body = body ? body : "";
+    g_tip.title = title ? title : "";
+}
+
+void drawTooltip(bool enabled) {
+    bool has = g_tip.hasCandidate;
+    g_tip.hasCandidate = false;
+    if (!has || !enabled || IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        g_tip.lastRect = {0, 0, 0, 0};
+        return;
+    }
+    double now = GetTime();
+    if (!sameRect(g_tip.rect, g_tip.lastRect) || g_tip.body != g_tip.shownBody) {
+        g_tip.lastRect = g_tip.rect;
+        g_tip.shownBody = g_tip.body;
+        g_tip.shownTitle = g_tip.title;
+        g_tip.since = now;
+    }
+    if (now - g_tip.since < 0.45) return;
+
+    const Theme& t = theme();
+    float maxW = px(290.0f);
+    float pad = px(10.0f);
+    bool hasTitle = !g_tip.shownTitle.empty();
+    float titleH = hasTitle ? fontSize(FontRole::BodyStrong) * 1.4f : 0.0f;
+    float bodyW = std::min(maxW, textWidth(g_tip.shownBody.c_str(), FontRole::Small) + 1.0f);
+    if (hasTitle) bodyW = std::max(bodyW, std::min(maxW, textWidth(g_tip.shownTitle.c_str(), FontRole::BodyStrong)));
+    float bodyH = textWrapped({0, 0, bodyW, 0}, g_tip.shownBody.c_str(), FontRole::Small, t.text, false);
+
+    Vector2 m = GetMousePosition();
+    float w = bodyW + 2 * pad, h = titleH + bodyH + 2 * pad - px(2.0f);
+    float x = m.x + px(14.0f), y = m.y + px(20.0f);
+    float sw = static_cast<float>(GetScreenWidth()), sh = static_cast<float>(GetScreenHeight());
+    if (x + w > sw - px(6)) x = sw - w - px(6);
+    if (y + h > sh - px(6)) y = m.y - h - px(10.0f);
+    Rectangle box = snap({x, y, w, h});
+
+    shadow(box, px(8), px(10));
+    fillRounded(box, px(8), t.panel);
+    strokeRounded(box, px(8), pxi(1), t.borderStrong);
+    float ty = box.y + pad - px(1);
+    if (hasTitle) {
+        text(g_tip.shownTitle.c_str(), box.x + pad, ty, FontRole::BodyStrong, t.text);
+        ty += titleH;
+    }
+    textWrapped({box.x + pad, ty, bodyW, 0}, g_tip.shownBody.c_str(), FontRole::Small,
+                hasTitle ? t.textMuted : t.text);
+}
+
 } // namespace linalg::ui

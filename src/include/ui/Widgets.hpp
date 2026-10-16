@@ -33,7 +33,8 @@ bool button(Rectangle r, const char* label, ButtonKind kind = ButtonKind::Second
 bool iconButton(Rectangle r, Icon icon, bool active = false, bool enabled = true);
 
 // Segmented control. Returns true when the selection changed.
-bool segmented(Rectangle r, std::initializer_list<const char*> labels, int& active);
+bool segmented(Rectangle r, std::initializer_list<const char*> labels, int& active,
+               std::initializer_list<const char*> tooltips = {});
 
 // Label on the left, switch on the right; clicking the row toggles. Returns true on change.
 bool toggleRow(Rectangle r, const char* label, bool& value, const char* hint = nullptr);

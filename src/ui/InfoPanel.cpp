@@ -58,9 +58,10 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
         m_sections.push_back({title, expanded, {}});
         return m_sections.back();
     };
-    auto body = [](Section& s, const std::string& text, Tone tone = Tone::Normal) {
-        s.lines.push_back({text, tone, ui::FontRole::Body});
+    auto body = [](Section& s, const std::string& text, Tone tone = Tone::Normal, const char* tip = nullptr) {
+        s.lines.push_back({text, tone, ui::FontRole::Body, tip});
     };
+    auto tipped = [&](Section& s, const std::string& text, const char* tip) { body(s, text, Tone::Normal, tip); };
     auto note = [](Section& s, const std::string& text) {
         s.lines.push_back({text, Tone::Muted, ui::FontRole::Small});
     };
@@ -68,17 +69,22 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     // --- Vectors -----------------------------------------------------------
     {
         Section& s = section("Vectors", true);
+        s.tip = "Products and angles of the input vectors A and B.";
         float dot = a.dot(b);
         float la = a.magnitude(), lb = b.magnitude();
         Vector3D cross = a.cross(b);
-        body(s, fmt("A · B = %.3f", clean(dot)));
-        body(s, fmt("|A| = %.3f     |B| = %.3f", la, lb));
+        tipped(s, fmt("A · B = %.3f", clean(dot)),
+               "Dot product: A·B = |A||B| cos θ = AxBx + AyBy + AzBz. Zero means A and B are perpendicular.");
+        tipped(s, fmt("|A| = %.3f     |B| = %.3f", la, lb), "Length of a vector: |A| = √(A·A).");
         if (la > 1e-6f && lb > 1e-6f) {
             float c = std::clamp(dot / (la * lb), -1.0f, 1.0f);
-            body(s, fmt("angle(A, B) = %.1f°", std::acos(c) * RAD2DEG));
+            tipped(s, fmt("angle(A, B) = %.1f°", std::acos(c) * RAD2DEG),
+                   "θ = arccos(A·B / (|A||B|)), the angle between the two arrows.");
             if (std::fabs(dot) < 1e-5f) note(s, "A and B are perpendicular");
         }
-        body(s, "A × B = " + vecStr(cross));
+        tipped(s, "A × B = " + vecStr(cross),
+               "Cross product: perpendicular to both A and B (right-hand rule). Its length is the area of the "
+               "parallelogram A and B span.");
         note(s, fmt("|A × B| = %.3f, the area of the parallelogram", cross.magnitude()));
     }
 
@@ -89,13 +95,17 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
 
     {
         Section& s = section("Matrix", true);
+        s.tip = "Properties of the transformation M.";
         float det = is4x4 ? matrix.determinant() : linear.determinant();
         float trace = is4x4 ? matrix.trace() : linear.trace();
-        body(s, fmt("det M = %.4f", clean(det)));
+        tipped(s, fmt("det M = %.4f", clean(det)),
+               "The determinant is how much M scales volumes. Negative: orientation flips (a mirror). Zero: "
+               "space is squashed into a plane, line or point, and M cannot be undone.");
         if (std::fabs(det) < 1e-6f) note(s, "Space is squashed flat: M is singular");
         else if (det < 0.0f) note(s, fmt("Orientation flips; volumes scale by %.3f", std::fabs(det)));
         else note(s, fmt("Volumes scale by %.3f", det));
-        body(s, fmt("tr M = %.4f", clean(trace)));
+        tipped(s, fmt("tr M = %.4f", clean(trace)),
+               "Trace: the sum of the diagonal entries. It always equals the sum of the eigenvalues.");
 
         int n = is4x4 ? 4 : 3;
         float vals[16];
@@ -111,7 +121,10 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++) vals[i * 3 + j] = inv->m[i][j];
         }
-        if (invertible) addMatrix(s, "M⁻¹", vals, n);
+        if (invertible) {
+            addMatrix(s, "M⁻¹", vals, n);
+            s.lines[s.lines.size() - n - 1].tip = "The inverse undoes M: M⁻¹M = I. It exists exactly when det M ≠ 0.";
+        }
         else body(s, "M⁻¹ does not exist (det = 0)", Tone::Danger);
     }
 
@@ -119,21 +132,28 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     m_eigen = eigen3(linear);
     {
         Section& s = section("Eigenvalues", true);
+        s.tip = "Roots of det(M − λI) = 0 and the directions M only stretches.";
         if (is4x4) note(s, "Of the upper-left 3×3 (linear) part");
         int index = 1;
         bool anyComplex = false, anyMissing = false;
         for (const auto& ev : m_eigen.values) {
             if (ev.isReal()) {
-                body(s, fmt("λ%s = %.3f", subscript(index), clean(ev.re)));
+                tipped(s, fmt("λ%s = %.3f", subscript(index), clean(ev.re)),
+                       "Eigenvalue: M v = λ v. Along its eigenvector v, M only stretches by λ (negative λ "
+                       "also flips).");
                 if (ev.hasVector) {
                     s.lines.push_back({fmt("v%s = ", subscript(index)) + vecStr(ev.vector), Tone::Eigen,
-                                       ui::FontRole::Body});
+                                       ui::FontRole::Body,
+                                       "Eigenvector (unit length), drawn as a dashed purple line through the "
+                                       "origin. The dot marks λv, where M sends it."});
                 } else {
                     anyMissing = true;
                 }
             } else {
-                body(s, fmt("λ%s = %.3f %c %.3fi", subscript(index), clean(ev.re), ev.im < 0 ? '-' : '+',
-                            std::fabs(ev.im)));
+                tipped(s, fmt("λ%s = %.3f %c %.3fi", subscript(index), clean(ev.re), ev.im < 0 ? '-' : '+',
+                              std::fabs(ev.im)),
+                       "Complex eigenvalues come in conjugate pairs: M rotates a plane by arg λ and scales "
+                       "it by |λ|, so no real direction stays fixed there.");
                 anyComplex = true;
             }
             index++;
@@ -150,6 +170,8 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     float vals[9];
     {
         Section& s = section("LU  ·  PA = LU", false);
+        s.tip = "Gaussian elimination as factors: P swaps rows, L (lower triangular) records the elimination "
+                "steps, U (upper triangular) is the result.";
         if (is4x4) note(s, "Of the 3×3 linear part");
         LUResult lu = luDecompose(linear);
         toArray(lu.P, vals); addMatrix(s, "P", vals, 3);
@@ -159,6 +181,8 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     }
     {
         Section& s = section("QR  ·  A = QR", false);
+        s.tip = "Gram–Schmidt as factors: Q has orthonormal columns (a rotation, maybe with a mirror) and R is "
+                "upper triangular.";
         if (is4x4) note(s, "Of the 3×3 linear part");
         QRResult qr = qrDecompose(linear);
         toArray(qr.Q, vals); addMatrix(s, "Q", vals, 3);
@@ -166,6 +190,8 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     }
     {
         Section& s = section("SVD  ·  A = UΣV^T", false);
+        s.tip = "Every matrix is a rotation (V^T), then stretches along the axes by the singular values σ (Σ), "
+                "then another rotation (U).";
         if (is4x4) note(s, "Of the 3×3 linear part");
         SVDResult svd = svd3(linear);
         body(s, fmt("σ = %.3f, %.3f, %.3f", svd.S.m[0][0], svd.S.m[1][1], svd.S.m[2][2]));
@@ -184,6 +210,7 @@ float InfoPanel::drawContent(Rectangle area) {
     for (auto& s : m_sections) {
         Rectangle headerRect = {x, y, w, ui::px(28.0f)};
         ui::sectionHeader(headerRect, s.title.c_str(), s.expanded);
+        if (s.tip) ui::tooltip(headerRect, s.tip, s.title.c_str());
         y += headerRect.height + ui::px(2.0f);
 
         if (s.expanded) {
@@ -195,6 +222,7 @@ float InfoPanel::drawContent(Rectangle area) {
                 float lineH = std::round(ui::fontSize(line.role) * 1.45f);
                 std::string shown = ui::ellipsize(line.text.c_str(), line.role, w - ui::px(14.0f));
                 ui::text(shown.c_str(), x + ui::px(14.0f), y + (lineH - ui::fontSize(line.role)) / 2, line.role, c);
+                if (line.tip) ui::tooltip({x, y, w, lineH}, line.tip);
                 y += lineH;
             }
             y += ui::px(10.0f);

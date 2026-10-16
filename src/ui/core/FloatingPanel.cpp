@@ -83,6 +83,9 @@ bool FloatingPanel::begin(float contentHeight, Rectangle& content) {
     textIn(head, ellipsize(m_title.c_str(), FontRole::Title, head.width).c_str(), FontRole::Title, t.text);
     if (iconButton(fold, m_collapsed ? Icon::ChevronDown : Icon::Minus)) m_collapsed = !m_collapsed;
     if (iconButton(close, Icon::Close)) m_visible = false;
+    tooltip(fold, m_collapsed ? "Expand" : "Collapse to the title bar");
+    tooltip(close, "Close (reopen it from the top bar or its shortcut)");
+    tooltip({m_bounds.x, m_bounds.y, fold.x - m_bounds.x, header}, "Drag to move");
 
     if (m_collapsed || !m_visible) {
         if (m_lockedForInput && !m_wasLocked) GuiUnlock();

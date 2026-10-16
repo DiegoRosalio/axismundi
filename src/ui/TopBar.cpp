@@ -34,7 +34,12 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     tabs.y = (h - ui::px(34.0f)) / 2;
     tabs.height = ui::px(34.0f);
     int active = static_cast<int>(mode);
-    if (ui::segmented(tabs, {"Matrices", "Complex", "Plots"}, active)) mode = static_cast<AppMode>(active);
+    if (ui::segmented(tabs, {"Matrices", "Complex", "Plots"}, active,
+                      {"Vectors, matrices and transformations (key 1)",
+                       "The complex plane and Euler's formula (key 2)",
+                       "Graphs of functions, curves and surfaces (key 3)"})) {
+        mode = static_cast<AppMode>(active);
+    }
 
     // Actions on the right
     float btn = ui::px(36.0f);
@@ -52,11 +57,17 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     };
     if (rightButton(ui::Icon::Gear, state.settingsOpen)) actions.toggleSettings = true;
     m_settingsButton = last;
+    ui::tooltip(last, "Theme, interface size, tooltips, panel layout", "Settings");
     if (rightButton(ui::Icon::Help, state.helpVisible)) actions.toggleHelp = true;
+    ui::tooltip(last, "All keyboard shortcuts (H)", "Help");
     if (rightButton(t.dark ? ui::Icon::Sun : ui::Icon::Moon, false)) actions.toggleTheme = true;
+    ui::tooltip(last, t.dark ? "Switch to the light theme (T)" : "Switch to the dark theme (T)", "Theme");
     divider();
     if (rightButton(ui::Icon::Camera, false)) actions.screenshot = true;
+    ui::tooltip(last, "Save a PNG of the window in the current folder (F12; Shift+F12 for the 3D view only)",
+                "Screenshot");
     if (rightButton(ui::Icon::Fullscreen, state.fullscreen)) actions.toggleFullscreen = true;
+    ui::tooltip(last, "Toggle fullscreen (F11)", "Fullscreen");
 
     return actions;
 }

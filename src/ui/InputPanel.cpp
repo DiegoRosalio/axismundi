@@ -245,7 +245,10 @@ float InputPanel::drawMatrixGroup(float x, float y, float width) {
     Rectangle undoRect = ui::takeRight(top, ui::kRowHeight, 8.0f);
     top.width = std::min(top.width, ui::px(150.0f));
     int size = m_state.use4x4 ? 1 : 0;
-    if (ui::segmented(top, {"3×3", "4×4"}, size)) {
+    if (ui::segmented(top, {"3×3", "4×4"}, size,
+                      {"A linear map of 3D space: rotations, scales, shears, reflections, projections.",
+                       "Adds a fourth row and column (homogeneous coordinates) so the map can also "
+                       "translate. The last column holds the translation."})) {
         m_activeField = -1;
         m_state = m_committed;
         m_state.use4x4 = (size == 1);
@@ -253,6 +256,8 @@ float InputPanel::drawMatrixGroup(float x, float y, float width) {
     }
     if (ui::iconButton(undoRect, ui::Icon::Undo, false, canUndo())) undo();
     if (ui::iconButton(redoRect, ui::Icon::Redo, false, canRedo())) redo();
+    ui::tooltip(undoRect, "Undo the last change (Ctrl+Z in UI mode)", "Undo");
+    ui::tooltip(redoRect, "Redo (Ctrl+Y in UI mode)", "Redo");
     col.space(4.0f);
 
     // Cells
@@ -265,6 +270,18 @@ float InputPanel::drawMatrixGroup(float x, float y, float width) {
             int id = i * n + j;
             char* text = fieldText(m_state, id);
             if (ui::textField(cells[j], text, kTextSize, id, m_activeField, !isValid(text))) finishField(id);
+            if (m_activeField != id) {
+                static const char* columnTips[4] = {
+                    ("Column 1 is where M sends the x-axis vector (1, 0, 0). Type a number or an expression "
+                     "such as cos(pi/4)."),
+                    ("Column 2 is where M sends the y-axis vector (0, 1, 0). Type a number or an expression "
+                     "such as cos(pi/4)."),
+                    ("Column 3 is where M sends the z-axis vector (0, 0, 1). Type a number or an expression "
+                     "such as cos(pi/4)."),
+                    "Column 4 is the translation (4×4 only): it moves every point by this amount.",
+                };
+                ui::tooltip(cells[j], columnTips[j]);
+            }
         }
     }
     col.space(10.0f);
@@ -317,6 +334,14 @@ float InputPanel::drawPresetGroup(float x, float y, float width) {
         {"Shear", "X", MatrixPreset::ShearX},
         {"Reflect", "F", MatrixPreset::ReflectX},
     };
+    static const char* tips[] = {
+        "Leaves every vector where it is: I v = v. det = 1.",
+        ("Turns the xy-plane by θ = 45° about the z-axis: x' = x cos θ − y sin θ, y' = x sin θ + y cos θ. "
+         "Lengths and angles are kept (det = 1)."),
+        "Doubles x and y and keeps z: areas in the xy-plane grow 4× (det = 4).",
+        "x' = x + 0.5 y: squares lean into parallelograms of the same area (det = 1).",
+        "x' = −x: a mirror image across the y-z plane. det = −1, so orientation flips.",
+    };
     const int count = static_cast<int>(sizeof(buttons) / sizeof(buttons[0]));
     for (int i = 0; i < count; i += 2) {
         auto cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
@@ -325,6 +350,7 @@ float InputPanel::drawPresetGroup(float x, float y, float width) {
             if (ui::button(cells[k], b.label, ui::ButtonKind::Secondary, true, ui::Icon::None, b.key)) {
                 applyPreset(b.preset);
             }
+            ui::tooltip(cells[k], tips[i + k], b.label);
         }
     }
     col.space(10.0f);

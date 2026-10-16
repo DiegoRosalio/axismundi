@@ -107,6 +107,10 @@ float ComplexPanel::draw(float x, float y, float width) {
                 float dummy;
                 bool invalid = !parseNumber(m_text[id], dummy);
                 if (ui::textField(cells[part], m_text[id], kTextSize, id, m_activeField, invalid)) finishField(id);
+                if (m_activeField != id) {
+                    ui::tooltip(cells[part], part == 0 ? "Real part: position along the Re (horizontal) axis."
+                                                       : "Imaginary part: position along the Im (vertical) axis.");
+                }
             }
             ui::textIn({cells[0].x + cells[0].width, r.y, ui::px(22.0f), r.height}, "+", ui::FontRole::Body,
                        t.textMuted, ui::Align::Center);
@@ -147,7 +151,11 @@ float ComplexPanel::draw(float x, float y, float width) {
                  degrees(z1.arg() + z2.arg()));
         ui::textIn(col.row(20), buf, ui::FontRole::Body, t.text);
         col.space(2.0f);
-        ui::toggleRow(col.row(30), "Show product and angles", m_scene.showProduct);
+        Rectangle prod = col.row(30);
+        ui::toggleRow(prod, "Show product and angles", m_scene.showProduct);
+        ui::tooltip(prod,
+                    "The faint arrow is z₁ turned by arg z₂; the dashed line stretches it by |z₂| to reach z₁z₂. "
+                    "The two arcs show the angles adding up.");
         col.space(10.0f);
     }
 
@@ -165,6 +173,7 @@ float ComplexPanel::draw(float x, float y, float width) {
         Rectangle value = ui::takeRight(r, 64.0f, 8.0f);
         ui::textIn(label, "θ", ui::FontRole::BodyStrong, t.text);
         ui::slider(r, m_scene.theta, 0.0f, 2.0f * PI);
+        ui::tooltip(r, "Drag to move e^(iθ) around the unit circle. Its shadows on the axes are cos θ and sin θ.");
         snprintf(buf, sizeof(buf), "%.2f rad", m_scene.theta);
         ui::textIn(value, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
 

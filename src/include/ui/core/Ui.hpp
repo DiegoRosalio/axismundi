@@ -76,4 +76,10 @@ bool hovered(Rectangle r);        // mouse inside and interaction allowed
 bool clicked(Rectangle r);        // left button pressed inside this frame
 bool rightClicked(Rectangle r);
 
+// --- Tooltips ----------------------------------------------------------------
+// Register a tooltip for a rectangle (call while drawing, after the widget).
+// The hovered one is shown after a short delay by drawTooltip().
+void tooltip(Rectangle r, const char* body, const char* title = nullptr);
+void drawTooltip(bool enabled);
+
 } // namespace linalg::ui

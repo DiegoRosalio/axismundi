@@ -26,6 +26,10 @@ float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matr
     }
     if (ui::iconButton(stop, ui::Icon::Stop, false, animator.active())) animator.stop();
     if (ui::iconButton(loop, ui::Icon::Loop, animator.loop())) animator.setLoop(!animator.loop());
+    ui::tooltip(play, "Play or pause (P). With nothing selected, morphs from the identity to your matrix.",
+                "Play / pause");
+    ui::tooltip(stop, "Stop and show your matrix again.", "Stop");
+    ui::tooltip(loop, "Repeat the animation when it reaches the end.", "Loop");
 
     float tValue = animator.time();
     if (animator.active()) {
@@ -49,7 +53,10 @@ float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matr
         default: break;
     }
     int chosen = active;
-    if (ui::segmented(presets, {"Rotate", "Scale", "Morph"}, chosen) || (chosen >= 0 && chosen != active)) {
+    if (ui::segmented(presets, {"Rotate", "Scale", "Morph"}, chosen,
+                      {"A full turn about the y-axis.", "Uniform scaling from 1× to 2×.",
+                       "Blend from the identity to your matrix: watch the basis move to M's columns."}) ||
+        (chosen >= 0 && chosen != active)) {
         const AnimationPreset map[3] = {AnimationPreset::Rotation, AnimationPreset::Scaling, AnimationPreset::Morph};
         animator.start(map[chosen]);
     }
@@ -63,6 +70,9 @@ float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matr
         }
     }
     if (ui::iconButton(clear, ui::Icon::Close, false, !animator.keyframes().empty())) animator.clearKeyframes();
+    ui::tooltip(addKey, "Capture the current matrix as a keyframe. With two or more, the animation moves "
+                        "through them in order.", "Add keyframe");
+    ui::tooltip(clear, "Remove all keyframes.", "Clear keyframes");
 
     Rectangle keyText = ui::takeLeft(row, 56.0f, 10.0f);
     snprintf(buf, sizeof(buf), "%zu key%s", animator.keyframes().size(), animator.keyframes().size() == 1 ? "" : "s");

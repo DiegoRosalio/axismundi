@@ -143,7 +143,8 @@ bool iconButton(Rectangle r, Icon icon, bool active, bool enabled) {
     return fired && enabled;
 }
 
-bool segmented(Rectangle r, std::initializer_list<const char*> labels, int& active) {
+bool segmented(Rectangle r, std::initializer_list<const char*> labels, int& active,
+               std::initializer_list<const char*> tooltips) {
     const Theme& t = theme();
     float radius = px(kRadius);
     fillRounded(r, radius, t.panelAlt);
@@ -170,6 +171,10 @@ bool segmented(Rectangle r, std::initializer_list<const char*> labels, int& acti
         Color ink = selected ? t.onAccent : hover ? t.text : t.textMuted;
         std::string shown = ellipsize(label, FontRole::Body, seg.width - px(8.0f));
         textIn(seg, shown.c_str(), selected ? FontRole::BodyStrong : FontRole::Body, ink, Align::Center);
+        if (static_cast<size_t>(i) < tooltips.size()) {
+            const char* tip = *(tooltips.begin() + i);
+            if (tip) tooltip(seg, tip, label);
+        }
         i++;
     }
     return changed;
