@@ -44,6 +44,7 @@ public:
 
     bool isUsing4x4() const { return m_committed.use4x4; }
     bool isEditing() const { return m_activeField >= 0; }
+    void finishEditing();  // accept or reject the field being edited
 
     void applyPreset(MatrixPreset preset);
 

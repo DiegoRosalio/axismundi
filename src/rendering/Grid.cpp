@@ -35,6 +35,17 @@ void Grid::draw() const {
     }
 }
 
+void Grid::drawPlaneXY() const {
+    if (!m_showGrid) return;
+
+    float extent = m_size * m_spacing;
+    for (int i = -m_size; i <= m_size; i++) {
+        float t = i * m_spacing;
+        DrawLine3D({-extent, t, 0}, {extent, t, 0}, m_gridColor);
+        DrawLine3D({t, -extent, 0}, {t, extent, 0}, m_gridColor);
+    }
+}
+
 void Grid::drawAxes(float axisLength) const {
     if (!m_showAxes) return;
 

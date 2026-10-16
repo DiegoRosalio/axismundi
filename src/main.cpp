@@ -4,12 +4,14 @@
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
+#include "rendering/ArgandRenderer.hpp"
 #include "rendering/CameraController.hpp"
 #include "rendering/Grid.hpp"
 #include "rendering/Labels.hpp"
 #include "rendering/TransformVisualizer.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "ui/AppMode.hpp"
+#include "ui/ComplexPanel.hpp"
 #include "ui/HelpOverlay.hpp"
 #include "ui/InfoPanel.hpp"
 #include "ui/InputPanel.hpp"
@@ -81,6 +83,8 @@ int main() {
     VectorRenderer vectorRenderer;
     TransformVisualizer transformViz;
     InputPanel inputPanel;
+    ComplexPanel complexPanel;
+    ArgandRenderer argand;
     InfoPanel infoPanel;
     ViewPanel viewPanel;
     SideBar sideBar;
@@ -108,6 +112,7 @@ int main() {
         putFloat(data, "camera.ty", t.y);
         putFloat(data, "camera.tz", t.z);
         inputPanel.saveState(data);
+        complexPanel.saveState(data);
         viewPanel.saveState(data);
 
         std::string error;
@@ -138,6 +143,7 @@ int main() {
         getFloat(data, "camera.tz", t.z);
         camera.setView(p, t);
         inputPanel.loadState(data);
+        complexPanel.loadState(data);
         viewPanel.loadState(data);
         toast.show(std::string("Scene loaded from ") + kSceneFile, DARKGREEN);
     };
@@ -148,7 +154,7 @@ int main() {
 
         // Input
         //----------------
-        bool editing = inputPanel.isEditing();
+        bool editing = inputPanel.isEditing() || complexPanel.isEditing();
 
         // TAB switches between camera mode (cursor captured) and UI mode.
         // While a field is being edited, TAB moves to the next field instead.
@@ -161,6 +167,7 @@ int main() {
         else GuiLock();
 
         inputPanel.update();
+        complexPanel.update(deltaTime);
 
         // Keyboard shortcuts (ignored while typing in a field)
         if (!editing) {
@@ -194,6 +201,9 @@ int main() {
         }
 
         if (mode != lastMode) {
+            // A field in the panel being hidden would otherwise stay "active"
+            inputPanel.finishEditing();
+            complexPanel.finishEditing();
             camera.reset(mode);
             lastMode = mode;
         }
@@ -235,8 +245,13 @@ int main() {
             const Camera3D& cam = camera.camera();
 
             BeginMode3D(cam);
-                grid.draw();
-                grid.drawAxes(view.axisLength);
+                if (mode == AppMode::Complex) {
+                    grid.drawPlaneXY();
+                    argand.draw(complexPanel.scene(), view.axisLength, view.showAxes);
+                } else {
+                    grid.draw();
+                    grid.drawAxes(view.axisLength);
+                }
                 if (mode == AppMode::LinearAlgebra) {
                     transformViz.draw();
                     vectorRenderer.draw();
@@ -248,7 +263,11 @@ int main() {
 
             // Labels for 3D objects
             if (view.showLabels) {
-                if (view.showAxes) drawAxisLabels(cam, view.axisLength);
+                if (mode == AppMode::Complex) {
+                    argand.drawLabels(cam, complexPanel.scene(), view.axisLength, view.showAxes);
+                } else if (view.showAxes) {
+                    drawAxisLabels(cam, view.axisLength);
+                }
                 if (mode == AppMode::LinearAlgebra) {
                     vectorRenderer.drawLabels(cam);
                     if (view.showEigenvectors) TransformVisualizer::drawEigenLabels(cam, infoPanel.eigen());
@@ -259,6 +278,8 @@ int main() {
             float y = sideBar.begin(mode);
             if (mode == AppMode::LinearAlgebra) {
                 y = inputPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth) + SideBar::kGap;
+            } else if (mode == AppMode::Complex) {
+                y = complexPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth) + SideBar::kGap;
             }
             y = viewPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth, mode);
             sideBar.end(y);

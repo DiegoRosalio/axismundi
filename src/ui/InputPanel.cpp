@@ -89,6 +89,13 @@ void InputPanel::update() {
     }
 }
 
+void InputPanel::finishEditing() {
+    if (m_activeField < 0) return;
+    int id = m_activeField;
+    m_activeField = -1;
+    finishField(id);
+}
+
 void InputPanel::finishField(int id) {
     char* text = fieldText(m_state, id);
     if (isValid(text)) {

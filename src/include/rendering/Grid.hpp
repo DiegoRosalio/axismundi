@@ -8,7 +8,8 @@ class Grid {
 public:
     Grid(int size = 10, float spacing = 1.0f);
 
-    void draw() const;
+    void draw() const;          // ground grid (XZ plane)
+    void drawPlaneXY() const;   // vertical grid (XY plane), for 2D views
     void drawAxes(float axisLength = 10.0f) const;
 
     void setSize(int size) { m_size = size; }
