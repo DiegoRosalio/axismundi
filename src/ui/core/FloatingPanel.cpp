@@ -71,6 +71,7 @@ bool FloatingPanel::begin(float contentHeight, Rectangle& content) {
     }
 
     m_bounds = snap({a.x + m_anchor.x * freeW, a.y + m_anchor.y * freeH, width, height});
+    anchor(("panel." + m_id).c_str(), m_bounds);
     card(m_bounds);
 
     // Header: title, collapse and close

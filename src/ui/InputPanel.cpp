@@ -254,6 +254,7 @@ float InputPanel::drawMatrixGroup(float x, float y, float width) {
         m_state.use4x4 = (size == 1);
         commit();
     }
+    ui::anchor("matrix.size", top);
     if (ui::iconButton(undoRect, ui::Icon::Undo, false, canUndo())) undo();
     if (ui::iconButton(redoRect, ui::Icon::Redo, false, canRedo())) redo();
     ui::tooltip(undoRect, "Undo the last change (Ctrl+Z in UI mode)", "Undo");
@@ -263,8 +264,10 @@ float InputPanel::drawMatrixGroup(float x, float y, float width) {
     // Cells
     int n = m_state.use4x4 ? 4 : 3;
     float cellH = m_state.use4x4 ? 32.0f : 36.0f;
+    Rectangle grid = {col.x(), col.y(), col.width(), 0};
     for (int i = 0; i < n; i++) {
         Rectangle row = col.row(cellH);
+        grid = ui::unite(grid, row);
         auto cells = n == 4 ? ui::splitRow(row, {1, 1, 1, 1}, 6.0f) : ui::splitRow(row, {1, 1, 1}, 6.0f);
         for (int j = 0; j < n; j++) {
             int id = i * n + j;
@@ -284,6 +287,7 @@ float InputPanel::drawMatrixGroup(float x, float y, float width) {
             }
         }
     }
+    ui::anchor("matrix.grid", grid);
     col.space(10.0f);
     return col.y();
 }
@@ -303,8 +307,11 @@ float InputPanel::drawVectorGroup(float x, float y, float width) {
 
     const char* names[2] = {"A", "B"};
     const Color colors[2] = {m_colorA, m_colorB};
+    Rectangle area = {col.x(), col.y(), col.width(), 0};
     for (int v = 0; v < 2; v++) {
         Rectangle row = col.row(36.0f);
+        area = ui::unite(area, row);
+        ui::anchor(v == 0 ? "vector.a" : "vector.b", row);
         Rectangle label = ui::takeLeft(row, 28.0f, 6.0f);
         float dot = ui::px(8.0f);
         DrawCircleV({label.x + dot / 2 + ui::px(2), label.y + label.height / 2}, dot / 2, colors[v]);
@@ -317,6 +324,7 @@ float InputPanel::drawVectorGroup(float x, float y, float width) {
             if (ui::textField(cells[k], text, kTextSize, id, m_activeField, !isValid(text))) finishField(id);
         }
     }
+    ui::anchor("vectors", area);
     col.space(10.0f);
     return col.y();
 }
@@ -343,16 +351,22 @@ float InputPanel::drawPresetGroup(float x, float y, float width) {
         "x' = −x: a mirror image across the y-z plane. det = −1, so orientation flips.",
     };
     const int count = static_cast<int>(sizeof(buttons) / sizeof(buttons[0]));
+    Rectangle area = {col.x(), col.y(), col.width(), 0};
     for (int i = 0; i < count; i += 2) {
-        auto cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
+        Rectangle rowRect = col.row(ui::kRowHeight);
+        area = ui::unite(area, rowRect);
+        auto cells = ui::splitRow(rowRect, {1, 1}, 8.0f);
         for (int k = 0; k < 2 && i + k < count; k++) {
             const Button& b = buttons[i + k];
             if (ui::button(cells[k], b.label, ui::ButtonKind::Secondary, true, ui::Icon::None, b.key)) {
                 applyPreset(b.preset);
             }
             ui::tooltip(cells[k], tips[i + k], b.label);
+            if (b.preset == MatrixPreset::Rotate45Z) ui::anchor("preset.rotate", cells[k]);
+            if (b.preset == MatrixPreset::ReflectX) ui::anchor("preset.reflect", cells[k]);
         }
     }
+    ui::anchor("presets", area);
     col.space(10.0f);
     return col.y();
 }

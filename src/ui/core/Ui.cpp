@@ -3,6 +3,7 @@
 
 #include <raygui.h>
 #include <algorithm>
+#include <map>
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -49,6 +50,9 @@ struct State {
 };
 
 State g;
+
+std::map<std::string, Rectangle> g_anchors;      // being registered this frame
+std::map<std::string, Rectangle> g_lastAnchors;  // complete set from last frame
 
 int roleIndex(FontRole role) { return static_cast<int>(role); }
 
@@ -133,6 +137,9 @@ void init() {
 }
 
 void beginFrame() {
+    g_lastAnchors.swap(g_anchors);
+    g_anchors.clear();
+
     float w = static_cast<float>(GetScreenWidth());
     float h = static_cast<float>(GetScreenHeight());
     float automatic = std::clamp(std::min(w / kDesignWidth, h / kDesignHeight), 0.75f, 3.0f);
@@ -384,6 +391,27 @@ bool clicked(Rectangle r) {
 
 bool rightClicked(Rectangle r) {
     return hovered(r) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+}
+
+// ---------------------------------------------------------------------------
+// Anchors
+// ---------------------------------------------------------------------------
+
+void anchor(const char* id, Rectangle r) {
+    g_anchors[id] = r;
+}
+
+bool findAnchor(const std::string& id, Rectangle& out) {
+    auto it = g_lastAnchors.find(id);
+    if (it == g_lastAnchors.end()) return false;
+    out = it->second;
+    return true;
+}
+
+Rectangle unite(Rectangle a, Rectangle b) {
+    float x0 = std::min(a.x, b.x), y0 = std::min(a.y, b.y);
+    float x1 = std::max(a.x + a.width, b.x + b.width), y1 = std::max(a.y + a.height, b.y + b.height);
+    return {x0, y0, x1 - x0, y1 - y0};
 }
 
 // ---------------------------------------------------------------------------

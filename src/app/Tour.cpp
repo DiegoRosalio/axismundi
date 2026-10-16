@@ -94,7 +94,25 @@ void Tour::buildSteps() {
         examples()[3].apply(app);  // projection
         app.toast(std::string("Example: ") + examples()[3].title);
     });
+    step("10h_tutorial_list", [](App& app) {
+        if (auto* p = app.panel("tutorial")) p->setVisible(true);
+    });
+    step("10i_tutorial_step", [](App& app) {
+        app.tutorialPanel().startLesson(2);  // matrices: columns are images
+    }, 10);
+    step("10j_tutorial_task", [](App& app) {
+        // Advance to the "send x to y" step by recreating the panel state
+        app.tutorialPanel().startLesson(2);
+        app.tutorialPanel().goToStep(1);
+    }, 20);
+    step("10k_tutorial_done", [](App& app) {
+        Matrix3D m = Matrix3D::identity();
+        m.m[0][0] = 0;
+        m.m[1][0] = 1;
+        app.setMatrix3(m);
+    }, 20);
     step("11_settings", [](App& app) {
+        if (auto* p = app.panel("tutorial")) p->setVisible(false);
         if (auto* p = app.panel("breakdown")) p->setVisible(false);
         if (auto* p = app.panel("steps")) p->setVisible(false);
         if (auto* p = app.panel("analysis")) p->setVisible(true);

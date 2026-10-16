@@ -12,6 +12,7 @@
 #include <raygui.h>
 #include <rlgl.h>
 #include <algorithm>
+#include <cmath>
 #include <ctime>
 
 namespace linalg {
@@ -42,7 +43,8 @@ App::App(const AppOptions& options)
       m_animationWindow("animation", "Animation", 640.0f, {0.5f, 1.0f}),
       m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false),
       m_breakdownWindow("breakdown", "Transformation breakdown", 380.0f, {0.0f, 0.4f}, false),
-      m_galleryWindow("gallery", "Example gallery", 700.0f, {0.5f, 0.2f}, false) {
+      m_galleryWindow("gallery", "Example gallery", 700.0f, {0.5f, 0.2f}, false),
+      m_tutorialWindow("tutorial", "Tutorial", 400.0f, {0.0f, 0.0f}, false) {
     // Preferences (not during the tour, which must be reproducible)
     SceneData prefs;
     if (options.tourDir.empty()) loadPreferences(prefs);
@@ -65,6 +67,7 @@ App::App(const AppOptions& options)
     m_panels.add(&m_stepsWindow);
     m_panels.add(&m_breakdownWindow);
     m_panels.add(&m_galleryWindow);
+    m_panels.add(&m_tutorialWindow);
 
     applyPreferences(prefs);
     if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
@@ -225,6 +228,7 @@ void App::applyPreferences(const SceneData& prefs) {
     getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
     m_viewPanel.loadColors(prefs);
+    m_tutorialPanel.loadState(prefs);
     for (auto* p : m_panels.panels()) p->loadState(prefs);
 }
 
@@ -239,6 +243,7 @@ void App::savePreferences() {
         putInt(prefs, "window.height", GetScreenHeight());
     }
     m_viewPanel.saveColors(prefs);
+    m_tutorialPanel.saveState(prefs);
     for (auto* p : m_panels.panels()) p->saveState(prefs);
     std::string error;
     Preferences::save(prefs, error);  // best effort: nothing useful to show while closing
@@ -353,6 +358,10 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
     if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
     if (IsKeyPressed(KEY_B)) m_breakdownWindow.toggle();
+    if (IsKeyPressed(KEY_F1)) {
+        m_tutorialWindow.toggle();
+        if (m_tutorialWindow.visible()) m_panels.bringToFront(&m_tutorialWindow);
+    }
     if (IsKeyPressed(KEY_E)) {
         m_galleryWindow.toggle();
         if (m_galleryWindow.visible()) m_panels.bringToFront(&m_galleryWindow);
@@ -436,6 +445,8 @@ void App::update(float deltaTime) {
             if (m_mode == AppMode::Plotting) resetCamera();
         }
     }
+
+    if (m_tutorialWindow.visible()) m_tutorialPanel.update(*this);
 
     m_grid.setShowGrid(view.showGrid);
     m_grid.setShowAxes(view.showAxes);
@@ -555,12 +566,17 @@ void App::drawUi(float deltaTime) {
     state.stepsVisible = m_stepsWindow.visible();
     state.breakdownVisible = m_breakdownWindow.visible();
     state.galleryVisible = m_galleryWindow.visible();
+    state.tutorialVisible = m_tutorialWindow.visible();
     state.matricesMode = (m_mode == AppMode::LinearAlgebra);
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
     if (actions.toggleFullscreen) toggleFullscreen();
     if (actions.screenshot) requestScreenshot(false);
+    if (actions.toggleTutorial) {
+        m_tutorialWindow.toggle();
+        if (m_tutorialWindow.visible()) m_panels.bringToFront(&m_tutorialWindow);
+    }
     if (actions.toggleGallery) {
         m_galleryWindow.toggle();
         if (m_galleryWindow.visible()) m_panels.bringToFront(&m_galleryWindow);
@@ -595,6 +611,7 @@ void App::drawUi(float deltaTime) {
         if (view.customColor[s]) view.vectorColor[s] = color.color;
     }
 
+    drawTutorialHighlight();
     drawToast(deltaTime);
     m_help.draw();
     ui::drawTooltip(m_uiSettings.tooltips && !m_help.visible());
@@ -622,6 +639,11 @@ void App::drawFloatingPanels() {
                 m_breakdownHeight = m_breakdownPanel.drawContent(content);
                 p->end();
             }
+        } else if (p == &m_tutorialWindow) {
+            if (p->begin(m_tutorialHeight, content)) {
+                m_tutorialHeight = m_tutorialPanel.drawContent(content, *this);
+                p->end();
+            }
         } else if (p == &m_galleryWindow) {
             if (p->begin(m_galleryHeight, content)) {
                 int chosen = -1;
@@ -642,6 +664,22 @@ void App::drawFloatingPanels() {
             }
         }
     }
+}
+
+void App::drawTutorialHighlight() {
+    if (!m_tutorialWindow.visible() || m_tutorialWindow.collapsed()) return;
+    std::string id = m_tutorialPanel.currentAnchor();
+    Rectangle r;
+    if (id.empty() || !ui::findAnchor(id, r)) return;
+    // Pulsing outline around the control the current step is about
+    float pulse = 0.5f + 0.5f * std::sin(static_cast<float>(GetTime()) * 4.0f);
+    float grow = ui::px(4.0f + 2.0f * pulse);
+    Rectangle ring = {r.x - grow, r.y - grow, r.width + 2 * grow, r.height + 2 * grow};
+    Color c = ui::theme().accent;
+    Color soft = c;
+    soft.a = static_cast<unsigned char>(40 + 50 * pulse);
+    ui::strokeRounded(ring, ui::px(ui::kRadius + 4), ui::px(5.0f), soft);
+    ui::strokeRounded(ring, ui::px(ui::kRadius + 4), ui::pxi(2.0f), c);
 }
 
 void App::drawHud() {

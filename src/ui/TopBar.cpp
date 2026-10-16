@@ -33,6 +33,7 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     Rectangle tabs = ui::takeLeft(bar, 330.0f, 16.0f);
     tabs.y = (h - ui::px(34.0f)) / 2;
     tabs.height = ui::px(34.0f);
+    ui::anchor("topbar.modes", tabs);
     int active = static_cast<int>(mode);
     if (ui::segmented(tabs, {"Matrices", "Complex", "Plots"}, active,
                       {"Vectors, matrices and transformations (key 1)",
@@ -63,13 +64,18 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     if (rightButton(t.dark ? ui::Icon::Sun : ui::Icon::Moon, false)) actions.toggleTheme = true;
     ui::tooltip(last, t.dark ? "Switch to the light theme (T)" : "Switch to the dark theme (T)", "Theme");
     divider();
+    if (rightButton(ui::Icon::Book, state.tutorialVisible)) actions.toggleTutorial = true;
+    ui::anchor("topbar.tutorial", last);
+    ui::tooltip(last, "Guided lessons with small tasks that are checked as you work (F1)", "Tutorial");
     if (rightButton(ui::Icon::Gallery, state.galleryVisible)) actions.toggleGallery = true;
+    ui::anchor("topbar.gallery", last);
     ui::tooltip(last, "Ready-made examples for every mode, each with a note on what to look at (E)",
                 "Example gallery");
     if (rightButton(ui::Icon::Steps, state.stepsVisible)) actions.toggleSteps = true;
     ui::tooltip(last, "Worked, step-by-step calculations for the current inputs (K)", "Calculation steps");
     if (state.matricesMode) {
         if (rightButton(ui::Icon::Layers, state.breakdownVisible)) actions.toggleBreakdown = true;
+        ui::anchor("topbar.breakdown", last);
         ui::tooltip(last, "Split the matrix into rotate, stretch, rotate (and move) steps and watch them one "
                           "at a time (B)", "Transformation breakdown");
     }

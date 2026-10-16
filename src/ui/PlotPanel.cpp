@@ -246,7 +246,9 @@ float PlotPanel::draw(float x, float y, float width, const PlotRenderer& rendere
 
     // Plot type selector
     int type = m_type;
-    if (ui::segmented(col.row(34.0f), {"y = f(x)", "Curve", "Surface", "Implicit"}, type,
+    Rectangle typeRow = col.row(34.0f);
+    ui::anchor("plot.type", typeRow);
+    if (ui::segmented(typeRow, {"y = f(x)", "Curve", "Surface", "Implicit"}, type,
                       {"The graph of a function of x, drawn in the vertical plane.",
                        "A path traced as t runs through its range: (x(t), y(t), z(t)).",
                        "A height z = f(x, y) above every point of the xy-plane.",
@@ -262,6 +264,7 @@ float PlotPanel::draw(float x, float y, float width, const PlotRenderer& rendere
         Rectangle r = col.row(34.0f);
         Rectangle l = ui::takeLeft(r, 34.0f, 6.0f);
         ui::textIn(l, label, ui::FontRole::Body, t.textMuted);
+        if (slot == 0) ui::anchor("plot.expr", r);
         char* text = exprText(slot);
         Expression probe;
         bool invalid = !probe.parse(text);

@@ -76,6 +76,13 @@ bool hovered(Rectangle r);        // mouse inside and interaction allowed
 bool clicked(Rectangle r);        // left button pressed inside this frame
 bool rightClicked(Rectangle r);
 
+// --- Anchors -----------------------------------------------------------------
+// Named screen rectangles registered while drawing (e.g. "matrix.grid"), so the
+// tutorial can point at a control. findAnchor() returns last frame's rectangle.
+void anchor(const char* id, Rectangle r);
+bool findAnchor(const std::string& id, Rectangle& out);
+Rectangle unite(Rectangle a, Rectangle b);
+
 // --- Tooltips ----------------------------------------------------------------
 // Register a tooltip for a rectangle (call while drawing, after the widget).
 // The hovered one is shown after a short delay by drawTooltip().

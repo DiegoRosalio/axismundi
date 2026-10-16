@@ -23,21 +23,27 @@ const Entry kView[] = {
     {"1|2|3", "Matrices / Complex / Plots"},
     {"G", "Toggle grid"},
     {"L", "Toggle labels"},
-    {"M", "Toggle analysis panel"},
     {"T", "Dark / light theme"},
     {"Ctrl+=|Ctrl+-", "Bigger / smaller UI"},
+    {"Ctrl+0", "Default UI size"},
+    {"F11", "Fullscreen"},
     {"H", "Toggle this help"},
 };
 
+const Entry kPanels[] = {
+    {"F1", "Tutorial"},
+    {"E", "Example gallery"},
+    {"M", "Analysis panel"},
+    {"K", "Calculation steps"},
+    {"B", "Transformation breakdown"},
+    {"F12", "Screenshot (Shift: 3D view only)"},
+    {"F5|F9", "Save / load scene.txt"},
+};
+
 const Entry kEdit[] = {
-    {"I", "Identity matrix"},
-    {"R", "Rotate 45° about Z"},
-    {"S", "Scale 2× (UI mode)"},
-    {"X", "Shear x by 0.5"},
-    {"F", "Reflect across the y-z plane"},
+    {"I|R|S|X|F", "Presets (S in UI mode)"},
     {"Ctrl+Z|Ctrl+Y", "Undo / redo (UI mode)"},
     {"P", "Play / pause animation"},
-    {"F5|F9", "Save / load scene.txt"},
     {"Enter", "Confirm a field"},
     {"Tab", "Confirm and go to the next field"},
     {"Esc", "Cancel the edit (quits otherwise)"},
@@ -46,7 +52,7 @@ const Entry kEdit[] = {
 float drawColumn(const char* title, const Entry* entries, int count, float x, float y, float width) {
     const ui::Theme& t = ui::theme();
     ui::text(ui::upper(title).c_str(), x, y, ui::FontRole::Caption, t.accent);
-    y += ui::px(28.0f);
+    y += ui::px(26.0f);
     float keyColumn = ui::px(150.0f);
     for (int i = 0; i < count; i++) {
         // Keycaps
@@ -62,7 +68,7 @@ float drawColumn(const char* title, const Entry* entries, int count, float x, fl
         }
         Rectangle label = {x + keyColumn, y, width - keyColumn, ui::px(24.0f)};
         ui::textIn(label, entries[i].action, ui::FontRole::Body, t.text);
-        y += ui::px(34.0f);
+        y += ui::px(31.0f);
     }
     return y;
 }
@@ -78,7 +84,7 @@ void HelpOverlay::draw() const {
     DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h), t.overlay);
 
     float boxW = std::min(ui::px(900.0f), w - ui::px(32.0f));
-    float boxH = std::min(ui::px(560.0f), h - ui::px(32.0f));
+    float boxH = std::min(ui::px(640.0f), h - ui::px(32.0f));
     Rectangle box = {(w - boxW) / 2, (h - boxH) / 2, boxW, boxH};
     ui::card(box);
 
@@ -90,7 +96,9 @@ void HelpOverlay::draw() const {
     float colY = box.y + pad + ui::px(70.0f);
     float colW = (boxW - 3 * pad) / 2;
     drawColumn("View and camera", kView, sizeof(kView) / sizeof(kView[0]), box.x + pad, colY, colW);
-    drawColumn("Editing", kEdit, sizeof(kEdit) / sizeof(kEdit[0]), box.x + 2 * pad + colW, colY, colW);
+    float y2 = drawColumn("Panels and tools", kPanels, sizeof(kPanels) / sizeof(kPanels[0]),
+                          box.x + 2 * pad + colW, colY, colW);
+    drawColumn("Editing", kEdit, sizeof(kEdit) / sizeof(kEdit[0]), box.x + 2 * pad + colW, y2 + ui::px(12.0f), colW);
 
     ui::textIn({box.x, box.y + boxH - pad, boxW - pad, ui::px(20.0f)}, "Press H or click the ? button to close",
                ui::FontRole::Small, t.textFaint, ui::Align::Right);

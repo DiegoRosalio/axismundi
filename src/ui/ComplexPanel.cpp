@@ -95,6 +95,7 @@ float ComplexPanel::draw(float x, float y, float width) {
         const Color colors[2] = {t.z1, t.z2};
         for (int row = 0; row < 2; row++) {
             Rectangle r = col.row(36.0f);
+            ui::anchor(row == 0 ? "complex.z1" : "complex.z2", r);
             Rectangle label = ui::takeLeft(r, 34.0f, 6.0f);
             float dot = ui::px(8.0f);
             DrawCircleV({label.x + dot / 2 + ui::px(2), label.y + label.height / 2}, dot / 2, colors[row]);
@@ -172,6 +173,7 @@ float ComplexPanel::draw(float x, float y, float width) {
         Rectangle label = ui::takeLeft(r, 20.0f, 8.0f);
         Rectangle value = ui::takeRight(r, 64.0f, 8.0f);
         ui::textIn(label, "θ", ui::FontRole::BodyStrong, t.text);
+        ui::anchor("complex.theta", r);
         ui::slider(r, m_scene.theta, 0.0f, 2.0f * PI);
         ui::tooltip(r, "Drag to move e^(iθ) around the unit circle. Its shadows on the axes are cos θ and sin θ.");
         snprintf(buf, sizeof(buf), "%.2f rad", m_scene.theta);

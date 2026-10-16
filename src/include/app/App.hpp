@@ -25,6 +25,7 @@
 #include "ui/SideBar.hpp"
 #include "ui/StepsPanel.hpp"
 #include "ui/TopBar.hpp"
+#include "ui/TutorialPanel.hpp"
 #include "ui/ViewPanel.hpp"
 #include "ui/core/FloatingPanel.hpp"
 
@@ -90,6 +91,7 @@ public:
     bool uiMode() const;
     bool breakdownActive() const;
     BreakdownPanel& breakdownPanel() { return m_breakdownPanel; }
+    TutorialPanel& tutorialPanel() { return m_tutorialPanel; }
 
     void saveScene();
     void loadScene();
@@ -113,6 +115,7 @@ private:
     void drawFloatingPanels();
     void drawToast(float deltaTime);
     void drawHud();
+    void drawTutorialHighlight();
     void toggleTheme();
     void toggleFullscreen();
     void takeScreenshot();
@@ -158,6 +161,9 @@ private:
     BreakdownPanel m_breakdownPanel;
     ui::FloatingPanel m_galleryWindow;
     GalleryPanel m_galleryPanel;
+    ui::FloatingPanel m_tutorialWindow;
+    TutorialPanel m_tutorialPanel;
+    float m_tutorialHeight = 0.0f;
     float m_galleryHeight = 0.0f;
     float m_breakdownHeight = 0.0f;
     bool m_breakdownWasVisible = false;

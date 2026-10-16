@@ -43,6 +43,7 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
     if (mode == AppMode::LinearAlgebra) {
         Rectangle eig = col.row(30);
         ui::toggleRow(eig, "Eigenvectors", m_settings.showEigenvectors);
+        ui::anchor("view.eigen", eig);
         ui::tooltip(eig, "Dashed lines along the directions M only stretches; the dot marks λv.", "Eigenvectors");
         Rectangle tr = col.row(30);
         ui::toggleRow(tr, "Transformed A, B", m_settings.showTransformedVectors);
