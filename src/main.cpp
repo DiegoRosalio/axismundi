@@ -1,6 +1,7 @@
 #include <raylib.h>
 #include <raygui.h>
 
+#include "animation/Animator.hpp"
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
@@ -11,6 +12,7 @@
 #include "rendering/PlotRenderer.hpp"
 #include "rendering/TransformVisualizer.hpp"
 #include "rendering/VectorRenderer.hpp"
+#include "ui/AnimationPanel.hpp"
 #include "ui/AppMode.hpp"
 #include "ui/ComplexPanel.hpp"
 #include "ui/HelpOverlay.hpp"
@@ -89,6 +91,8 @@ int main() {
     ArgandRenderer argand;
     PlotPanel plotPanel;
     PlotRenderer plotRenderer;
+    Animator animator;
+    AnimationPanel animationPanel;
     InfoPanel infoPanel;
     ViewPanel viewPanel;
     SideBar sideBar;
@@ -118,6 +122,7 @@ int main() {
         inputPanel.saveState(data);
         complexPanel.saveState(data);
         plotPanel.saveState(data);
+        AnimationPanel::saveState(animator, data);
         viewPanel.saveState(data);
 
         std::string error;
@@ -150,6 +155,7 @@ int main() {
         inputPanel.loadState(data);
         complexPanel.loadState(data);
         plotPanel.loadState(data);
+        AnimationPanel::loadState(animator, data);
         viewPanel.loadState(data);
         toast.show(std::string("Scene loaded from ") + kSceneFile, DARKGREEN);
     };
@@ -169,7 +175,8 @@ int main() {
             else DisableCursor();
         }
         bool uiMode = !IsCursorHidden();
-        if (uiMode) GuiUnlock();
+        // Widgets only respond in UI mode, and not behind the help overlay
+        if (uiMode && !help.visible()) GuiUnlock();
         else GuiLock();
 
         inputPanel.update();
@@ -201,6 +208,10 @@ int main() {
                     if (IsKeyPressed(KEY_R)) inputPanel.applyPreset(MatrixPreset::Rotate45Z);
                     if (IsKeyPressed(KEY_X)) inputPanel.applyPreset(MatrixPreset::ShearX);
                     if (IsKeyPressed(KEY_F)) inputPanel.applyPreset(MatrixPreset::ReflectX);
+                    if (IsKeyPressed(KEY_P)) {
+                        if (animator.active()) animator.togglePlay();
+                        else animator.start(AnimationPreset::Morph);
+                    }
                     // S moves the camera backwards in camera mode
                     if (uiMode && IsKeyPressed(KEY_S)) inputPanel.applyPreset(MatrixPreset::Scale2);
                 }
@@ -224,23 +235,25 @@ int main() {
             matrix = inputPanel.getActiveMatrix4D();
             vecA = inputPanel.getVectorA();
             vecB = inputPanel.getVectorB();
-
-            if (inputPanel.isUsing4x4()) transformViz.setTransform4D(matrix);
-            else transformViz.setTransform3D(inputPanel.getMatrix3D());
-
+            animator.setMorphTarget(matrix);
             infoPanel.update(matrix, inputPanel.isUsing4x4(), vecA, vecB);
         }
         inputPanel.resetChangedFlags();
+
+        // While animating, the scene shows the animated matrix instead of the input
+        animator.update(deltaTime);
+        Matrix4D shown = animator.active() ? animator.current() : matrix;
+        transformViz.setTransform4D(shown);
 
         vectorRenderer.clearVectors();
         vectorRenderer.addVector(VectorObject(Vector3D::zero(), vecA, YELLOW, "A"));
         vectorRenderer.addVector(VectorObject(Vector3D::zero(), vecB, MAGENTA, "B"));
         vectorRenderer.addVector(VectorObject(Vector3D::zero(), vecA + vecB, ORANGE, "A+B"));
         vectorRenderer.addVector(VectorObject(Vector3D::zero(), vecA.cross(vecB), SKYBLUE, "AxB"));
-        if (view.showTransformedVectors && !isIdentity(matrix)) {
-            Vector3D origin = matrix.transform(Vector3D::zero());
-            vectorRenderer.addVector(VectorObject(origin, matrix.transform(vecA) - origin, GOLD, "MA"));
-            vectorRenderer.addVector(VectorObject(origin, matrix.transform(vecB) - origin, PINK, "MB"));
+        if (view.showTransformedVectors && !isIdentity(shown)) {
+            Vector3D origin = shown.transform(Vector3D::zero());
+            vectorRenderer.addVector(VectorObject(origin, shown.transform(vecA) - origin, GOLD, "MA"));
+            vectorRenderer.addVector(VectorObject(origin, shown.transform(vecB) - origin, PINK, "MB"));
         }
 
         if (plotPanel.changed()) {
@@ -296,6 +309,20 @@ int main() {
                 }
             }
 
+            // HUD (drawn before the panels so they cover it on narrow windows)
+            int hudX = static_cast<int>(SideBar::kWidth) + 12;
+            if (uiMode) {
+                DrawText("UI mode: click fields to edit | TAB: camera | H: help",
+                         hudX, 12, kUiTextSmall, DARKGRAY);
+            } else {
+                DrawText("Camera: WASD + mouse, Space/Ctrl up/down | TAB: UI | H: help",
+                         hudX, 12, kUiTextSmall, DARKBLUE);
+            }
+            Vector3 p = camera.position();
+            DrawText(TextFormat("Camera position: (%.2f, %.2f, %.2f)", p.x, p.y, p.z), hudX, 38,
+                     kUiTextSmall, GRAY);
+            DrawFPS(hudX, 64);
+
             // Side bar
             float y = sideBar.begin(mode);
             if (mode == AppMode::LinearAlgebra) {
@@ -312,20 +339,12 @@ int main() {
             if (viewPanel.takeSaveRequest()) saveScene();
             if (viewPanel.takeLoadRequest()) loadScene();
 
-            if (mode == AppMode::LinearAlgebra) infoPanel.draw();
-
-            // HUD
-            int hudX = static_cast<int>(SideBar::kWidth) + 12;
-            if (uiMode) {
-                DrawText("UI mode: click a field to edit  |  TAB: camera mode  |  H: help",
-                         hudX, 12, kUiTextSmall, DARKGRAY);
-            } else {
-                DrawText("Camera mode: WASD move, mouse look, Space/Ctrl up/down  |  TAB: UI  |  H: help",
-                         hudX, 12, kUiTextSmall, DARKBLUE);
+            if (mode == AppMode::LinearAlgebra) {
+                infoPanel.draw();
+                float left = SideBar::kWidth + 10.0f;
+                float right = GetScreenWidth() - infoPanel.width() - 10.0f;
+                animationPanel.draw(animator, matrix, left, right);
             }
-            Vector3 p = camera.position();
-            DrawText(TextFormat("Camera: (%.2f, %.2f, %.2f)", p.x, p.y, p.z), hudX, 38, kUiTextSmall, GRAY);
-            DrawFPS(hudX, 64);
 
             toast.draw(deltaTime);
             help.draw();
