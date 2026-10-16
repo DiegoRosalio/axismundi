@@ -285,7 +285,7 @@ float InputPanel::drawVectorGroup(float x, float y, float width) {
     for (int k = 0; k < 3; k++) ui::textIn(heads[k], axes[k], ui::FontRole::Small, t.textMuted, ui::Align::Center);
 
     const char* names[2] = {"A", "B"};
-    const Color colors[2] = {t.vecA, t.vecB};
+    const Color colors[2] = {m_colorA, m_colorB};
     for (int v = 0; v < 2; v++) {
         Rectangle row = col.row(36.0f);
         Rectangle label = ui::takeLeft(row, 28.0f, 6.0f);

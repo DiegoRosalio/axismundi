@@ -12,6 +12,7 @@
 #include "rendering/VectorRenderer.hpp"
 #include "ui/AnimationPanel.hpp"
 #include "ui/AppMode.hpp"
+#include "ui/ColorPopover.hpp"
 #include "ui/ComplexPanel.hpp"
 #include "ui/HelpOverlay.hpp"
 #include "ui/InfoPanel.hpp"
@@ -64,6 +65,8 @@ public:
     void setUiMode(bool ui);  // true: cursor visible, panels active
     void showHelp(bool show);
     void showSettings(bool show);
+    void openColorPicker(int slot);  // VectorSlot, anchored at the top of the viewport
+    void closePopovers();
     void setTheme(bool dark);
     void toast(const std::string& message, bool error = false);
 
@@ -136,6 +139,7 @@ private:
     TopBar m_topBar;
     HelpOverlay m_help;
     SettingsPopover m_settingsPopover;
+    ColorPopover m_colorPopover;
     UiSettings m_uiSettings;
     Toast m_toast;
     std::unique_ptr<Tour> m_tour;

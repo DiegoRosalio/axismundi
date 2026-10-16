@@ -53,6 +53,7 @@ public:
     void setMatrix3(const Matrix3D& m);   // also switches to 3x3
     void setMatrix4(const Matrix4D& m);   // also switches to 4x4
     void setVectors(const Vector3D& a, const Vector3D& b);
+    void setVectorColors(Color a, Color b) { m_colorA = a; m_colorB = b; }
 
     bool canUndo() const { return !m_undo.empty(); }
     bool canRedo() const { return !m_redo.empty(); }
@@ -102,6 +103,8 @@ private:
     std::vector<State> m_redo;
 
     int m_activeField;
+    Color m_colorA = {255, 214, 74, 255};
+    Color m_colorB = {236, 100, 206, 255};
     bool m_showMatrix = true;
     bool m_showVectors = true;
     bool m_showPresets = true;

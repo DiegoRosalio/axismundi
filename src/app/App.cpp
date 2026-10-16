@@ -106,6 +106,17 @@ void App::showSettings(bool show) {
     else m_settingsPopover.close();
 }
 
+void App::openColorPicker(int slot) {
+    Rectangle anchor = {SideBar::width() + ui::px(16), TopBar::height(), ui::px(24), ui::px(4)};
+    m_colorPopover.open(slot, anchor, std::string("Color of ") + vectorSlotName(slot),
+                        m_viewPanel.settings().colorFor(slot));
+}
+
+void App::closePopovers() {
+    m_settingsPopover.close();
+    m_colorPopover.close();
+}
+
 void App::setTheme(bool dark) {
     ui::setTheme(dark ? ui::ThemeKind::Dark : ui::ThemeKind::Light);
     m_plotPanel.markChanged();
@@ -202,6 +213,7 @@ void App::applyPreferences(const SceneData& prefs) {
     if (getFloat(prefs, "ui.zoom", zoom)) ui::setZoom(zoom);
     getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
+    m_viewPanel.loadColors(prefs);
     for (auto* p : m_panels.panels()) p->loadState(prefs);
 }
 
@@ -215,6 +227,7 @@ void App::savePreferences() {
         putInt(prefs, "window.width", GetScreenWidth());
         putInt(prefs, "window.height", GetScreenHeight());
     }
+    m_viewPanel.saveColors(prefs);
     for (auto* p : m_panels.panels()) p->saveState(prefs);
     std::string error;
     Preferences::save(prefs, error);  // best effort: nothing useful to show while closing
@@ -246,7 +259,7 @@ void App::run() {
 
         // Fields are activated while drawing, so decide here whether Escape
         // should quit (checked by WindowShouldClose() on the next frame)
-        SetExitKey(isEditing() || m_settingsPopover.isOpen() ? KEY_NULL : KEY_ESCAPE);
+        SetExitKey(isEditing() || m_settingsPopover.isOpen() || m_colorPopover.isOpen() ? KEY_NULL : KEY_ESCAPE);
     }
 }
 
@@ -278,6 +291,8 @@ void App::handleInput(float deltaTime) {
             m_complexPanel.cancelEditing();
             m_plotPanel.cancelEditing();
             editing = false;
+        } else if (m_colorPopover.isOpen()) {
+            m_colorPopover.close();
         } else if (m_settingsPopover.isOpen()) {
             m_settingsPopover.close();
         }
@@ -369,17 +384,20 @@ void App::update(float deltaTime) {
     m_shown = m_animator.active() ? m_animator.current() : m_matrix;
     m_transformViz.setTransform4D(m_shown);
 
-    const ui::Theme& t = ui::theme();
     m_vectorRenderer.clearVectors();
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA, t.vecA, "A"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecB, t.vecB, "B"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA + m_vecB, t.vecSum, "A+B"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA.cross(m_vecB), t.vecCross, "A×B"));
+    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA, view.colorFor(kVecA), "A"));
+    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecB, view.colorFor(kVecB), "B"));
+    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA + m_vecB, view.colorFor(kVecSum), "A+B"));
+    m_vectorRenderer.addVector(
+        VectorObject(Vector3D::zero(), m_vecA.cross(m_vecB), view.colorFor(kVecCross), "A×B"));
     if (view.showTransformedVectors && !isIdentity(m_shown)) {
         Vector3D origin = m_shown.transform(Vector3D::zero());
-        m_vectorRenderer.addVector(VectorObject(origin, m_shown.transform(m_vecA) - origin, t.vecMA, "MA"));
-        m_vectorRenderer.addVector(VectorObject(origin, m_shown.transform(m_vecB) - origin, t.vecMB, "MB"));
+        m_vectorRenderer.addVector(
+            VectorObject(origin, m_shown.transform(m_vecA) - origin, view.colorFor(kVecMA), "MA"));
+        m_vectorRenderer.addVector(
+            VectorObject(origin, m_shown.transform(m_vecB) - origin, view.colorFor(kVecMB), "MB"));
     }
+    m_inputPanel.setVectorColors(view.colorFor(kVecA), view.colorFor(kVecB));
 
     if (m_plotPanel.changed()) {
         m_plotRenderer.rebuild(m_plotPanel.spec());
@@ -455,8 +473,9 @@ float App::viewportRight() const {
 }
 
 void App::drawUi(float deltaTime) {
-    // While the settings popover is open, it owns the mouse
-    bool popoverOwnsMouse = m_settingsPopover.contains(GetMousePosition());
+    // An open popover owns the mouse over its area
+    Vector2 mouse = GetMousePosition();
+    bool popoverOwnsMouse = m_settingsPopover.contains(mouse) || m_colorPopover.contains(mouse);
     bool wasLocked = GuiIsLocked();
     if (popoverOwnsMouse) GuiLock();
 
@@ -482,6 +501,13 @@ void App::drawUi(float deltaTime) {
     if (m_viewPanel.takeResetCameraRequest()) resetCamera();
     if (m_viewPanel.takeSaveRequest()) saveScene();
     if (m_viewPanel.takeLoadRequest()) loadScene();
+    Rectangle swatch;
+    int slot = m_viewPanel.takeColorRequest(swatch);
+    if (slot >= 0) {
+        m_settingsPopover.close();
+        m_colorPopover.open(slot, swatch, std::string("Color of ") + vectorSlotName(slot),
+                            m_viewPanel.settings().colorFor(slot));
+    }
 
     drawFloatingPanels();
 
@@ -491,7 +517,10 @@ void App::drawUi(float deltaTime) {
     if (actions.toggleHelp) m_help.toggle();
     if (actions.toggleFullscreen) toggleFullscreen();
     if (actions.screenshot) requestScreenshot(false);
-    if (actions.toggleSettings) showSettings(!m_settingsPopover.isOpen());
+    if (actions.toggleSettings) {
+        m_colorPopover.close();
+        showSettings(!m_settingsPopover.isOpen());
+    }
 
     if (popoverOwnsMouse && !wasLocked) GuiUnlock();
 
@@ -500,6 +529,14 @@ void App::drawUi(float deltaTime) {
     if (settingsActions.resetLayout) {
         m_panels.resetLayout();
         toast("Panel layout reset");
+    }
+
+    ColorPopover::Result color = m_colorPopover.draw();
+    if (color.changed || color.reset) {
+        ViewSettings& view = m_viewPanel.settings();
+        int s = m_colorPopover.slot();
+        view.customColor[s] = color.changed && !color.reset;
+        if (view.customColor[s]) view.vectorColor[s] = color.color;
     }
 
     drawToast(deltaTime);

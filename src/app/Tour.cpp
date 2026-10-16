@@ -65,8 +65,12 @@ void Tour::buildSteps() {
         app.toast("Scene saved to scene.txt");
     }, 6);
     step("11_settings", [](App& app) { app.showSettings(true); });
-    step("12_panels_moved", [](App& app) {
+    step("11b_color_picker", [](App& app) {
         app.showSettings(false);
+        app.openColorPicker(kVecA);
+    });
+    step("12_panels_moved", [](App& app) {
+        app.closePopovers();
         SceneData layout;
         putFloat(layout, "panel.analysis.x", 0.0f);
         putFloat(layout, "panel.analysis.y", 0.15f);
