@@ -1,0 +1,28 @@
+#pragma once
+
+#include <raylib.h>
+
+namespace linalg {
+
+class Grid {
+public:
+    Grid(int size = 10, float spacing = 1.0f);
+
+    void draw() const;
+    void drawAxes(float axisLength = 10.0f) const;
+
+    void setSize(int size) { m_size = size; }
+    void setSpacing(float spacing) { m_spacing = spacing; }
+    void setGridColor(Color color) { m_gridColor = color; }
+    void setShowGrid(bool show) { m_showGrid = show; }
+    void setShowAxes(bool show) { m_showAxes = show; }
+
+private:
+    int m_size;
+    float m_spacing;
+    Color m_gridColor;
+    bool m_showGrid;
+    bool m_showAxes;
+};
+
+} // namespace linalg
