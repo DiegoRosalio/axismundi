@@ -41,6 +41,12 @@ void ComplexPanel::finishField(int id) {
     formatNumber(m_text[id], kTextSize, fieldValue(id));
 }
 
+void ComplexPanel::setScene(const ComplexScene& scene) {
+    m_scene = scene;
+    m_activeField = -1;
+    syncText();
+}
+
 void ComplexPanel::finishEditing() {
     if (m_activeField < 0) return;
     int id = m_activeField;

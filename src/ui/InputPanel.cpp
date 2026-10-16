@@ -188,6 +188,34 @@ void InputPanel::applyPreset(MatrixPreset preset) {
     commit();
 }
 
+void InputPanel::setMatrix3(const Matrix3D& m) {
+    m_activeField = -1;
+    m_state = m_committed;
+    m_state.use4x4 = false;
+    setMatrix3(m_state, m);
+    commit();
+}
+
+void InputPanel::setMatrix4(const Matrix4D& m) {
+    m_activeField = -1;
+    m_state = m_committed;
+    m_state.use4x4 = true;
+    setMatrix4(m_state, m);
+    commit();
+}
+
+void InputPanel::setVectors(const Vector3D& a, const Vector3D& b) {
+    m_activeField = -1;
+    m_state = m_committed;
+    const float av[3] = {a.x, a.y, a.z};
+    const float bv[3] = {b.x, b.y, b.z};
+    for (int i = 0; i < 3; i++) {
+        formatNumber(m_state.vecA[i], kTextSize, av[i]);
+        formatNumber(m_state.vecB[i], kTextSize, bv[i]);
+    }
+    commit();
+}
+
 // ---------------------------------------------------------------------------
 // Drawing
 // ---------------------------------------------------------------------------

@@ -196,6 +196,28 @@ PlotSpec PlotPanel::spec() const {
     return s;
 }
 
+void PlotPanel::setSpec(const PlotSpec& s) {
+    m_activeField = -1;
+    m_type = static_cast<int>(s.type);
+    switch (s.type) {
+        case PlotType::Function2D: snprintf(m_function2D, kExprSize, "%s", s.f.c_str()); break;
+        case PlotType::Surface:    snprintf(m_surface, kExprSize, "%s", s.f.c_str()); break;
+        case PlotType::Implicit:   snprintf(m_implicit, kExprSize, "%s", s.f.c_str()); break;
+        case PlotType::Parametric:
+            snprintf(m_param[0], kExprSize, "%s", s.px.c_str());
+            snprintf(m_param[1], kExprSize, "%s", s.py.c_str());
+            snprintf(m_param[2], kExprSize, "%s", s.pz.c_str());
+            break;
+    }
+    m_range[XMin] = s.xMin; m_range[XMax] = s.xMax;
+    m_range[YMin] = s.yMin; m_range[YMax] = s.yMax;
+    m_range[TMin] = s.tMin; m_range[TMax] = s.tMax;
+    m_resolution = std::clamp(static_cast<float>(s.resolution), 10.0f, 100.0f);
+    m_heatmap = s.heatmap;
+    syncRangeText();
+    m_changed = true;
+}
+
 float PlotPanel::drawRange(float x, float y, float inner, const char* name, Range lo, Range hi) {
     float labelW = 40.0f, toW = 50.0f;
     float boxW = (inner - labelW - toW) / 2.0f;

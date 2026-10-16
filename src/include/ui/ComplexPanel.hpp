@@ -15,6 +15,8 @@ public:
     float draw(float x, float y, float width);
 
     const ComplexScene& scene() const { return m_scene; }
+    void setScene(const ComplexScene& scene);
+    void setAnimateTheta(bool animate) { m_animateTheta = animate; }
     bool isEditing() const { return m_activeField >= 0; }
     void finishEditing();
     void cancelEditing();

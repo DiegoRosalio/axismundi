@@ -16,6 +16,7 @@ public:
     float draw(float x, float y, float width, const PlotRenderer& renderer);
 
     PlotSpec spec() const;
+    void setSpec(const PlotSpec& spec);  // type, expressions, ranges, detail, heat map
     PlotType type() const { return static_cast<PlotType>(m_type); }
 
     bool changed() const { return m_changed; }

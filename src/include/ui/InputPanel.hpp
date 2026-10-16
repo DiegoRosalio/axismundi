@@ -49,6 +49,11 @@ public:
 
     void applyPreset(MatrixPreset preset);
 
+    // Programmatic edits (gallery, tutorials). Each one is a single undo step.
+    void setMatrix3(const Matrix3D& m);   // also switches to 3x3
+    void setMatrix4(const Matrix4D& m);   // also switches to 4x4
+    void setVectors(const Vector3D& a, const Vector3D& b);
+
     bool canUndo() const { return !m_undo.empty(); }
     bool canRedo() const { return !m_redo.empty(); }
     void undo();
