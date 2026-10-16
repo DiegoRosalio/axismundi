@@ -3,53 +3,53 @@
 ## High Priority (Core Features)
 
 ### Interactive Input
-- [ ] Add text input for matrix values (implement text input boxes or integrate raygui)
-- [ ] Add text input for vector values
-- [ ] Implement keyboard shortcuts (I=Identity, R=Rotate, S=Scale, etc.)
-- [ ] Add undo/redo for transformations
+- [x] Add text input for matrix values (implement text input boxes or integrate raygui)
+- [x] Add text input for vector values
+- [x] Implement keyboard shortcuts (I=Identity, R=Rotate, S=Scale, etc.)
+- [x] Add undo/redo for transformations
 
 ### Enhanced Visualization
-- [ ] Add 3D labels for vectors (billboard text)
-- [ ] Show vector magnitudes as floating text
-- [ ] Display dot product result
-- [ ] Add grid toggling (on/off button)
-- [ ] Add axes length customization
+- [x] Add 3D labels for vectors (billboard text)
+- [x] Show vector magnitudes as floating text
+- [x] Display dot product result
+- [x] Add grid toggling (on/off button)
+- [x] Add axes length customization
 
 ### User Experience
-- [ ] Add help overlay (press H for help)
-- [ ] Show current camera position
-- [ ] Add reset camera button
-- [ ] Implement save/load scene state
+- [x] Add help overlay (press H for help)
+- [x] Show current camera position
+- [x] Add reset camera button
+- [x] Implement save/load scene state
 
 ## Medium Priority (Extended Features)
 
 ### Complex Numbers
-- [ ] Create Complex class
-- [ ] Implement Argand diagram renderer
-- [ ] Visualize complex multiplication as rotation + scaling
-- [ ] Show Euler's formula visualization (e^(iθ) = cos(θ) + i·sin(θ))
-- [ ] Add polar form display
+- [x] Create Complex class
+- [x] Implement Argand diagram renderer
+- [x] Visualize complex multiplication as rotation + scaling
+- [x] Show Euler's formula visualization (e^(iθ) = cos(θ) + i·sin(θ))
+- [x] Add polar form display
 
 ### Function Plotting
-- [ ] Implement 2D function plotter (y = f(x))
-- [ ] Add parametric curve support (x(t), y(t), z(t))
-- [ ] Implement 3D surface plotter (z = f(x, y))
-- [ ] Add implicit function plotting
-- [ ] Color-code function values (heat map)
+- [x] Implement 2D function plotter (y = f(x))
+- [x] Add parametric curve support (x(t), y(t), z(t))
+- [x] Implement 3D surface plotter (z = f(x, y))
+- [x] Add implicit function plotting
+- [x] Color-code function values (heat map)
 
 ### Animations
-- [ ] Add play/pause button
-- [ ] Implement timeline scrubber
-- [ ] Create animation presets (rotation, scaling, morph)
-- [ ] Add animation speed control
-- [ ] Support keyframe-based animations
+- [x] Add play/pause button
+- [x] Implement timeline scrubber
+- [x] Create animation presets (rotation, scaling, morph)
+- [x] Add animation speed control
+- [x] Support keyframe-based animations
 
 ### Matrix Operations
-- [ ] Display determinant value
-- [ ] Show matrix trace
-- [ ] Visualize eigenvalues and eigenvectors
-- [ ] Implement matrix inverse (if exists)
-- [ ] Add matrix decompositions (QR, SVD, LU)
+- [x] Display determinant value
+- [x] Show matrix trace
+- [x] Visualize eigenvalues and eigenvectors
+- [x] Implement matrix inverse (if exists)
+- [x] Add matrix decompositions (QR, SVD, LU)
 
 ## Low Priority (Nice to Have)
 
@@ -100,8 +100,8 @@
 ## Code Quality
 
 ### Testing
-- [ ] Add unit tests for Vector3D
-- [ ] Add unit tests for Matrix3D/4D
+- [x] Add unit tests for Vector3D
+- [x] Add unit tests for Matrix3D/4D
 - [ ] Add integration tests
 - [ ] Implement benchmark suite
 - [ ] Add CI/CD pipeline
@@ -138,7 +138,8 @@
 
 ## Known Issues
 
-Currently none! The application builds and runs without warnings or errors.
+- The bundled `include/raygui.h` (5.1-dev) needs raylib 5.x; with raylib 4.5
+  the link fails on `TextToFloat`.
 
 ## Getting Started with Development
 

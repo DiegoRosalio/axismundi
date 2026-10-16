@@ -36,6 +36,7 @@ const Entry kEditing[] = {
     {"F5 / F9", "Save / load scene.txt"},
     {"Enter", "Confirm a text field"},
     {"Tab", "Confirm and go to next field"},
+    {"Esc", "Cancel the edit (quits otherwise)"},
 };
 
 void drawColumn(const char* title, const Entry* entries, int count, int x, int y) {
@@ -58,7 +59,7 @@ void HelpOverlay::draw() const {
     DrawRectangle(0, 0, w, h, Fade(BLACK, 0.45f));
 
     int boxW = 1100 < w - 40 ? 1100 : w - 40;
-    int boxH = 600 < h - 40 ? 600 : h - 40;
+    int boxH = 640 < h - 40 ? 640 : h - 40;
     int bx = (w - boxW) / 2;
     int by = (h - boxH) / 2;
     DrawRectangle(bx, by, boxW, boxH, Fade(RAYWHITE, 0.97f));
