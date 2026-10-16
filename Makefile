@@ -26,7 +26,7 @@ TEST_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(MATH_SRCS)) \
              $(patsubst $(TEST_DIR)/%.cpp, $(BIN_DIR)/tests/%.o, $(TEST_SRCS))
 TEST_TARGET := $(BIN_DIR)/run_tests
 
-.PHONY: default build run clean help test
+.PHONY: default build run clean help test fonts
 default: run
 
 list:
@@ -82,6 +82,10 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BIN_DIR)
 	@echo "compiling: $<"
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
+
+## regenerate src/ui/generated/fonts.inc from assets/fonts
+fonts:
+	@python3 tools/fonts.py embed
 
 ## build and run the math unit tests
 test: $(TEST_TARGET)
