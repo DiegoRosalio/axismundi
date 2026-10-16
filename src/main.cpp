@@ -8,6 +8,7 @@
 #include "rendering/CameraController.hpp"
 #include "rendering/Grid.hpp"
 #include "rendering/Labels.hpp"
+#include "rendering/PlotRenderer.hpp"
 #include "rendering/TransformVisualizer.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "ui/AppMode.hpp"
@@ -15,6 +16,7 @@
 #include "ui/HelpOverlay.hpp"
 #include "ui/InfoPanel.hpp"
 #include "ui/InputPanel.hpp"
+#include "ui/PlotPanel.hpp"
 #include "ui/SceneIO.hpp"
 #include "ui/SideBar.hpp"
 #include "ui/ViewPanel.hpp"
@@ -85,6 +87,8 @@ int main() {
     InputPanel inputPanel;
     ComplexPanel complexPanel;
     ArgandRenderer argand;
+    PlotPanel plotPanel;
+    PlotRenderer plotRenderer;
     InfoPanel infoPanel;
     ViewPanel viewPanel;
     SideBar sideBar;
@@ -113,6 +117,7 @@ int main() {
         putFloat(data, "camera.tz", t.z);
         inputPanel.saveState(data);
         complexPanel.saveState(data);
+        plotPanel.saveState(data);
         viewPanel.saveState(data);
 
         std::string error;
@@ -144,6 +149,7 @@ int main() {
         camera.setView(p, t);
         inputPanel.loadState(data);
         complexPanel.loadState(data);
+        plotPanel.loadState(data);
         viewPanel.loadState(data);
         toast.show(std::string("Scene loaded from ") + kSceneFile, DARKGREEN);
     };
@@ -154,7 +160,7 @@ int main() {
 
         // Input
         //----------------
-        bool editing = inputPanel.isEditing() || complexPanel.isEditing();
+        bool editing = inputPanel.isEditing() || complexPanel.isEditing() || plotPanel.isEditing();
 
         // TAB switches between camera mode (cursor captured) and UI mode.
         // While a field is being edited, TAB moves to the next field instead.
@@ -168,6 +174,7 @@ int main() {
 
         inputPanel.update();
         complexPanel.update(deltaTime);
+        plotPanel.update();
 
         // Keyboard shortcuts (ignored while typing in a field)
         if (!editing) {
@@ -204,6 +211,7 @@ int main() {
             // A field in the panel being hidden would otherwise stay "active"
             inputPanel.finishEditing();
             complexPanel.finishEditing();
+            plotPanel.finishEditing();
             camera.reset(mode);
             lastMode = mode;
         }
@@ -235,6 +243,11 @@ int main() {
             vectorRenderer.addVector(VectorObject(origin, matrix.transform(vecB) - origin, PINK, "MB"));
         }
 
+        if (plotPanel.changed()) {
+            plotRenderer.rebuild(plotPanel.spec());
+            plotPanel.clearChanged();
+        }
+
         grid.setShowGrid(view.showGrid);
         grid.setShowAxes(view.showAxes);
 
@@ -245,19 +258,26 @@ int main() {
             const Camera3D& cam = camera.camera();
 
             BeginMode3D(cam);
-                if (mode == AppMode::Complex) {
-                    grid.drawPlaneXY();
-                    argand.draw(complexPanel.scene(), view.axisLength, view.showAxes);
-                } else {
-                    grid.draw();
-                    grid.drawAxes(view.axisLength);
-                }
-                if (mode == AppMode::LinearAlgebra) {
-                    transformViz.draw();
-                    vectorRenderer.draw();
-                    if (view.showEigenvectors) {
-                        TransformVisualizer::drawEigenvectors(infoPanel.eigen(), view.axisLength);
-                    }
+                switch (mode) {
+                    case AppMode::LinearAlgebra:
+                        grid.draw();
+                        grid.drawAxes(view.axisLength);
+                        transformViz.draw();
+                        vectorRenderer.draw();
+                        if (view.showEigenvectors) {
+                            TransformVisualizer::drawEigenvectors(infoPanel.eigen(), view.axisLength);
+                        }
+                        break;
+                    case AppMode::Complex:
+                        grid.drawPlaneXY();
+                        argand.draw(complexPanel.scene(), view.axisLength, view.showAxes);
+                        break;
+                    case AppMode::Plotting:
+                        if (plotRenderer.is3D()) grid.draw();
+                        else grid.drawPlaneXY();
+                        if (view.showAxes) plotRenderer.drawAxes(view.axisLength);
+                        plotRenderer.draw();
+                        break;
                 }
             EndMode3D();
 
@@ -265,6 +285,8 @@ int main() {
             if (view.showLabels) {
                 if (mode == AppMode::Complex) {
                     argand.drawLabels(cam, complexPanel.scene(), view.axisLength, view.showAxes);
+                } else if (mode == AppMode::Plotting) {
+                    plotRenderer.drawLabels(cam, view.axisLength, view.showAxes);
                 } else if (view.showAxes) {
                     drawAxisLabels(cam, view.axisLength);
                 }
@@ -280,6 +302,8 @@ int main() {
                 y = inputPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth) + SideBar::kGap;
             } else if (mode == AppMode::Complex) {
                 y = complexPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth) + SideBar::kGap;
+            } else {
+                y = plotPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth, plotRenderer) + SideBar::kGap;
             }
             y = viewPanel.draw(SideBar::kPanelX, y, SideBar::kPanelWidth, mode);
             sideBar.end(y);
