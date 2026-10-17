@@ -91,7 +91,8 @@ src/
                       files, preferences, screenshots; public API used by edu/ and Tour
   app/Tour            scripted screenshot tour (mouse positions come from ui anchors)
   math/               NO raylib: Vector3D, Matrix3D/4D, Decompositions (LU/QR/eigen3/svd3), Complex,
-                      Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper)
+                      Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
+                      VectorField (arrows on a grid, RK4 flow lines kept apart, particles as a function of t)
   math/expr/          NO raylib: typed expression engine — Value (number, complex, vector, 3x3/4x4
                       matrix, error), Program (compile once, names used, eval with Resolver + x/y/t/u slots);
                       Reference (the in-app formula cheat sheet as data: sections, entries, examples)
@@ -109,7 +110,8 @@ src/
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
   rendering/          Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
                       VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
-                      CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
+                      FieldRenderer (vector field arrows/lines/particles), MeshBuilder (MeshData, tubes, cones,
+                      MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
                       latch), TextEditor (wrapping multi-line editor), Theme, Layout, Icons,
                       FloatingPanel + PanelManager
@@ -142,6 +144,11 @@ docs/screenshots/     images for the docs, produced by --tour
   fields (plot fields get sample x/y/u plus the real t). Objects whose active fields use t
   (`usesTime()`) count as changed when the time changes, so plots using t rebuild while the clock plays.
   `PlotSpec::time` carries it into `PlotRenderer` (`ExprVars{x, y, t, u}`).
+- **Vector fields use `z`**: `Program::compile(text, variables)` takes `expr::kVarU` (curves) and `expr::kVarZ`
+  (fields; `true` still means kVarU). `Field::zVariable` (`markFieldVariable`) and `Expect::Field` (a vector
+  checked with sample x/y/z/t). Elsewhere z is a normal name. `VectorFieldObject` ("field") has no value; it
+  overrides `followsClock()` (particles) so the Time panel lists it without rebuilding every frame.
+  `math/VectorField::fieldFlowLines` holds the flow-line settings shared by FieldRenderer and the export.
 - **Curves use `u`**: the u slot exists only when compiling with `curveVariable` (`Field::curveVariable`,
   set by `markCurveVariable` for curve x/y/z; `Expression::parse(..., curveVariable)` in the renderer).
   Elsewhere `u` is a normal name, so objects named u keep their dependencies. Ranges are `umin/umax`;
@@ -221,7 +228,13 @@ section order.
 4. Inspector: a branch in `ScenePanel::drawInspector` (reuse `fieldRow`/`editText`; commit with
    `sc.commit()`); optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
 5. Tests in `tests/test_math.cpp` (model + evaluation), tour step + screenshots for the UI.
+6. LaTeX export: a branch in `exportLatex` + the Auto 2D rule + Paper drawing (see LaTeX export).
 Saving/loading is automatic (fields and props are serialized generically).
+Notes from adding vector fields: give drawn-only types a cache in SceneView like `PlotCache` (keyed on
+`changedAt`, style, theme, color); per-frame animation that only depends on the time (particles) belongs in
+`draw(time)`, not in the cached geometry; new formula variables need a slot + flag (see `z`); a type that moves
+with the clock without using t overrides `followsClock()`. `setProp(key, "text")` is safe (a `const char*`
+overload; before it, a literal picked the bool overload).
 
 ## UI conventions
 

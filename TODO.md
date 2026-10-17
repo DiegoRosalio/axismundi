@@ -5,11 +5,10 @@ Open work, roughly in the order it makes sense to do it. Everything already done
 
 ## Next up (in this order)
 
-1. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
-2. Quaternions: a new value kind in the expression engine
-3. CI: `make test` and the headless tour on every push
-4. Recording the Time panel to a PNG sequence or video
-5. Later: the remaining Advanced Math items, Windows/macOS builds, performance
+1. Quaternions: a new value kind in the expression engine
+2. CI: `make test` and the headless tour on every push
+3. Recording the Time panel to a PNG sequence or video
+4. Later: the remaining Advanced Math items, Windows/macOS builds, performance
 
 ## Medium priority
 
@@ -34,8 +33,11 @@ More export options
 - [ ] A frame series for the `animate` package
 
 ### Advanced math
-Vector fields and quaternions first (roadmap steps 4 and 5); the rest later.
-- [ ] Vector field visualization (roadmap step 4: F(x, y, z) as arrows, flow lines, divergence and curl)
+Quaternions next (roadmap step 5); the rest later. Vector fields are in (see FEATURES.md).
+- [ ] Vector fields, next: divergence and curl (numerical; color by div F, curl as small arrows, values at a probe
+      point in the Analysis panel), seed placement by clicking, true path lines for fields that change with t
+- [ ] Vector field performance: fields of t rebuild arrows and flow lines every frame (about 10–25 ms on the CPU
+      for typical sizes, more for dense ones); consider caching per time step or tracing on a worker thread
 - [ ] Quaternion visualization (roadmap step 5: a quaternion value kind, axis-angle view, slerp)
 - [ ] Fourier transform visualization
 - [ ] Integration volume visualization

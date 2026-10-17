@@ -30,6 +30,15 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Parameters as slider, animation (with start delay) or formula of time
 - [x] Scrubbing shows any moment (time-driven values are computed from the time)
 
+## Vector fields
+- [x] Vector field object F(x, y, z) (`z` is a variable in field formulas), on the floor (Plane) or in a box
+      (Volume), with ranges and arrows per unit
+- [x] Arrows scaled by |F| (the longest fits a grid cell) and colored by strength; a same-length option
+- [x] Flow lines (RK4 streamlines, kept evenly apart, arrowhead halfway); lines per axis
+- [x] Particles drifting along the flow lines as the clock plays (a pure function of t, so scrubbing works)
+- [x] Inspector with examples, gallery (rotation, source and sink, flow with particles, 3D swirl), Paper style
+- [x] LaTeX export as a PGFPlots quiver plot with flow lines and particles
+
 ## Matrices
 - [x] Display determinant value
 - [x] Show matrix trace

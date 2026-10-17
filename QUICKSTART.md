@@ -53,7 +53,8 @@ floor grid larger.
 ## The two spaces
 
 - **3D space** (key 1): z points up and the floor is the xy-plane. It holds vectors, matrices, eigenvectors
-  and plots (`y = f(x)`, curves, surfaces `z = f(x, y)`, implicit curves).
+  and plots (`y = f(x)`, curves, surfaces `z = f(x, y)`, implicit curves), and vector fields such as
+  `[-y, x, 0]` with flow lines and moving particles (Add → Fields).
 - **Complex plane** (key 2): complex numbers (`2 + i`, `z1*z2`, `exp(i*theta)`) and products drawn as a
   rotation plus a scaling.
 

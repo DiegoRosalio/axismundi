@@ -81,6 +81,7 @@ Each space has its own list of objects. The side bar shows:
 | Matrix | 3D | Cells (3×3 / 4×4, presets that add up; Identity starts over) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
 | Function / Curve / Surface / Implicit | 3D | Expressions in x, y (u for curves) and t; ranges; Detail per unit; Heat map; Next example |
+| Vector field | 3D | F(x, y, z) (a vector formula); Plane / Volume; ranges; arrows per unit; color by strength, same length, flow lines, particles (+ speed); Next example |
 | Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration, start delay |
 | Complex number | complex | Value; circle, cos/sin projections, helix options; length and angle |
 | Product | complex | Two factors; rotation and scaling construction; length and angle breakdown |
@@ -137,6 +138,25 @@ The clock is saved with the scene. Undo never moves it.
 `0` stands for zero, so `lerp(0, v, s)` grows v from nothing. `keys(s, A, B, C, …)` runs through several values
 as s goes from 0 to 1. The Add menu builds these for the selection: **Morph from identity** (a matrix),
 **Grow from zero** (a vector or complex number) and **Blend** (two objects), each with a new slider `s`.
+
+### Vector fields
+Add → Fields → **Vector field**. **F(x, y, z)** is a vector formula of the point, such as `[-y, x, 0]`
+(a rotation), `[x, y, 0]` (a source) or `k*[-y, x, z]` with a parameter k; `t` makes it change with the clock.
+`z` is a variable only here (elsewhere it is an ordinary name).
+- **Plane** draws F on the floor z = 0 using its x and y components; **Volume** fills a box (z range too).
+- Arrows start at grid points. Their length is proportional to |F|, with the longest filling one grid cell, and
+  **Color by strength** colors them with the heat map (blue weak, red strong). **Same length** shows only the
+  direction. **Detail** sets arrows per unit (capped at 40 per axis on a plane, 12 in a volume).
+- **Flow lines** follow F everywhere (streamlines, traced with RK4) and carry an arrowhead halfway. A line stops
+  where it comes too close to another one, so spirals and sinks stay readable. **Lines per axis** sets how many
+  start (2–16 on a plane, 2–4 in a volume).
+- **Particles** ride the flow lines at the field's speed (× **Speed**) while the clock plays (P). They are a
+  function of the time, so scrubbing works. For a field that changes with t they follow the current flow
+  lines, an approximation of the true paths.
+- The Time panel lists fields with particles. The gallery has a rotation field, a source and sink, a flow with
+  particles and a 3D swirl.
+- LaTeX export: arrows as a quiver plot, flow lines and particles (at the current time) in the object's line
+  style; a plane field gives a 2D figure.
 
 ### Plot detail
 **Detail** is set per unit of the range: samples per unit of x (functions) or u (curves), and grid cells per

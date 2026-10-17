@@ -52,3 +52,12 @@ f="$OUT/run/my figure.pdf"
 if [ -f "$f" ] && [ "$(head -c 4 "$f")" = "%PDF" ]; then echo "  PDF ok: $f"; else echo "  PDF MISSING: $f"; fi
 echo "files saved by the app:"; ls "$OUT/run"
 input_stop
+
+# Second session: a vector field from the Add menu (fresh start, so the menu has no templates)
+OUT=$DEV/input/field; input_start || { input_stop; exit 1; }
+click 290 83; click 97 623;        shot 30_field_added            # Add > Fields > Vector field
+click 205 264; key ctrl+a; type_ "[-y - x/4, x - y/4, 0]"; key Return
+click 305 589;                    shot 31_field_particles_on     # Particles switch
+hover 1000 250; key p; sleep 1.5; shot 32_particles_moving       # P plays the clock
+key p
+input_stop

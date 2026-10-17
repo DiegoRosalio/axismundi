@@ -35,6 +35,9 @@ and worked calculations.
   - plots: `y = f(x)`, curves `(x(u), y(u), z(u))`, surfaces `z = f(x, y)` and implicit curves
     `f(x, y) = 0`, with heat maps. Detail is set **per unit** (e.g. 30 samples per unit), so a wider range
     stays just as smooth. Surfaces are shaded GPU meshes.
+  - vector fields `F(x, y, z)` (e.g. `[-y, x, 0]`) on the floor or in a box: arrows scaled and colored by
+    strength, flow lines kept evenly apart, and particles that drift along the flow while the clock plays;
+    exported to LaTeX as PGFPlots quiver plots.
   - a floor grid from ±5 to ±100 units, with major lines every 5 units.
 - **Complex plane** (key 2): complex numbers (e.g. `2 + i`, `z1*z2`, `exp(i*theta)`), with optional circle,
   cos/sin projections and the helix of e^(it), and products drawn as a rotation plus a scaling.
