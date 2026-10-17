@@ -20,7 +20,7 @@ DEPS := $(OBJS:.o=.d)
 TARGET   := $(BIN_DIR)/linalg_viz
 
 # Math library + unit tests (no raylib needed)
-MATH_SRCS != find $(SRC_DIR)/math $(SRC_DIR)/animation -type f -name '*.cpp'
+MATH_SRCS != find $(SRC_DIR)/math $(SRC_DIR)/animation $(SRC_DIR)/scene -type f -name '*.cpp'; echo $(SRC_DIR)/ui/SceneIO.cpp
 TEST_SRCS != find $(TEST_DIR) -type f -name '*.cpp' 2>/dev/null
 TEST_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(MATH_SRCS)) \
              $(patsubst $(TEST_DIR)/%.cpp, $(BIN_DIR)/tests/%.o, $(TEST_SRCS))

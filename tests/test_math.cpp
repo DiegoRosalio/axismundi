@@ -7,6 +7,7 @@
 #include "math/Expression.hpp"
 #include "math/Explain.hpp"
 #include "math/expr/Expr.hpp"
+#include "scene/Scene.hpp"
 #include <map>
 #include "math/Breakdown.hpp"
 #include "math/Quaternion.hpp"
@@ -552,6 +553,133 @@ void testExprEngine() {
     CHECK(evalText("-i").summary() == "−i");
 }
 
+void testScene() {
+    using namespace scene;
+    Scene sc;
+    Space& d = sc.space(SpaceKind::Euclidean3D);
+    sc.evaluate();
+
+    // Default picture: derived vectors follow their inputs
+    const SceneObject* c = d.find("c");
+    CHECK(c && c->value().type == expr::Type::Vector);
+    if (c) CHECK_NEAR(c->value().vector.z, 1.0f, 1e-6f);
+    d.find("b")->setField("y", "2");
+    sc.evaluate();
+    CHECK_NEAR(d.find("c")->value().vector.z, 2.0f, 1e-6f);
+    CHECK_NEAR(d.find("s")->value().vector.y, 2.0f, 1e-6f);
+
+    // Formula matrix driven by a parameter
+    auto* theta = static_cast<ParameterObject*>(sc.add(SpaceKind::Euclidean3D, "parameter", "theta"));
+    auto* m = static_cast<MatrixObject*>(d.find("M"));
+    m->setByFormula(true);
+    m->setField("value", "rotz(theta)");
+    theta->setNumber(3.14159265 / 2);
+    sc.evaluate();
+    CHECK_NEAR(d.find("Ma")->value().vector.y, 1.0f, 1e-5f);
+    std::uint64_t before = d.find("Ma")->changedAt();
+    theta->setProp("playing", true);
+    theta->advance(0.5);
+    sc.evaluate();
+    CHECK(d.find("Ma")->changedAt() > before);  // change propagated
+
+    // Unique names and rename with reference rewriting
+    SceneObject* v = sc.add(SpaceKind::Euclidean3D, "vector", "a");
+    CHECK(v->name() == "a2");
+    std::string err;
+    CHECK(!d.rename(v->id(), "sin", err));
+    CHECK(!d.rename(v->id(), "b", err));
+    CHECK(d.rename(d.find("a")->id(), "p", err));
+    CHECK(d.find("s")->field("value")->text == "p + b");
+    CHECK(d.find("c")->field("value")->text == "cross(p, b)");
+    sc.evaluate();
+    CHECK(d.find("s")->error().empty());
+    CHECK(renameInText("2a + ab + a.x + b_a", "a", "q") == "2q + ab + q.x + b_a");
+
+    // Missing names and cycles
+    d.remove(d.find("b")->id());
+    sc.evaluate();
+    CHECK(d.find("s")->error().find("'b'") != std::string::npos);
+    SceneObject* u = sc.add(SpaceKind::Euclidean3D, "vector", "u");
+    SceneObject* w = sc.add(SpaceKind::Euclidean3D, "vector", "w");
+    static_cast<VectorObject*>(u)->setByFormula(true);
+    static_cast<VectorObject*>(w)->setByFormula(true);
+    u->setField("value", "w + [1, 0, 0]");
+    w->setField("value", "2u");
+    sc.evaluate();
+    CHECK(u->error().find("circular") != std::string::npos);
+    CHECK(w->error().find("circular") != std::string::npos);
+    w->setField("value", "[0, 1, 0]");
+    sc.evaluate();
+    CHECK(u->error().empty() && w->error().empty());
+    CHECK_NEAR(u->value().vector.x, 1.0f, 1e-6f);
+
+    // Type checks and plots
+    SceneObject* bad = sc.add(SpaceKind::Euclidean3D, "matrix", "N");
+    static_cast<MatrixObject*>(bad)->setByFormula(true);
+    bad->setField("value", "[1, 2, 3]");
+    sc.evaluate();
+    CHECK(bad->error().find("should be a matrix") != std::string::npos);
+    SceneObject* f = sc.add(SpaceKind::Euclidean3D, "surface", "S");
+    f->setField("f", "sin(x) * theta");
+    sc.evaluate();
+    CHECK(f->error().empty());
+    f->setField("xmin", "10");
+    sc.evaluate();
+    CHECK(!f->error().empty());
+    CHECK(d.find("S")->dependencies().count("theta"));
+
+    // Save, load, undo
+    SceneData data;
+    sc.save(data);
+    Scene copy;
+    std::string loadError;
+    CHECK(copy.load(data, loadError));
+    CHECK(copy.space(SpaceKind::Euclidean3D).objects().size() == d.objects().size());
+    CHECK(copy.space(SpaceKind::Euclidean3D).find("u") != nullptr);
+    copy.evaluate();
+    CHECK_NEAR(copy.space(SpaceKind::Euclidean3D).find("u")->value().vector.x, 1.0f, 1e-6f);
+
+    Scene h;
+    size_t n0 = h.space(SpaceKind::Euclidean3D).objects().size();
+    h.add(SpaceKind::Euclidean3D, "vector", "k");
+    h.commit();
+    CHECK(h.space(SpaceKind::Euclidean3D).objects().size() == n0 + 1);
+    h.undo();
+    CHECK(h.space(SpaceKind::Euclidean3D).objects().size() == n0);
+    h.redo();
+    CHECK(h.space(SpaceKind::Euclidean3D).find("k") != nullptr);
+
+    // Import of a v1 scene file
+    SceneData v1;
+    v1["matrix.use4x4"] = "0";
+    v1["matrix3.00"] = "2";
+    v1["vector_a.1"] = "5";
+    v1["complex.z1.re"] = "3";
+    v1["complex.z1.im"] = "-1";
+    v1["plot.type"] = "2";
+    v1["plot.surface"] = "x*y";
+    Scene old;
+    CHECK(old.load(v1, loadError));
+    old.evaluate();
+    const Space& od = old.space(SpaceKind::Euclidean3D);
+    CHECK_NEAR(od.find("M")->value().matrix.m[0][0], 2.0f, 1e-6f);
+    CHECK_NEAR(od.find("a")->value().vector.y, 5.0f, 1e-6f);
+    bool hasSurface = false;
+    for (const auto& o : od.objects())
+        if (o->typeId() == "surface" && o->field("f")->text == "x*y") hasSurface = true;
+    CHECK(hasSurface);
+    const expr::Value& z1 = old.space(SpaceKind::Complex).find("z1")->value();
+    CHECK_NEAR(z1.re, 3.0, 1e-6);
+    CHECK_NEAR(z1.im, -1.0, 1e-6);
+
+    // Complex plane defaults
+    const Space& cp = sc.space(SpaceKind::Complex);
+    const expr::Value& wv = cp.find("w")->value();
+    CHECK_NEAR(wv.re, 0.5, 1e-6);   // (1 + i)(1 + 0.5i) = 0.5 + 1.5i
+    CHECK_NEAR(wv.im, 1.5, 1e-6);
+    CHECK(cp.find("u")->error().empty());
+}
+
 } // namespace
 
 int main() {
@@ -571,6 +699,7 @@ int main() {
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},
         {"ExprEngine", testExprEngine},
+        {"Scene", testScene},
     };
 
     for (const auto& t : tests) {
