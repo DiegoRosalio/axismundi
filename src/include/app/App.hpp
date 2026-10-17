@@ -95,7 +95,7 @@ public:
     void openColorPicker();  // for the selected object
     void closePopovers();
     void setTheme(bool dark);
-    void setSmoothSurfaces(bool smooth) { m_uiSettings.smoothSurfaces = smooth; }
+    void setSurfaces(UiSettings::Surfaces mode) { m_uiSettings.surfaces = mode; }
     void toast(const std::string& message, bool error = false);
 
     // Floating panels by id ("analysis", "animation" (the Time panel), ...)
@@ -220,6 +220,8 @@ private:
     FileDialog m_fileDialog;
     FormulaEditor m_formulaEditor;
     bool m_sideBarHintShown = false;
+    bool m_previewShown = false;                                  // export panel's B/W preview, last frame
+    view::StyleId m_styleBeforePaper = view::StyleId::Colorful;   // restored when the preview is turned off
     std::string m_currentFile;               // scene file of the last save / open
     std::string m_lastFolder;                // where the file dialog starts
     std::vector<std::string> m_recentFiles;  // most recent first

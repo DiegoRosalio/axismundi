@@ -56,11 +56,13 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     col.space(6.0f);
 
     ui::textIn(col.row(18), ui::upper("Surfaces").c_str(), ui::FontRole::Caption, t.textMuted);
-    int style = settings.smoothSurfaces ? 0 : 1;
-    if (ui::segmented(col.row(32), {"Smooth", "Faceted"}, style,
-                      {"Colors blend across the surface, with soft shading by slope.",
+    int surfaces = static_cast<int>(settings.surfaces);
+    if (ui::segmented(col.row(32), {"By style", "Smooth", "Faceted"}, surfaces,
+                      {"Each view style picks: smooth for Colorful and High contrast, faceted for Paper and "
+                       "Chalkboard.",
+                       "Colors blend across the surface, with soft shading by slope.",
                        "Flat cells, one color each: the grid of samples stays visible."})) {
-        settings.smoothSurfaces = (style == 0);
+        settings.surfaces = static_cast<UiSettings::Surfaces>(surfaces);
     }
     col.space(6.0f);
 

@@ -533,7 +533,17 @@ void App::applyPreferences(const SceneData& prefs) {
     if (getFloat(prefs, "ui.zoom", zoom)) ui::setZoom(zoom);
     getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
-    getBool(prefs, "ui.smooth_surfaces", m_uiSettings.smoothSurfaces);
+    std::string surfaces, style;
+    bool oldSmooth = true;
+    if (getString(prefs, "ui.surfaces", surfaces)) {
+        m_uiSettings.surfaces = surfaces == "smooth"    ? UiSettings::Surfaces::Smooth
+                                : surfaces == "faceted" ? UiSettings::Surfaces::Faceted
+                                                        : UiSettings::Surfaces::StyleDefault;
+    } else if (getBool(prefs, "ui.smooth_surfaces", oldSmooth) && !oldSmooth) {
+        m_uiSettings.surfaces = UiSettings::Surfaces::Faceted;  // older preference files
+    }
+    // The last style picked: used at startup and for new scenes
+    if (getString(prefs, "view.style", style)) m_viewPanel.settings().style = view::styleFromKey(style);
     m_tutorialPanel.loadState(prefs);
     m_exportPanel.loadState(prefs);
     bool sideCollapsed = false;
@@ -553,7 +563,9 @@ void App::savePreferences() {
     prefs["ui.theme"] = ui::themeKind() == ui::ThemeKind::Light ? "light" : "dark";
     putBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     putBool(prefs, "ui.hud", m_uiSettings.showHud);
-    putBool(prefs, "ui.smooth_surfaces", m_uiSettings.smoothSurfaces);
+    static const char* kSurfaces[3] = {"style", "smooth", "faceted"};
+    prefs["ui.surfaces"] = kSurfaces[static_cast<int>(m_uiSettings.surfaces)];
+    prefs["view.style"] = view::styleKey(m_viewPanel.settings().style);
     if (!IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE) && !IsWindowFullscreen()) {
         putInt(prefs, "window.width", GetScreenWidth());
         putInt(prefs, "window.height", GetScreenHeight());
@@ -873,11 +885,27 @@ void App::update(float deltaTime) {
     m_grid.setShowGrid(view.showGrid);
     m_grid.setShowAxes(view.showAxes);
     m_grid.setSize(static_cast<int>(view.gridSize));
-    m_sceneView.setSmoothSurfaces(m_uiSettings.smoothSurfaces);
+    // The export panel's B/W preview is a shortcut to the Paper style (and back to the previous one)
+    bool preview = m_exportPanel.preview();
+    if (preview != m_previewShown) {
+        if (preview) {
+            if (view.style != view::StyleId::Paper) m_styleBeforePaper = view.style;
+            view.style = view::StyleId::Paper;
+        } else if (view.style == view::StyleId::Paper) {
+            view.style = m_styleBeforePaper;
+        }
+    } else if (view.style != view::StyleId::Paper) {
+        m_styleBeforePaper = view.style;
+    }
+    m_previewShown = view.style == view::StyleId::Paper;
+    m_exportPanel.setPreview(m_previewShown);
+
     // The view style for this frame (colors follow the theme, so recomputed every frame)
-    view::setActiveStyle(view::styleFor(m_exportPanel.preview() ? view::StyleId::Paper : view::StyleId::Colorful,
-                                        ui::theme()));
+    view::setActiveStyle(view::styleFor(view.style, ui::theme()));
     m_grid.setGridColor(view::activeStyle().grid);
+    bool smooth = m_uiSettings.surfaces == UiSettings::Surfaces::StyleDefault ? view::activeStyle().smoothDefault
+                                                                                : m_uiSettings.surfaces == UiSettings::Surfaces::Smooth;
+    m_sceneView.setSmoothSurfaces(smooth);
 }
 
 // ---------------------------------------------------------------------------

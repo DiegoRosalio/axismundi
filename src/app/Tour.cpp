@@ -179,15 +179,34 @@ void Tour::buildSteps() {
     }, 40);
     step("14b2_plot_faceted", [](App& app) {
         runExample(app, "Ripple with a slider");
-        app.setSmoothSurfaces(false);
+        app.setSurfaces(UiSettings::Surfaces::Faceted);
     }, 20);
     step("14c_large_grid", [](App& app) {
-        app.setSmoothSurfaces(true);
+        app.setSurfaces(UiSettings::Surfaces::StyleDefault);
         app.view().gridSize = 60.0f;
         app.select("S");
         app.setCameraView({45, 30, 55}, {0, 0, 0});
     }, 30);
+    // View styles (View section): demo scene, a surface, the complex plane, paper
+    step("14d_style_contrast", [](App& app) {
+        app.view().gridSize = 10.0f;
+        app.resetScene();
+        app.setCameraView({6.5f, 5.0f, 7.5f}, {0, 0, 0});
+        app.select("a");
+        app.view().style = view::StyleId::HighContrast;
+    }, 20);
+    step("14e_style_chalkboard", [](App& app) {
+        runExample(app, "Saddle");
+        app.view().style = view::StyleId::Chalkboard;
+    }, 25);
+    step("14f_style_chalkboard_complex", [](App& app) { runExample(app, "Rotate and scale"); }, 25);
+    step("14g_style_paper", [](App& app) {
+        app.setMode(AppMode::Space3D);
+        app.resetScene();
+        app.view().style = view::StyleId::Paper;
+    }, 20);
     step("15_plot_implicit", [](App& app) {
+        app.view().style = view::StyleId::Colorful;
         app.view().gridSize = 10.0f;
         runExample(app, "Lemniscate");
     });

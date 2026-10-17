@@ -30,6 +30,7 @@ struct ViewStyle {
     Color curve, surface;  // plots without a palette color
     Color wire;            // surface mesh lines
     Color labelBg;         // pill behind 3D labels
+    float heatSoften = 0.0f;    // heat maps blended toward `text` (0 = the plain rainbow)
     float lineScale = 1.0f;     // arrows, basis, axes and curve tubes
     bool labelLarge = false;    // bigger 3D labels
     bool smoothDefault = true;  // surfaces: smooth or faceted unless Settings says otherwise

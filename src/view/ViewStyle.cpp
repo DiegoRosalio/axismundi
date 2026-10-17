@@ -121,6 +121,7 @@ ViewStyle styleFor(StyleId id, const ui::Theme& t) {
             s.wire = {40, 60, 50, 120};
             s.labelBg = {28, 48, 38, 205};
             s.lineScale = 1.25f;
+            s.heatSoften = 0.45f;
             s.smoothDefault = false;
             break;
         }

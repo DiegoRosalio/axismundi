@@ -18,7 +18,8 @@ struct Preferences {
 struct UiSettings {
     bool tooltips = true;
     bool showHud = true;
-    bool smoothSurfaces = true;  // surfaces: smooth shading, or flat cells (faceted)
+    enum class Surfaces { StyleDefault, Smooth, Faceted };
+    Surfaces surfaces = Surfaces::StyleDefault;  // smooth shading or flat cells; default: the view style's
 };
 
 } // namespace linalg

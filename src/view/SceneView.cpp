@@ -217,6 +217,8 @@ void SceneView::updatePlots(scene::Space& space) {
         spec.surfaceDefault = style.surface;
         spec.wire = style.wire;
         spec.tubeScale = style.lineScale;
+        spec.heatSoften = style.heatSoften;
+        spec.heatSoftenTo = style.text;
         if (m_print) {
             int style = printStyleOf(p->id());
             spec.print = true;

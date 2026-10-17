@@ -2,6 +2,7 @@
 
 #include "ui/AppMode.hpp"
 #include "ui/SceneIO.hpp"
+#include "view/ViewStyle.hpp"
 #include <raylib.h>
 #include <string>
 
@@ -13,6 +14,7 @@ struct ViewSettings {
     bool showLabels = true;
     float axisLength = 5.0f;
     float gridSize = 10.0f;  // the grid reaches from -gridSize to +gridSize
+    view::StyleId style = view::StyleId::Colorful;  // how the 3D view is drawn (saved in the scene)
 };
 
 // "View" group in the side bar: grid/axes/labels toggles, axis length,
@@ -38,6 +40,7 @@ public:
     void loadState(const SceneData& data);
 
 private:
+    static bool styleCard(Rectangle r, view::StyleId id, bool selected);
     static bool take(bool& flag) { bool v = flag; flag = false; return v; }
 
     ViewSettings m_settings;

@@ -41,6 +41,8 @@ struct PlotSpec {
     Color surfaceDefault = {0, 0, 0, 0};
     Color wire = {0, 0, 0, 0};     // surface mesh lines
     float tubeScale = 1.0f;        // curve tube thickness
+    float heatSoften = 0.0f;       // 0..1: blend heat-map colors toward heatSoftenTo (pastel styles)
+    Color heatSoftenTo = {255, 255, 255, 255};
 };
 
 // Builds plot geometry from a PlotSpec and draws it.
@@ -73,6 +75,8 @@ public:
 
     // Map an RGB heat ramp (blue -> cyan -> green -> yellow -> red), t in [0, 1]
     static Color heatColor(float t);
+    // The heat color blended toward spec.heatSoftenTo by spec.heatSoften (view styles)
+    static Color heatColor(const PlotSpec& spec, float t);
 
     size_t vertexCount() const;  // GPU vertices of the meshes (for the inspector)
 

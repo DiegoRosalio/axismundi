@@ -58,6 +58,16 @@ Material& plotMaterial() {
 
 } // namespace
 
+Color PlotRenderer::heatColor(const PlotSpec& spec, float t) {
+    Color c = heatColor(t);
+    if (spec.heatSoften <= 0.0f) return c;
+    Color w = spec.heatSoftenTo;
+    auto mix = [&](unsigned char a, unsigned char b) {
+        return static_cast<unsigned char>(a + (b - a) * spec.heatSoften);
+    };
+    return {mix(c.r, w.r), mix(c.g, w.g), mix(c.b, w.b), c.a};
+}
+
 Color PlotRenderer::heatColor(float t) {
     t = std::clamp(t, 0.0f, 1.0f);
     struct Stop { float t; float r, g, b; };
@@ -286,7 +296,7 @@ void PlotRenderer::buildFunction2D(const PlotSpec& spec, const Expression& f) {
 
         float x0 = spec.xMin + (spec.xMax - spec.xMin) * i / n;
         float x1 = spec.xMin + (spec.xMax - spec.xMin) * (i + 1) / n;
-        Color c = spec.heatmap ? heatColor(normalize((ys[i] + ys[i + 1]) / 2, m_minValue, m_maxValue))
+        Color c = spec.heatmap ? heatColor(spec, normalize((ys[i] + ys[i + 1]) / 2, m_minValue, m_maxValue))
                                : curveColor(spec);
         m_curve.push_back({mathToWorld(x0, ys[i], kLift), mathToWorld(x1, ys[i + 1], kLift), c});
     }
@@ -317,7 +327,7 @@ void PlotRenderer::buildParametric(const PlotSpec& spec, const Expression& ex, c
         const Sample& b = pts[i + 1];
         if (!a.ok || !b.ok) continue;
         // Color by height (math z)
-        Color c = spec.heatmap ? heatColor(normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : curveColor(spec);
+        Color c = spec.heatmap ? heatColor(spec, normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : curveColor(spec);
         m_curve.push_back({mathToWorld(a.x, a.y, a.z), mathToWorld(b.x, b.y, b.z), c});
     }
 }
@@ -361,7 +371,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
             float dzdy = (zAt(i, j + 1) - zAt(i, j - 1)) / ((j > 0 && j < ny ? 2.0f : 1.0f) * dy);
             Vector3 n = Vector3Normalize(mathToWorld(-dzdx, -dzdy, 1.0f));
             float shade = 0.6f + 0.45f * std::fabs(Vector3DotProduct(n, light));
-            Color base = spec.heatmap ? heatColor(normalize(z[idx(i, j)], m_minValue, m_maxValue)) : plain;
+            Color base = spec.heatmap ? heatColor(spec, normalize(z[idx(i, j)], m_minValue, m_maxValue)) : plain;
             if (spec.heatmap) base.a = 245;
             colors[idx(i, j)] = shaded(base, shade);
         }
@@ -409,7 +419,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
                 bool cellOk = ok[idx(i, j)] && ok[idx(i + 1, j)] && ok[idx(i + 1, j + 1)] && ok[idx(i, j + 1)];
                 if (!cellOk) continue;
                 float avg = (z[idx(i, j)] + z[idx(i + 1, j)] + z[idx(i + 1, j + 1)] + z[idx(i, j + 1)]) / 4.0f;
-                Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : plain;
+                Color c = spec.heatmap ? heatColor(spec, normalize(avg, m_minValue, m_maxValue)) : plain;
                 if (spec.print) {
                     // Paper: white, or grays by height like the export's gray shading
                     float g = spec.grayShading ? 0.55f + 0.42f * normalize(avg, m_minValue, m_maxValue) : 1.0f;
@@ -484,7 +494,7 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
                 if (!std::isfinite(c)) continue;
                 // Compress the range so values near zero still show contrast
                 float t = 0.5f + 0.5f * static_cast<float>(std::tanh(3.0 * c / maxAbs));
-                Color col = Fade(heatColor(t), 0.35f);
+                Color col = Fade(heatColor(spec, t), 0.35f);
                 Vector3 a = mathToWorld(xAt(i), yAt(j), kLift / 2), b = mathToWorld(xAt(i1), yAt(j), kLift / 2);
                 Vector3 d = mathToWorld(xAt(i1), yAt(j1), kLift / 2), e = mathToWorld(xAt(i), yAt(j1), kLift / 2);
                 m_triangles.add(a, col);
