@@ -210,6 +210,10 @@ unit-testable.
   PNG per step into `DIR` and exits. It is used to check the UI at different sizes, also headlessly with
   `xvfb-run`.
 
+Open work is listed in [TODO.md](TODO.md) and finished features in [FEATURES.md](FEATURES.md). Helper
+scripts for building raylib 5.5, headless screenshot tours, warning checks, tutorial checks and LaTeX compile
+checks are in `tools/dev/` (see CLAUDE.md, "Development process").
+
 ## License
 
 The code is provided as-is for educational purposes. The embedded fonts are under the SIL Open Font License 1.1

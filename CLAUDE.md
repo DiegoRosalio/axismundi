@@ -11,9 +11,30 @@ are named formulas that can reference each other, in two spaces: a 3D space (z u
 complex plane. Resolution-independent themed UI with floating panels, plus learning tools
 (tutorial, example gallery, worked calculation steps, transformation breakdown, tooltips).
 
-User docs: `README.md`, `QUICKSTART.md`, `UI_GUIDE.md`. Roadmap: `TODO.md` (High, Medium, UI
-Improvements and Educational Features are done; Advanced Math, Performance, Export/Import,
-Platform, Code quality and Research items remain).
+User docs: `README.md`, `QUICKSTART.md`, `UI_GUIDE.md`. Open work: `TODO.md` (starts with a "Next up"
+list, then Medium/Low priority, code quality, research, known issues). Done work: `FEATURES.md`.
+
+## Development process (how work is done here)
+
+1. **Plan first** for anything bigger than a small fix: read the code, ask the user about real choices,
+   write a plan (context, design, files, commits, verification) and get it approved.
+2. **Work in logical commits**, each one building, warning-free and with tests passing; push every commit
+   to `claude` (see Git workflow). No pull requests unless asked.
+3. **Verify every change** with the scripts in `tools/dev/` (work files go to `~/.cache/axismundi-dev`,
+   override with `AXISMUNDI_DEV`):
+   - `tools/dev/raylib.sh` once per machine (builds raylib 5.5), then `tools/dev/build.sh`;
+   - `make test` (add unit tests for new logic) and `tools/dev/check.sh` (prints ALL CLEAN);
+   - UI changes: `tools/dev/tour.sh 800x600`, `1600x900`, `1920x1080 l --theme light`, `2560x1440 x`,
+     then look at the PNGs; add tour steps for new UI;
+   - tutorial or `App::setMode`/scene changes: `tools/dev/lesson-walk.sh` (0 problems expected);
+   - LaTeX export changes: `tools/dev/latex.sh <shots>/latex` or `LATEX_OUT=dir make test` + latex.sh.
+4. **Keep the docs in step** with each feature: README, UI_GUIDE, QUICKSTART, this file, gallery/tutorial
+   when user-facing, a formula-reference entry for new formula functions. Move finished TODO items to
+   `FEATURES.md` (never delete open TODO items).
+5. **Report honestly**: what was done, what was checked and how, what is untested (real mouse input,
+   real GPU), and bugs found along the way.
+6. **Parallel sessions** (e.g. a forked subtask) may edit the same working tree: commit only your own
+   files and check `git status` before committing.
 
 ## Build and test
 
@@ -37,7 +58,9 @@ make fonts   # regenerate src/ui/generated/fonts.inc from assets/fonts
 through every mode, panel, popover and tooltip that saves PNGs and exits (preferences are not read or
 written during the tour). On this machine (Alpine, no display) the workflow is:
 
-1. raylib 5.5 is built from source as a static lib in the session scratchpad (clone tag 5.5, compile
+The `tools/dev/` scripts automate the steps below (see Development process).
+
+1. raylib 5.5 is built from source as a static lib (`tools/dev/raylib.sh`; clone tag 5.5, compile
    `rcore rshapes rtextures rtext rmodels utils raudio` with `-DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33
    -D_GLFW_X11` plus `rglfw.c` with `-D_GLFW_X11`, then `ar rcs`).
 2. Build: `make build BIN_DIR=<dir> INCLUDES="-Isrc/include -Iinclude -isystem <raylib>/src"
