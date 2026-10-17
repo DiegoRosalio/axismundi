@@ -9,7 +9,8 @@ namespace linalg {
 struct ExprVars {
     double x = 0.0;
     double y = 0.0;
-    double t = 0.0;
+    double t = 0.0;  // scene time
+    double u = 0.0;  // curve variable (curves only)
 };
 
 // A scalar math expression in x, y and t, e.g. "sin(x) * exp(-y^2/2)".
@@ -20,7 +21,8 @@ class Expression {
 public:
     // Parse text. On failure returns false and error() describes the problem.
     // With allowNames, names other than x/y/t are accepted (resolved at eval time).
-    bool parse(const std::string& text, bool allowNames = false);
+    // With curveVariable, u is the curve's own variable.
+    bool parse(const std::string& text, bool allowNames = false, bool curveVariable = false);
 
     bool valid() const { return m_valid; }
     const std::string& error() const { return m_error; }

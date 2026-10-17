@@ -236,6 +236,15 @@ void Scene::restore(const SceneData& data) {
                 else if (it->first.compare(0, propPrefix.size(), propPrefix) == 0)
                     obj->setProp(it->first.substr(propPrefix.size()), it->second);
             }
+            if (type == "curve" && data.count(fieldPrefix + "tmin") && !data.count(fieldPrefix + "umin")) {
+                // Files from before scene time: curves used t as their own variable
+                obj->setField("umin", data.at(fieldPrefix + "tmin"));
+                if (data.count(fieldPrefix + "tmax")) obj->setField("umax", data.at(fieldPrefix + "tmax"));
+                for (const char* k : {"x", "y", "z"}) {
+                    auto it = data.find(fieldPrefix + k);
+                    if (it != data.end()) obj->setField(k, renameInText(it->second, "t", "u"));
+                }
+            }
             if (type == "parameter") {
                 auto* p = static_cast<ParameterObject*>(obj.get());
                 bool wasPlaying = p->propBool("playing", false);
@@ -317,15 +326,16 @@ void Scene::loadV1(const SceneData& data) {
             SceneObject* p = add(SpaceKind::Euclidean3D, types[type]);
             std::string text;
             if (type == 1) {
-                if (getString(data, "plot.param.x", text)) p->setField("x", text);
-                if (getString(data, "plot.param.y", text)) p->setField("y", text);
-                if (getString(data, "plot.param.z", text)) p->setField("z", text);
+                // Curves used t as their variable; it is u now (t is the scene time)
+                if (getString(data, "plot.param.x", text)) p->setField("x", renameInText(text, "t", "u"));
+                if (getString(data, "plot.param.y", text)) p->setField("y", renameInText(text, "t", "u"));
+                if (getString(data, "plot.param.z", text)) p->setField("z", renameInText(text, "t", "u"));
             } else if (getString(data, exprKeys[type], text)) {
                 p->setField("f", text);
             }
             float v;
             const char* ranges[6] = {"x_min", "x_max", "y_min", "y_max", "t_min", "t_max"};
-            const char* keys[6] = {"xmin", "xmax", "ymin", "ymax", "tmin", "tmax"};
+            const char* keys[6] = {"xmin", "xmax", "ymin", "ymax", "umin", "umax"};
             for (int r = 0; r < 6; r++)
                 if (getFloat(data, std::string("plot.") + ranges[r], v) && p->field(keys[r])) p->setField(keys[r], num(v));
             if (getFloat(data, "plot.resolution", v)) p->setProp("resolution", static_cast<double>(v));

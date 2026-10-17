@@ -75,12 +75,6 @@ bool ParameterObject::fieldActive(const Field& f) const {
     return f.key == "formula" ? mode() == Mode::Formula : true;
 }
 
-bool ParameterObject::provideSlots(expr::Slots& slots) const {
-    slots.t = time();
-    slots.hasT = true;
-    return true;
-}
-
 expr::Value ParameterObject::computeValue() const {
     if (mode() == Mode::Formula) return field("formula")->value;
     return expr::Value::scalar(number());
@@ -192,11 +186,13 @@ PlotObject::PlotObject(Kind kind) : SceneObject(kind == Kind::Function ? "functi
             addField("xmax", "x to", Expect::Number, "6");
             break;
         case Kind::Curve:
-            addField("x", "x(t) =", Expect::Plot, "2cos(t)");
-            addField("y", "y(t) =", Expect::Plot, "2sin(t)");
-            addField("z", "z(t) =", Expect::Plot, "t/4");
-            addField("tmin", "t from", Expect::Number, "0");
-            addField("tmax", "t to", Expect::Number, "4pi");
+            // u is the curve's own variable; t stays the scene time
+            addField("x", "x(u) =", Expect::Plot, "2cos(u)");
+            addField("y", "y(u) =", Expect::Plot, "2sin(u)");
+            addField("z", "z(u) =", Expect::Plot, "u/4");
+            for (const char* k : {"x", "y", "z"}) markCurveVariable(k);
+            addField("umin", "u from", Expect::Number, "0");
+            addField("umax", "u to", Expect::Number, "4pi");
             break;
         case Kind::Surface:
             addField("f", "z =", Expect::Plot, "sin(sqrt(x^2 + y^2))");
@@ -247,7 +243,7 @@ PlotObject::Samples PlotObject::samples() const {
     Samples s;
     switch (m_kind) {
         case Kind::Function: s.wantedX = count("xmin", "xmax", -5, 5, 8); break;
-        case Kind::Curve: s.wantedX = count("tmin", "tmax", 0, 6.28, 8); break;
+        case Kind::Curve: s.wantedX = count("umin", "umax", 0, 6.28, 8); break;
         case Kind::Surface:
         case Kind::Implicit:
             s.wantedX = count("xmin", "xmax", -5, 5, 2);
@@ -273,7 +269,7 @@ void PlotObject::convertOldResolution() {
     double perUnit = 0;
     switch (m_kind) {
         case Kind::Function: perUnit = std::max(100.0, res * 6) / span("xmin", "xmax", -5, 5); break;
-        case Kind::Curve: perUnit = std::max(200.0, res * 10) / span("tmin", "tmax", 0, 6.28); break;
+        case Kind::Curve: perUnit = std::max(200.0, res * 10) / span("umin", "umax", 0, 6.28); break;
         case Kind::Surface:
             perUnit = std::clamp(res, 4.0, 200.0) / std::max(span("xmin", "xmax", -5, 5), span("ymin", "ymax", -5, 5));
             break;
@@ -299,7 +295,7 @@ expr::Value PlotObject::computeValue() const {
     };
     std::string err = range("xmin", "xmax");
     if (err.empty()) err = range("ymin", "ymax");
-    if (err.empty()) err = range("tmin", "tmax");
+    if (err.empty()) err = range("umin", "umax");
     if (!err.empty()) return expr::Value::fail(err);
     return expr::Value::fail("no value");  // plots are drawn, not used in formulas
 }
@@ -351,8 +347,8 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"function", "Function y = f(x)", "Plots", "f", spaceBit(SpaceKind::Euclidean3D),
          "The graph of a function of x",
          [] { return std::make_unique<PlotObject>(PlotObject::Kind::Function); }},
-        {"curve", "Curve (x(t), y(t), z(t))", "Plots", "c", spaceBit(SpaceKind::Euclidean3D),
-         "A path traced as t runs through its range",
+        {"curve", "Curve (x(u), y(u), z(u))", "Plots", "c", spaceBit(SpaceKind::Euclidean3D),
+         "A path traced as u runs through its range (t is still the scene time)",
          [] { return std::make_unique<PlotObject>(PlotObject::Kind::Curve); }},
         {"surface", "Surface z = f(x, y)", "Plots", "S", spaceBit(SpaceKind::Euclidean3D),
          "A height above every point of the floor",

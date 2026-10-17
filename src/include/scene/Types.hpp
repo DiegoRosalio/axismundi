@@ -35,7 +35,6 @@ public:
     double animatedValue(double seconds) const;
 
     bool fieldActive(const Field& f) const override;
-    bool provideSlots(expr::Slots& slots) const override;
 
 protected:
     expr::Value computeValue() const override;

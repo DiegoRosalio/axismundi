@@ -10,7 +10,7 @@ namespace linalg {
 
 enum class PlotType {
     Function2D = 0,  // y = f(x)
-    Parametric = 1,  // (x(t), y(t), z(t))
+    Parametric = 1,  // (x(u), y(u), z(u))
     Surface = 2,     // z = f(x, y)
     Implicit = 3,    // f(x, y) = 0
 };
@@ -23,7 +23,8 @@ struct PlotSpec {
     std::string px, py, pz;        // parametric components
     float xMin = -5.0f, xMax = 5.0f;
     float yMin = -5.0f, yMax = 5.0f;
-    float tMin = 0.0f, tMax = 12.566f;
+    float uMin = 0.0f, uMax = 12.566f;  // curve variable range
+    double time = 0.0;             // scene time: the value of t in every expression
     int samplesX = 300;            // samples (or cells) along x, or along t for curves
     int samplesY = 60;             // cells along y (surfaces, implicit curves)
     bool heatmap = true;
@@ -83,8 +84,9 @@ private:
     void releaseMeshes();
 
     const expr::Resolver* m_resolver = nullptr;
-    double eval(const Expression& e, double x, double y, double t) const {
-        return e.eval(ExprVars{x, y, t}, m_resolver);
+    double m_time = 0.0;
+    double eval(const Expression& e, double x, double y, double u = 0.0) const {
+        return e.eval(ExprVars{x, y, m_time, u}, m_resolver);
     }
     void buildFunction2D(const PlotSpec& spec, const Expression& f);
     void buildParametric(const PlotSpec& spec, const Expression& x, const Expression& y, const Expression& z);

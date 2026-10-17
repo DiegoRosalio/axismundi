@@ -40,6 +40,7 @@ struct Field {
     expr::Program program;
     std::string error;   // parse or evaluation error ("" when fine)
     expr::Value value;   // result of the last evaluation (not used for Plot fields)
+    bool curveVariable = false;  // curve fields: `u` is the curve's own variable
 };
 
 // Base of everything that can live in a space: vectors, matrices, plots,
@@ -75,6 +76,8 @@ public:
 
     // Scene time in seconds (set by the scene before each evaluation). Not saved.
     void setTime(double seconds) { m_time = seconds; }
+    // True when an active field uses t (the object follows the scene clock)
+    bool usesTime() const;
     double time() const { return m_time; }
 
     // --- Properties (non-expression settings, saved as text) -------------------
@@ -108,6 +111,8 @@ public:
 
 protected:
     void addField(const std::string& key, const std::string& label, Expect expect, const std::string& text);
+    // Make `u` the curve variable in this field (recompiles it)
+    void markCurveVariable(const std::string& key);
     // Turn evaluated fields into the object's value (default: the "value" field)
     virtual expr::Value computeValue() const;
     virtual std::unique_ptr<SceneObject> makeEmpty() const = 0;
@@ -125,6 +130,7 @@ private:
     std::uint64_t m_changedAt = 0;
     bool m_dirty = true;
     double m_time = 0.0;
+    double m_evaluatedTime = -1.0;  // time of the last evaluation (fields using t change with it)
 };
 
 // Does a value satisfy an expectation? Returns "" or an error message.

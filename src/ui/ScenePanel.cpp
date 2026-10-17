@@ -42,7 +42,7 @@ std::string summaryOf(const SceneObject& o) {
     if (type == "function") return "y = " + o.field("f")->text;
     if (type == "surface") return "z = " + o.field("f")->text;
     if (type == "implicit") return o.field("f")->text + " = 0";
-    if (type == "curve") return "curve in t";
+    if (type == "curve") return "curve in u";
     if (type == "product") return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
     if (type == "vector" && static_cast<const scene::VectorObject&>(o).byFormula()) {
         return o.field("value")->text + " = " + o.value().summary();
@@ -82,9 +82,10 @@ const std::vector<PlotExample>& plotExamples(const std::string& type) {
                                                       {"x^2/16 + y^2/4 - 1", "", "", ""},
                                                       {"y^2 - x^3 + 3x", "", "", ""},
                                                       {"(x^2 + y^2)^2 - 8(x^2 - y^2)", "", "", ""}};
-    static const std::vector<PlotExample> curve = {{"", "2cos(t)", "2sin(t)", "t/4"},
-                                                   {"", "sin(t) + 2sin(2t)", "cos(t) - 2cos(2t)", "-sin(3t)"},
-                                                   {"", "3sin(2t)", "3sin(3t)", "0"}};
+    static const std::vector<PlotExample> curve = {{"", "2cos(u)", "2sin(u)", "u/4"},
+                                                   {"", "sin(u) + 2sin(2u)", "cos(u) - 2cos(2u)", "-sin(3u)"},
+                                                   {"", "3sin(2u)", "3sin(3u)", "0"},
+                                                   {"", "2cos(u + t)", "2sin(u + t)", "sin(3u - 2t)"}};
     if (type == "surface") return surface;
     if (type == "implicit") return implicit;
     if (type == "curve") return curve;
@@ -525,7 +526,7 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
             ui::textIn({cells[0].x + cells[0].width, row.y, ui::px(26), row.height}, "to", ui::FontRole::Small, t.textMuted,
                        ui::Align::Center);
         };
-        if (curve) rangeRow("tmin", "tmax", "t");
+        if (curve) rangeRow("umin", "umax", "u");
         else {
             rangeRow("xmin", "xmax", "x");
             if (type != "function") rangeRow("ymin", "ymax", "y");
@@ -591,7 +592,9 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
             snprintf(buf, sizeof(buf), "Values range over [%.2f, %.2f]", r->minValue(), r->maxValue());
             note(col, buf, t.textMuted);
         }
-        note(col, "Use x, y, t and parameters by name, e.g. a*sin(x).", t.textFaint);
+        note(col, curve ? "u runs along the curve; t is the scene time. Parameters work by name too."
+                        : "Use x, y, t (the scene time) and parameters by name, e.g. a*sin(x - t).",
+             t.textFaint);
     } else if (type == "parameter") {
         auto& p = static_cast<scene::ParameterObject&>(o);
         using PMode = scene::ParameterObject::Mode;

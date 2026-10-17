@@ -157,6 +157,7 @@ size_t PlotRenderer::vertexCount() const {
 
 bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver) {
     m_resolver = resolver;
+    m_time = spec.time;
     m_type = spec.type;
     releaseMeshes();
     m_curve.clear();
@@ -165,8 +166,8 @@ bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver)
     m_filled = 0;
     m_error.clear();
 
-    auto parse = [&](Expression& e, const std::string& text, const char* name) {
-        if (e.parse(text, resolver != nullptr)) return true;
+    auto parse = [&](Expression& e, const std::string& text, const char* name, bool curve = false) {
+        if (e.parse(text, resolver != nullptr, curve)) return true;
         m_error = std::string(name) + ": " + e.error();
         return false;
     };
@@ -181,8 +182,8 @@ bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver)
         m_error = "y range: min must be less than max";
         return false;
     }
-    if (spec.type == PlotType::Parametric && !(spec.tMin < spec.tMax)) {
-        m_error = "t range: min must be less than max";
+    if (spec.type == PlotType::Parametric && !(spec.uMin < spec.uMax)) {
+        m_error = "u range: min must be less than max";
         return false;
     }
 
@@ -195,7 +196,8 @@ bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver)
         }
         case PlotType::Parametric: {
             Expression x, y, z;
-            if (!parse(x, spec.px, "x(t)") || !parse(y, spec.py, "y(t)") || !parse(z, spec.pz, "z(t)"))
+            if (!parse(x, spec.px, "x(u)", true) || !parse(y, spec.py, "y(u)", true) ||
+                !parse(z, spec.pz, "z(u)", true))
                 return false;
             buildParametric(spec, x, y, z);
             break;
@@ -246,7 +248,7 @@ void PlotRenderer::buildFunction2D(const PlotSpec& spec, const Expression& f) {
 
     for (int i = 0; i <= n; i++) {
         float x = spec.xMin + (spec.xMax - spec.xMin) * i / n;
-        double y = eval(f, x, 0, 0);
+        double y = eval(f, x, 0);
         ok[i] = usable(y);
         ys[i] = static_cast<float>(y);
         if (ok[i]) {
@@ -277,8 +279,8 @@ void PlotRenderer::buildParametric(const PlotSpec& spec, const Expression& ex, c
     m_maxValue = -kClip;
 
     for (int i = 0; i <= n; i++) {
-        double t = spec.tMin + (spec.tMax - spec.tMin) * i / n;
-        double x = eval(ex, 0, 0, t), y = eval(ey, 0, 0, t), z = eval(ez, 0, 0, t);
+        double u = spec.uMin + (spec.uMax - spec.uMin) * i / n;
+        double x = eval(ex, 0, 0, u), y = eval(ey, 0, 0, u), z = eval(ez, 0, 0, u);
         Sample& s = pts[i];
         s = {static_cast<float>(x), static_cast<float>(y), static_cast<float>(z),
              usable(x) && usable(y) && usable(z)};
@@ -311,7 +313,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
     m_maxValue = -kClip;
     for (int j = 0; j <= ny; j++) {
         for (int i = 0; i <= nx; i++) {
-            double v = eval(f, xAt(i), yAt(j), 0);
+            double v = eval(f, xAt(i), yAt(j));
             ok[idx(i, j)] = usable(v);
             z[idx(i, j)] = static_cast<float>(v);
             if (usable(v)) {
@@ -420,7 +422,7 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
     double maxAbs = 0.0;
     for (int j = 0; j <= ny; j++) {
         for (int i = 0; i <= nx; i++) {
-            double val = eval(f, xAt(i), yAt(j), 0);
+            double val = eval(f, xAt(i), yAt(j));
             v[idx(i, j)] = val;
             if (std::isfinite(val)) maxAbs = std::max(maxAbs, std::fabs(val));
         }

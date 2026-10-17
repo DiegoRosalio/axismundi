@@ -101,30 +101,43 @@ float TimePanel::drawContent(Rectangle area, scene::Scene& sc, scene::SpaceKind 
     scene::Space& space = sc.space(kind);
     int listed = 0;
     for (const auto& o : space.objects()) {
+        // Animate parameters, and anything with a formula that uses t
         const auto* p = dynamic_cast<const scene::ParameterObject*>(o.get());
-        if (!p || !p->timeDriven()) continue;
+        bool driven = p ? p->timeDriven() : o->usesTime();
+        if (!driven) continue;
         listed++;
         Rectangle r = col.row(30.0f);
-        bool selected = sc.selection(kind).contains(p->id());
+        bool selected = sc.selection(kind).contains(o->id());
         bool hover = ui::hovered(r);
         if (selected || hover) ui::fillRounded(r, ui::px(6.0f), selected ? t.accentSoft : t.hover);
-        if (ui::clicked(r)) sc.selection(kind).set(p->id());
+        if (ui::clicked(r)) sc.selection(kind).set(o->id());
         Rectangle inner = {r.x + ui::px(8), r.y, r.width - ui::px(16), r.height};
         Rectangle name = ui::takeLeft(inner, 70.0f, 8.0f);
-        Rectangle value = ui::takeRight(inner, 70.0f, 8.0f);
-        ui::textIn(name, ui::ellipsize(p->name().c_str(), ui::FontRole::Body, name.width).c_str(), ui::FontRole::Body,
+        Rectangle value = ui::takeRight(inner, 90.0f, 8.0f);
+        ui::textIn(name, ui::ellipsize(o->name().c_str(), ui::FontRole::Body, name.width).c_str(), ui::FontRole::Body,
                    t.text);
-        ui::textIn(inner, ui::ellipsize(describe(*p).c_str(), ui::FontRole::Small, inner.width).c_str(),
-                   ui::FontRole::Small, p->error().empty() ? t.textMuted : t.danger);
-        ui::textIn(value, p->error().empty() ? shortNumber(p->number()).c_str() : "error", ui::FontRole::Mono,
-                   p->error().empty() ? t.text : t.danger, ui::Align::Right);
-        ui::tooltip(r, p->error().empty() ? "Click to select it and edit it in the inspector." : p->error().c_str(),
-                    p->name().c_str());
+        std::string what;
+        if (p) {
+            what = describe(*p);
+        } else {
+            for (const auto& f : o->fields())
+                if (f.program.valid() && f.program.usesT()) {
+                    what = f.label + " " + f.text;
+                    break;
+                }
+        }
+        bool ok = o->error().empty();
+        ui::textIn(inner, ui::ellipsize(what.c_str(), ui::FontRole::Small, inner.width).c_str(), ui::FontRole::Small,
+                   ok ? t.textMuted : t.danger);
+        std::string shown = !ok ? "error" : p ? shortNumber(p->number()) : o->value().ok() ? o->value().summary() : "plot";
+        ui::textIn(value, ui::ellipsize(shown.c_str(), ui::FontRole::Mono, value.width).c_str(), ui::FontRole::Mono,
+                   ok ? t.text : t.danger, ui::Align::Right);
+        ui::tooltip(r, ok ? "Click to select it and edit it in the inspector." : o->error().c_str(), o->name().c_str());
     }
     if (listed == 0) {
         ui::textWrapped({col.x(), col.y(), col.width(), ui::px(40)},
-                        "No time-driven parameters here. Add a parameter and set it to Animate or Formula; "
-                        "sliders stay static.",
+                        "Nothing here follows the clock yet. Use t (the time in seconds) in any formula, "
+                        "e.g. rotz(t) or sin(x - t), or set a parameter to Animate.",
                         ui::FontRole::Small, t.textMuted);
         col.space(36.0f);
     }

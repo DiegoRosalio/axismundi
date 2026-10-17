@@ -152,8 +152,9 @@ void SceneView::updatePlots(scene::Space& space) {
         spec.xMax = static_cast<float>(p->rangeValue("xmax", 5));
         spec.yMin = static_cast<float>(p->rangeValue("ymin", -5));
         spec.yMax = static_cast<float>(p->rangeValue("ymax", 5));
-        spec.tMin = static_cast<float>(p->rangeValue("tmin", 0));
-        spec.tMax = static_cast<float>(p->rangeValue("tmax", 6.28f));
+        spec.uMin = static_cast<float>(p->rangeValue("umin", 0));
+        spec.uMax = static_cast<float>(p->rangeValue("umax", 6.28f));
+        spec.time = p->time();
         scene::PlotObject::Samples samples = p->samples();
         spec.samplesX = samples.nx;
         spec.samplesY = samples.ny;

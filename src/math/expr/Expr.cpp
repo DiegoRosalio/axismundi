@@ -20,7 +20,7 @@ struct Node {
     double number = 0.0;
     char op = 0;                 // Binary: + - * / ^
     std::string name;            // Name, Call, Member
-    int slot = -1;               // Name: 0 = x, 1 = y, 2 = t
+    int slot = -1;               // Name: 0 = x, 1 = y, 2 = t, 3 = u (curves)
     std::vector<std::unique_ptr<Node>> children;  // operands, arguments, list items
     std::vector<int> rowSizes;   // Rows: number of items in each row
 };
@@ -75,7 +75,7 @@ bool isNameChar(char c) { return std::isalnum(static_cast<unsigned char>(c)) || 
 
 class Parser {
 public:
-    explicit Parser(const std::string& s) : m_s(s) {}
+    explicit Parser(const std::string& s, bool curveVariable = false) : m_s(s), m_curve(curveVariable) {}
 
     NodePtr parseAll() {
         NodePtr n = parseExpr();
@@ -297,23 +297,26 @@ private:
             if (name == "x") n->slot = 0;
             else if (name == "y") n->slot = 1;
             else if (name == "t") n->slot = 2;
+            else if (name == "u" && m_curve) n->slot = 3;
             return n;
         }
         fail(std::string("unexpected '") + c + "'");
     }
 
     const std::string& m_s;
+    bool m_curve = false;
     size_t m_pos = 0;
 };
 
-void collectNames(const Node& n, std::set<std::string>& names, bool& x, bool& y, bool& t) {
+void collectNames(const Node& n, std::set<std::string>& names, bool& x, bool& y, bool& t, bool& u) {
     if (n.kind == Node::Kind::Name) {
         if (n.slot == 0) x = true;
         else if (n.slot == 1) y = true;
         else if (n.slot == 2) t = true;
+        else if (n.slot == 3) u = true;
         else names.insert(n.name);
     }
-    for (const auto& c : n.children) collectNames(*c, names, x, y, t);
+    for (const auto& c : n.children) collectNames(*c, names, x, y, t, u);
 }
 
 // ---------------------------------------------------------------------------
@@ -663,10 +666,13 @@ Value evalNode(const Node& n, const Resolver* resolver, const Slots* slots) {
                     if (n.slot == 0 && slots->hasX) return Value::scalar(slots->x);
                     if (n.slot == 1 && slots->hasY) return Value::scalar(slots->y);
                     if (n.slot == 2 && slots->hasT) return Value::scalar(slots->t);
+                    if (n.slot == 3 && slots->hasU) return Value::scalar(slots->u);
                 }
             }
             Value v;
             if (resolver && resolver->lookup(n.name, v)) return v;
+            if (n.slot == 2) return Value::fail("t (the scene time) is not available here");
+            if (n.slot == 3) return Value::fail("u is only available in curves");
             if (n.slot >= 0) return Value::fail(n.name + " is only available in plots");
             return Value::fail("unknown name '" + n.name + "'");
         }
@@ -750,16 +756,16 @@ Program::~Program() = default;
 Program::Program(Program&&) noexcept = default;
 Program& Program::operator=(Program&&) noexcept = default;
 
-bool Program::compile(const std::string& text) {
+bool Program::compile(const std::string& text, bool curveVariable) {
     m_text = text;
     m_root.reset();
     m_error.clear();
     m_names.clear();
-    m_usesX = m_usesY = m_usesT = false;
+    m_usesX = m_usesY = m_usesT = m_usesU = false;
     try {
-        Parser parser(m_text);
+        Parser parser(m_text, curveVariable);
         m_root = parser.parseAll();
-        collectNames(*m_root, m_names, m_usesX, m_usesY, m_usesT);
+        collectNames(*m_root, m_names, m_usesX, m_usesY, m_usesT, m_usesU);
         return true;
     } catch (const ParseError& e) {
         m_error = e.what();

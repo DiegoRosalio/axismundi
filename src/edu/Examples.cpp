@@ -234,8 +234,8 @@ std::vector<Example> build() {
     list.push_back({"Trefoil knot", C::Plots, "A closed curve that cannot be untied without cutting it.",
                     [](App& app) {
                         plotScene(app, "curve",
-                                  {{"x", "sin(t) + 2sin(2t)"}, {"y", "cos(t) - 2cos(2t)"}, {"z", "-sin(3t)"}, {"tmin", "0"},
-                                   {"tmax", "2pi"}},
+                                  {{"x", "sin(u) + 2sin(2u)"}, {"y", "cos(u) - 2cos(2u)"}, {"z", "-sin(3u)"}, {"umin", "0"},
+                                   {"umax", "2pi"}},
                                   {{"density", "80"}});
                     }});
     list.push_back({"Lemniscate", C::Plots, "(x² + y²)² = 8(x² − y²): a figure eight found as an implicit curve.",

@@ -606,6 +606,93 @@ void testBlendFunctions() {
     CHECK(v.type == Type::Matrix);
 }
 
+void testSceneTime() {
+    using namespace scene;
+    Scene sc;
+    Space& d = sc.space(SpaceKind::Euclidean3D);
+    d.clear();
+    // t is the scene time in any formula
+    auto* v = static_cast<VectorObject*>(sc.add(SpaceKind::Euclidean3D, "vector", "v"));
+    v->setByFormula(true);
+    v->setField("value", "[cos(t), sin(t), 1]");
+    sc.setTime(0.0);
+    sc.evaluate();
+    CHECK(v->error().empty());
+    CHECK_NEAR(v->value().vector.x, 1.0f, 1e-6f);
+    sc.timeline().length = 10.0;
+    sc.setTime(3.14159265 / 2);
+    sc.evaluate();
+    CHECK_NEAR(v->value().vector.y, 1.0f, 1e-5f);
+    auto* m = static_cast<MatrixObject*>(sc.add(SpaceKind::Euclidean3D, "matrix", "R"));
+    m->setByFormula(true);
+    m->setField("value", "rotz(t)");
+    sc.evaluate();
+    CHECK(m->error().empty());
+
+    // Plots using t change with the time; plots without t do not
+    auto* wave = sc.add(SpaceKind::Euclidean3D, "function", "w");
+    wave->setField("f", "sin(x - t)");
+    auto* still = sc.add(SpaceKind::Euclidean3D, "function", "g");
+    still->setField("f", "sin(x)");
+    sc.evaluate();
+    std::uint64_t w0 = wave->changedAt(), g0 = still->changedAt();
+    sc.evaluate();  // same time: nothing changes
+    CHECK(wave->changedAt() == w0);
+    sc.setTime(2.0);
+    sc.evaluate();
+    CHECK(wave->changedAt() > w0);
+    CHECK(still->changedAt() == g0);
+    CHECK(wave->error().empty());
+
+    // Curves: u is their own variable, t the scene time
+    auto* c = static_cast<PlotObject*>(sc.add(SpaceKind::Euclidean3D, "curve", "c"));
+    c->setField("x", "cos(u + t)");
+    sc.evaluate();
+    CHECK(c->error().empty());
+    CHECK(c->field("x")->program.usesU() && c->field("x")->program.usesT());
+    CHECK(c->field("umin") && !c->field("tmin"));
+
+    // An object named u stays a normal name (and a dependency) outside curves
+    auto* u = static_cast<VectorObject*>(sc.add(SpaceKind::Euclidean3D, "vector", "u"));
+    u->setField("x", "2");
+    auto* w = static_cast<VectorObject*>(sc.add(SpaceKind::Euclidean3D, "vector", "q"));
+    w->setByFormula(true);
+    w->setField("value", "3u");
+    sc.evaluate();
+    CHECK(w->error().empty());
+    CHECK(w->dependencies().count("u") == 1);
+    CHECK_NEAR(w->value().vector.x, 6.0f, 1e-6f);
+    CHECK(c->dependencies().count("u") == 0);  // inside the curve, u is the curve variable
+
+    // Old files: curves with t and tmin/tmax become u and umin/umax
+    SceneData data;
+    sc.save(data);
+    std::string cp;
+    for (auto& [key, val] : data)
+        if (val == "c" && key.size() > 5 && key.compare(key.size() - 5, 5, ".name") == 0) cp = key.substr(0, key.size() - 4);
+    CHECK(!cp.empty());
+    data.erase(cp + "field.umin");
+    data.erase(cp + "field.umax");
+    data[cp + "field.tmin"] = "-1";
+    data[cp + "field.tmax"] = "pi";
+    data[cp + "field.x"] = "cos(t) + 2t";
+    data[cp + "field.y"] = "tan(t)";
+    Scene old;
+    std::string err;
+    CHECK(old.load(data, err));
+    auto* c2 = old.space(SpaceKind::Euclidean3D).find("c");
+    CHECK(c2 && c2->field("x")->text == "cos(u) + 2u" && c2->field("y")->text == "tan(u)");
+    CHECK(c2 && c2->field("umin")->text == "-1" && c2->field("umax")->text == "pi");
+    CHECK(c2 && c2->error().empty());
+
+    // Engine messages
+    expr::Program p;
+    CHECK(p.compile("t + 1"));
+    CHECK(!p.eval(nullptr).ok());
+    CHECK(p.compile("u", true) && p.usesU() && p.names().empty());
+    CHECK(p.compile("u") && !p.usesU() && p.names().count("u"));
+}
+
 void testScene() {
     using namespace scene;
     Scene sc;
@@ -906,6 +993,7 @@ int main() {
         {"Expression", testExpression},
         {"Playback", testPlayback},
         {"Blend functions", testBlendFunctions},
+        {"Scene time", testSceneTime},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},

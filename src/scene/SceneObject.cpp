@@ -77,7 +77,7 @@ bool SceneObject::setField(const std::string& key, const std::string& text) {
     if (f->text == text && (f->program.valid() || !f->error.empty())) return f->program.valid();
     f->text = text;
     m_dirty = true;
-    if (!f->program.compile(text)) {
+    if (!f->program.compile(text, f->curveVariable)) {
         f->error = f->program.error();
         return false;
     }
@@ -85,12 +85,31 @@ bool SceneObject::setField(const std::string& key, const std::string& text) {
     return true;
 }
 
+bool SceneObject::usesTime() const {
+    for (const auto& f : m_fields)
+        if (fieldActive(f) && f.program.valid() && f.program.usesT()) return true;
+    return false;
+}
+
+void SceneObject::markCurveVariable(const std::string& key) {
+    Field* f = field(key);
+    if (!f) return;
+    f->curveVariable = true;
+    std::string text = f->text;
+    f->text.clear();
+    f->error.clear();
+    setField(key, text);
+}
+
 bool SceneObject::fieldActive(const Field&) const {
     return true;
 }
 
-bool SceneObject::provideSlots(expr::Slots&) const {
-    return false;
+bool SceneObject::provideSlots(expr::Slots& slots) const {
+    // Every formula sees t = the scene time
+    slots.t = m_time;
+    slots.hasT = true;
+    return true;
 }
 
 std::string SceneObject::prop(const std::string& key, const std::string& fallback) const {
@@ -144,20 +163,23 @@ std::set<std::string> SceneObject::dependencies() const {
 
 void SceneObject::evaluate(const expr::Resolver& resolver, std::uint64_t epoch, bool inputsChanged) {
     std::string firstError;
+    bool usesTime = false;
     for (auto& f : m_fields) {
         if (!fieldActive(f)) continue;
+        if (f.program.valid() && f.program.usesT()) usesTime = true;
         if (!f.program.valid()) {
             if (firstError.empty()) firstError = f.label + ": " + f.error;
             continue;
         }
         expr::Value v;
         if (f.expect == Expect::Plot) {
-            // Check names and type with sample values of x, y, t
+            // Check names and type with sample values of x, y and u, and the scene time t
             expr::Slots slots;
+            provideSlots(slots);
             slots.x = 0.37;
             slots.y = 0.29;
-            slots.t = 0.41;
-            slots.hasX = slots.hasY = slots.hasT = true;
+            slots.u = 0.41;
+            slots.hasX = slots.hasY = slots.hasU = true;
             v = f.program.eval(&resolver, &slots);
         } else {
             expr::Slots own;
@@ -171,7 +193,10 @@ void SceneObject::evaluate(const expr::Resolver& resolver, std::uint64_t epoch, 
     expr::Value next = firstError.empty() ? computeValue() : expr::Value::fail(firstError);
     // "no value" marks objects that are drawn but not used in formulas (plots): not an error
     if (firstError.empty() && !next.ok() && next.error != "no value") firstError = next.error;
-    bool changed = m_dirty || inputsChanged || !sameValue(next, m_value) || firstError != m_error;
+    // Objects drawn from formulas of t (plots have no value to compare) change with the time
+    bool timeChanged = usesTime && m_time != m_evaluatedTime;
+    bool changed = m_dirty || inputsChanged || timeChanged || !sameValue(next, m_value) || firstError != m_error;
+    m_evaluatedTime = m_time;
     m_value = next;
     m_error = firstError;
     if (changed) m_changedAt = epoch;
