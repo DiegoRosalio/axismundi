@@ -344,7 +344,8 @@ void Tour::buildSteps() {
                                   {"Shear", "shear"}, {"Powers of a root of unity", "roots_of_unity"},
                                   {"Rotate and scale", "rotate_scale"}, {"Source and sink", "source_sink"},
                                   {"3D swirl", "swirl"}, {"Quarter turn (quaternion)", "quaternion"},
-                                  {"Volume under a paraboloid", "volume"}, {"Path independence", "work"}};
+                                  {"Volume under a paraboloid", "volume"}, {"Path independence", "work"},
+                                  {"Frenet frame on a helix", "frenet"}};
         for (const auto& n : names) {
             runExample(app, n[0]);
             app.scene().evaluate();

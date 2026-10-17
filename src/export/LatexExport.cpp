@@ -386,6 +386,46 @@ void exportLineIntegral(Figure& f, const scene::LineIntegralObject& o, const Sty
            << labelNode(f, {m.x, m.y, m.z}, 1, -1, name + " = " + num(o.value().re)) << ";\n";
 }
 
+// The moving frame: the curve, T/N/B at the point, the osculating circle
+void exportFrame(Figure& f, const scene::FrameObject& o, const Style& s) {
+    const auto& curve = o.curve();
+    std::string name = nameToLatex(o.name());
+    if (o.showCurve() && curve.size() >= 2) {
+        f.body << (f.flat ? "\\addplot[" : "\\addplot3[") << plotStyle(s, "thick, forget plot") << "] coordinates {";
+        for (size_t i = 0; i < curve.size(); i += 2) {
+            f.body << (i % 12 == 0 ? "\n  " : " ") << f.coord(curve[i].x, curve[i].y, curve[i].z);
+            f.extend(curve[i].x, curve[i].y, f.flat ? 0 : curve[i].z);
+        }
+        f.body << " " << f.coord(curve.back().x, curve.back().y, curve.back().z) << "\n};\n";
+    }
+    if (!o.error().empty()) return;
+    const geometry::Frame& fr = o.frame();
+    Point3 p = {fr.p.x, fr.p.y, fr.p.z};
+    if (o.showCircle() && fr.hasNormal && fr.kappa > 1e-3 && 1.0 / fr.kappa < 60.0) {
+        double radius = 1.0 / fr.kappa;
+        geometry::D3 c = geometry::add(fr.p, geometry::scale(fr.N, radius));
+        f.body << "\\draw[black!45, thin] ";
+        for (int i = 0; i <= 72; i++) {
+            double a = 2 * kPi * i / 72;
+            geometry::D3 q = geometry::add(c, geometry::add(geometry::scale(fr.N, -radius * std::cos(a)),
+                                                            geometry::scale(fr.T, radius * std::sin(a))));
+            f.body << (i ? " -- " : "") << f.at(q.x, q.y, q.z);
+        }
+        f.body << ";\n";
+    }
+    if (o.showFrame()) {
+        const geometry::D3 dirs[3] = {fr.T, fr.N, fr.B};
+        const char* labels[3] = {"T", "N", "B"};
+        for (int i = 0; i < 3; i++) {
+            if (i > 0 && !fr.hasNormal) continue;
+            if (i == 2 && f.flat) continue;  // B points out of the page
+            arrow(f, p, {p.x + dirs[i].x, p.y + dirs[i].y, p.z + dirs[i].z}, "black, semithick", labels[i]);
+        }
+    }
+    f.body << "\\fill " << f.at(p.x, p.y, p.z) << " circle[radius=1.5pt]"
+           << labelNode(f, p, -1, -1, name) << ";\n";
+}
+
 void exportPlot(Figure& f, const scene::PlotObject& p, const Style& s, const scene::Space& space,
                 const Options& opt) {
     auto text = [&](const char* key) { return p.field(key) ? p.field(key)->text : std::string(); };
@@ -636,6 +676,12 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
                 if (t == "function" || t == "implicit") continue;
                 // Plane fields live on the floor (only F's x and y are used)
                 if (t == "field" && !static_cast<const scene::VectorFieldObject*>(o)->volume()) continue;
+                // A frame on a flat curve
+                if (t == "frame") {
+                    bool planar = true;
+                    for (const auto& p : static_cast<const scene::FrameObject*>(o)->curve()) planar = planar && std::fabs(p.z) < 1e-9;
+                    if (planar) continue;
+                }
                 // A work integral along a flat path in a flat field
                 if (t == "lineintegral") {
                     auto* li = static_cast<const scene::LineIntegralObject*>(o);
@@ -688,6 +734,8 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             exportEigen(f, o, s);
         } else if (auto* p = dynamic_cast<const scene::PlotObject*>(&o)) {
             exportPlot(f, *p, s, space, opt);
+        } else if (auto* fo = dynamic_cast<const scene::FrameObject*>(&o)) {
+            exportFrame(f, *fo, s);
         } else if (auto* di = dynamic_cast<const scene::DoubleIntegralObject*>(&o)) {
             exportDoubleIntegral(f, *di, s);
         } else if (auto* li = dynamic_cast<const scene::LineIntegralObject*>(&o)) {

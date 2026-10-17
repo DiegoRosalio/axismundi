@@ -37,6 +37,10 @@ walk = r'''    auto solve = [](App& app, size_t L, size_t K) -> bool {
         if (title == "Where to sample") { if (auto* o = app.object("V")) o->setProp("rule", "left"); return true; }
         if (title == "Work along a path") { app.addObject(AppMode::Space3D, "lineintegral", "W"); return true; }
         if (title == "Against the flow") { if (auto* o = app.object("W")) o->setField("F", "[y, -x, 0]"); return true; }
+        if (title == "Slide along") { if (auto* o = app.object("P")) o->setField("u0", "mod(t, 4pi)"); return true; }
+        if (title == "Flatten it") { if (auto* o = app.object("P")) o->setField("z", "0"); return true; }
+        if (title == "Tighter turns") { if (auto* o = app.object("P")) { o->setField("x", "0.5cos(u)"); o->setField("y", "0.5sin(u)"); } return true; }
+        if (title == "Comb the curvature") { if (auto* o = app.object("P")) o->setProp("comb", true); return true; }
         if (title == "Add a surface") { app.addObject(AppMode::Space3D, "surface", "S"); return true; }
         if (title == "Use a parameter") { app.addObject(AppMode::Space3D, "parameter", "k"); if (auto* o = app.object("S")) o->setField("f", "sin(k*x)"); return true; }
         return false;

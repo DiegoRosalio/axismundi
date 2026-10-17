@@ -470,6 +470,54 @@ std::vector<Lesson> build() {
          },
          "Set F to [y, -x, 0] (or put a minus in front of it).", "integral.F"},
     }});
+    list.push_back({"Curvature and the moving frame", "How a curve turns and twists", {
+        {"Riding a curve",
+         "At every point of a curve there is a natural frame: T points where the curve goes, N towards the center "
+         "of the turn, and B = T × N. The circle that hugs the curve best has radius 1/κ: κ is the curvature.",
+         [](App& app) {
+             app.setMode(AppMode::Space3D);
+             app.restartTime(false);
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "frame", "P");
+             app.select("P");
+             app.setCameraView({5.5f, 5.0f, 6.5f}, {0, 1.4f, 0});
+         },
+         nullptr, nullptr, nullptr, "frame.curve"},
+        {"Slide along",
+         "The point is where u = u0. A formula of t moves it with the scene clock.",
+         nullptr, "Make P's \"At u\" follow the clock (use t).",
+         [](App& app, const TutorialContext&) {
+             auto* p = app.object("P");
+             const scene::Field* f = p ? p->field("u0") : nullptr;
+             return f && f->program.valid() && f->program.usesT();
+         },
+         "Type mod(t, 4pi) in \"At u\", then press P to play.", "frame.u0"},
+        {"Flatten it",
+         "Torsion τ measures how fast the curve leaves the plane it is turning in. A curve that stays in one "
+         "plane has τ = 0.",
+         nullptr, "Make the torsion 0 (keep it curved).",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::FrameObject*>(app.object("P"));
+             return p && p->error().empty() && p->frame().hasNormal && std::fabs(p->frame().tau) < 1e-4;
+         },
+         "Set z(u) to 0: the helix becomes a circle.", "frame.curve"},
+        {"Tighter turns",
+         "A small circle turns more sharply than a big one: κ = 1/radius.",
+         nullptr, "Get the curvature above 1.",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::FrameObject*>(app.object("P"));
+             return p && p->error().empty() && p->frame().kappa > 1.0;
+         },
+         "Use a radius below 1, e.g. x(u) = 0.5cos(u) and y(u) = 0.5sin(u).", "frame.curve"},
+        {"Comb the curvature",
+         "The curvature comb draws κ all along the curve: long teeth where it bends sharply.",
+         nullptr, "Switch on the curvature comb.",
+         [](App& app, const TutorialContext&) {
+             auto* p = app.object("P");
+             return p && p->propBool("comb", false);
+         },
+         "It's a switch in P's inspector.", "frame.comb"},
+    }});
     return list;
 }
 

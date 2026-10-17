@@ -1163,6 +1163,28 @@ void testLatexExport() {
         save("quaternion-flat", qr.code);
     }
 
+    // Moving frame: T, N, B and the osculating circle; a flat curve is a 2D figure (no B)
+    {
+        Scene gsc;
+        gsc.clearAll();
+        auto* P = gsc.add(SpaceKind::Euclidean3D, "frame", "P");
+        gsc.evaluate();
+        latex::Options go;
+        go.standalone = true;
+        latex::Result gr = latex::exportLatex(gsc.space(SpaceKind::Euclidean3D), gsc.selection(SpaceKind::Euclidean3D), go);
+        CHECK(gr.exported == 1 && !gr.flat && gr.code.find("{$B$}") != std::string::npos);
+        save("frame-helix", gr.code);
+        P->setField("x", "3cos(u)");
+        P->setField("y", "1.5sin(u)");
+        P->setField("z", "0");
+        P->setField("umax", "2pi");
+        P->setField("u0", "0.5");
+        gsc.evaluate();
+        gr = latex::exportLatex(gsc.space(SpaceKind::Euclidean3D), gsc.selection(SpaceKind::Euclidean3D), go);
+        CHECK(gr.flat && gr.code.find("{$N$}") != std::string::npos && gr.code.find("{$B$}") == std::string::npos);
+        save("frame-ellipse", gr.code);
+    }
+
     // Integrals: boxes and the value; a flat work integral is a 2D figure
     {
         Scene isc;
