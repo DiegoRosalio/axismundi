@@ -9,6 +9,7 @@
 #include "math/VectorField.hpp"
 #include "math/Integrals.hpp"
 #include "math/CurveGeometry.hpp"
+#include "math/Fourier.hpp"
 #include "text/LabelLayout.hpp"
 #include "text/TextLayout.hpp"
 #include <fstream>
@@ -565,6 +566,73 @@ void testVectorField() {
     CHECK_NEAR(particleTime(circle, 1, 3, 0.0, 1.0), T / 3, 1e-9);
     CHECK_NEAR(particleTime(circle, 0, 3, T + 0.25, 1.0), 0.25, 1e-9);
     CHECK_NEAR(particleTime(circle, 0, 3, 0.25, 2.0), 0.5, 1e-9);
+}
+
+void testFourier() {
+    using namespace fourier;
+    constexpr double pi = 3.14159265358979;
+    int bad = 0;
+    // Square wave on [−π, π]: b_k = 4/(πk) for odd k, 0 for even, no cosines
+    auto square = [](double x, double& y) { y = x < 0 ? -1.0 : 1.0; return true; };
+    Series sq = seriesCoefficients(square, -pi, pi, 7, 4000, bad);
+    CHECK(bad == 0);
+    CHECK_NEAR(sq.a0, 0, 1e-3);
+    for (int k = 1; k <= 7; k++) {
+        CHECK_NEAR(sq.bk[k - 1], k % 2 ? 4.0 / (pi * k) : 0.0, 2e-3);
+        CHECK_NEAR(sq.ak[k - 1], 0, 2e-3);
+    }
+    // Sawtooth f = x: b_k = 2(−1)^(k+1)/k
+    auto saw = [](double x, double& y) { y = x; return true; };
+    Series sw = seriesCoefficients(saw, -pi, pi, 5, 4000, bad);
+    for (int k = 1; k <= 5; k++) CHECK_NEAR(sw.bk[k - 1], 2.0 * (k % 2 ? 1 : -1) / k, 1e-6);
+    // A pure cosine: a₃ = 1, nothing else; and the partial sum reproduces it
+    auto c3 = [](double x, double& y) { y = std::cos(3 * x) + 0.5; return true; };
+    Series cs = seriesCoefficients(c3, -pi, pi, 5, 2000, bad);
+    CHECK_NEAR(cs.a0, 1.0, 1e-9);
+    CHECK_NEAR(cs.ak[2], 1.0, 1e-9);
+    CHECK_NEAR(cs.ak[0], 0, 1e-9);
+    CHECK_NEAR(cs.bk[2], 0, 1e-9);
+    CHECK_NEAR(partialSum(cs, 0.7), std::cos(2.1) + 0.5, 1e-8);
+    CHECK_NEAR(partialSum(cs, 0.7 + 2 * pi), partialSum(cs, 0.7), 1e-9);  // periodic
+    // Another interval: [0, 2] has period 2 (ω = π)
+    auto sin1 = [](double x, double& y) { y = std::sin(pi * x); return true; };
+    Series s01 = seriesCoefficients(sin1, 0, 2, 3, 2000, bad);
+    CHECK_NEAR(s01.bk[0], 1.0, 1e-8);
+    // More terms: closer (mean square error of the square wave decreases)
+    auto err = [&](int n) {
+        double e = 0;
+        for (int i = 1; i < 400; i++) {
+            double x = -pi + 2 * pi * i / 400, y = 0;
+            square(x, y);
+            e += std::pow(partialSum(sq, x, n) - y, 2);
+        }
+        return e;
+    };
+    CHECK(err(7) < err(3) && err(3) < err(1));
+    // Undefined points count as 0 and are reported
+    auto hole = [](double x, double& y) { y = 1; return std::fabs(x) > 1e-9; };
+    seriesCoefficients(hole, -pi, pi, 2, 100, bad);
+    CHECK(bad == 1);
+
+    // Curves: a circle e^{iu} has c₁ = 1 only; the center comes first
+    std::vector<cplx> circle;
+    for (int j = 0; j < 64; j++) circle.push_back(std::polar(1.0, 2 * pi * j / 64) + cplx(2, 1));
+    auto terms = curveCoefficients(circle, 8);
+    CHECK(terms.size() == 17 && terms[0].k == 0);
+    CHECK_NEAR(std::abs(terms[0].c - cplx(2, 1)), 0, 1e-9);
+    CHECK(terms[1].k == 1 && std::abs(terms[1].c - cplx(1, 0)) < 1e-9);
+    CHECK(std::abs(terms[2].c) < 1e-9);
+    // The epicycle tip is the partial sum, and with all terms it passes through the samples
+    std::vector<cplx> shape;
+    for (int j = 0; j < 128; j++) {
+        double u = 2 * pi * j / 128;
+        shape.push_back(cplx(std::cos(u) + 0.3 * std::cos(3 * u), std::sin(u) - 0.2 * std::sin(2 * u)));
+    }
+    auto st = curveCoefficients(shape, 6);
+    auto pts = chain(st, 0.9, 5);
+    CHECK(pts.size() == 5);
+    CHECK_NEAR(std::abs(pts.back() - evaluate(st, 0.9, 5)), 0, 1e-12);
+    CHECK_NEAR(std::abs(evaluate(st, 2 * pi * 10 / 128) - shape[10]), 0, 1e-9);
 }
 
 void testCurveGeometry() {
@@ -1902,6 +1970,7 @@ int main() {
         {"Quaternions", testQuaternions},
         {"Integrals", testIntegrals},
         {"Curve geometry", testCurveGeometry},
+        {"Fourier", testFourier},
         {"Vector field", testVectorField},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},
