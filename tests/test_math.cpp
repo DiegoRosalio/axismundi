@@ -5,6 +5,7 @@
 #include "math/expr/Reference.hpp"
 #include "math/Contour.hpp"
 #include "export/LatexExport.hpp"
+#include "export/PdfCompile.hpp"
 #include "text/LabelLayout.hpp"
 #include "text/TextLayout.hpp"
 #include <fstream>
@@ -25,6 +26,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <vector>
@@ -760,6 +762,45 @@ void testContour() {
     }
 }
 
+void testPdfCompile() {
+    // Error lines of a LaTeX log: "!" lines and where they happened
+    std::string log = "This is pdfTeX\n(./figure.tex\n! Undefined control sequence.\nl.12 \\foo\n  \n"
+                      "! Emergency stop.\n<*> figure.tex\n";
+    std::string errors = latex::firstLatexErrors(log);
+    CHECK(errors.find("! Undefined control sequence.") == 0);
+    CHECK(errors.find("l.12 \\foo") != std::string::npos);
+    CHECK(errors.find("! Emergency stop.") != std::string::npos);
+    CHECK(latex::firstLatexErrors(log, 1) == "! Undefined control sequence.");
+    CHECK(latex::firstLatexErrors("all fine\n").empty());
+
+    // Tools in PATH, no shell
+    CHECK(!latex::findTool("sh").empty());
+    CHECK(latex::findTool("surely-not-a-command-axismundi").empty());
+    latex::PdfResult none = latex::compilePdf("x", "/tmp/never.pdf", 5, "");
+    CHECK(!none.ok);
+    CHECK(none.message.find("No LaTeX compiler") != std::string::npos);
+
+    // A real compile (slow): PDF_TEST=1 make test, with pdflatex installed
+    const char* run = std::getenv("PDF_TEST");
+    if (!run || std::string(run) != "1" || latex::latexCompiler().empty()) return;
+    std::string out = (std::filesystem::temp_directory_path() / "axismundi-test figure.pdf").string();
+    latex::PdfResult ok = latex::compilePdf(
+        "\\documentclass{standalone}\n\\usepackage{tikz}\n\\begin{document}\n"
+        "\\tikz \\draw (0,0) -- (1,1);\n\\end{document}\n", out);
+    CHECK(ok.ok);
+    std::ifstream pdf(out, std::ios::binary);
+    char head[5] = {};
+    pdf.read(head, 4);
+    CHECK(std::string(head) == "%PDF");
+    std::filesystem::remove(out);
+    latex::PdfResult bad = latex::compilePdf("\\documentclass{standalone}\n\\begin{document}\\nosuchmacro\n"
+                                             "\\end{document}\n", out);
+    CHECK(!bad.ok);
+    CHECK(bad.message.find("!") == 0);
+    CHECK(!std::filesystem::exists(out));
+    std::printf("  (compiled a PDF with %s)\n", latex::latexCompiler().c_str());
+}
+
 void testLatexExport() {
     using namespace scene;
     CHECK(latex::nameToLatex("theta") == "\\theta");
@@ -1323,6 +1364,7 @@ int main() {
         {"Text layout", testTextLayout},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},
+        {"PDF compile", testPdfCompile},
         {"Usability", testUsability},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
