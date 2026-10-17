@@ -110,6 +110,17 @@ Code and tests
 - [x] Compile check of exported examples with pdflatex (TeX Live on the dev machine; tour writes figures)
 - [ ] The same compile check in CI
 
+Direct PDF (and image) export
+- [ ] "Save PDF…" next to "Save .tex…", enabled when `pdflatex` is found (fallback `lualatex`; otherwise the
+      tooltip says how to install TeX Live): write the standalone version to a temporary folder, compile,
+      copy the PDF to the chosen path, remove the temporary files
+- [ ] Compile in the background with a "Compiling…" message and a timeout (~30 s); on failure show LaTeX's
+      first error lines
+- [ ] Start `pdflatex` with an argument list (no shell), so file names with spaces or odd characters are safe
+- [ ] Note: the PDF uses LaTeX's default font (Computer Modern); later an option for a font package
+      (`lmodern`, `mathpazo`, ...). For documents the `.tex` stays the better choice (document fonts)
+- [ ] Later: PNG via `pdftoppm` (chosen resolution) and SVG via `dvisvgm`
+
 ### View styles (needs more iteration before implementing)
 A Style setting in the View section chooses how the 3D view is drawn; the B/W preview becomes one style.
 First choices (from the discussion, to be refined):
