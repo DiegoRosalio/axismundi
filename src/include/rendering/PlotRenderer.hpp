@@ -35,7 +35,12 @@ struct PlotSpec {
     bool print = false;
     int dash = 0;
     bool grayShading = false;
-    Color color = {0, 0, 0, 0};    // without heat map (alpha 0: theme color)
+    Color color = {0, 0, 0, 0};    // without heat map (alpha 0: the default below)
+    // Defaults from the view style (alpha 0: theme colors)
+    Color curveDefault = {0, 0, 0, 0};
+    Color surfaceDefault = {0, 0, 0, 0};
+    Color wire = {0, 0, 0, 0};     // surface mesh lines
+    float tubeScale = 1.0f;        // curve tube thickness
 };
 
 // Builds plot geometry from a PlotSpec and draws it.

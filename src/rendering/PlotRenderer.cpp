@@ -25,9 +25,11 @@ bool usable(double v) {
 // 2D plots sit a hair above the floor so they are not hidden by the grid
 constexpr float kLift = 0.004f;
 
-Color curveColor(const PlotSpec& s) { return s.color.a ? s.color : ui::theme().curve; }
+Color curveColor(const PlotSpec& s) {
+    return s.color.a ? s.color : s.curveDefault.a ? s.curveDefault : ui::theme().curve;
+}
 Color surfaceColor(const PlotSpec& s) {
-    if (!s.color.a) return ui::theme().surface;
+    if (!s.color.a) return s.surfaceDefault.a ? s.surfaceDefault : ui::theme().surface;
     Color c = s.color;
     c.a = 230;
     return c;
@@ -251,7 +253,7 @@ bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver)
             bool on = mid < pattern[0] || (mid >= pattern[0] + pattern[1] && mid < pattern[0] + pattern[1] + pattern[2]);
             if (!on) continue;
         }
-        addTube(tubes, seg.a, seg.b, spec.print ? 0.02f : 0.03f, seg.color);
+        addTube(tubes, seg.a, seg.b, spec.print ? 0.02f : 0.03f * spec.tubeScale, seg.color);
     }
     m_curve.clear();
     m_curve.shrink_to_fit();
@@ -373,7 +375,9 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
         return std::max(1, n / lines);
     };
     const int stepX = wireStep(nx, spec.xMax - spec.xMin), stepY = wireStep(ny, spec.yMax - spec.yMin);
-    const Color wire = spec.print ? Color{0, 0, 0, 220} : Fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
+    const Color wire = spec.print ? Color{0, 0, 0, 220}
+                       : spec.wire.a ? spec.wire
+                                     : Fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
     // Indexed meshes share each vertex between its cells. raylib indices are
     // 16-bit, so the grid is split into bands of rows under 65536 vertices.
     const int rowsPerBand = std::max(1, 65535 / (nx + 1) - 1);

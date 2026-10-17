@@ -1,4 +1,5 @@
 #include "app/App.hpp"
+#include "view/ViewStyle.hpp"
 #include "app/Tour.hpp"
 #include "edu/Examples.hpp"
 #include "math/Decompositions.hpp"
@@ -596,7 +597,7 @@ void App::run() {
         update(deltaTime);
 
         BeginDrawing();
-            ClearBackground(m_exportPanel.preview() ? Color{255, 255, 255, 255} : ui::theme().background);
+            ClearBackground(view::activeStyle().background);
             drawScene();
             drawSceneLabels();
             if (m_screenshotRequest != 2) drawUi(deltaTime);
@@ -873,6 +874,10 @@ void App::update(float deltaTime) {
     m_grid.setShowAxes(view.showAxes);
     m_grid.setSize(static_cast<int>(view.gridSize));
     m_sceneView.setSmoothSurfaces(m_uiSettings.smoothSurfaces);
+    // The view style for this frame (colors follow the theme, so recomputed every frame)
+    view::setActiveStyle(view::styleFor(m_exportPanel.preview() ? view::StyleId::Paper : view::StyleId::Colorful,
+                                        ui::theme()));
+    m_grid.setGridColor(view::activeStyle().grid);
 }
 
 // ---------------------------------------------------------------------------
@@ -883,7 +888,7 @@ view::DrawOptions App::drawOptions() const {
     view::DrawOptions o;
     o.view = &const_cast<ViewPanel&>(m_viewPanel).settings();
     o.selection = &const_cast<scene::Scene&>(m_scene).selection(spaceKind());
-    o.print = m_exportPanel.preview();
+    o.print = view::activeStyle().print;
     o.printScope = m_exportPanel.options().scope;
     o.printGrayShading = m_exportPanel.options().grayShading;
     const SceneObject* target = targetMatrix();
@@ -902,9 +907,8 @@ view::DrawOptions App::drawOptions() const {
 void App::drawScene() {
     BeginMode3D(m_camera.camera());
     // The print preview shows the grid only when the export has one, in light gray
-    bool print = m_exportPanel.preview();
+    bool print = view::activeStyle().print;
     if (!print || m_exportPanel.options().grid) {
-        m_grid.setPaper(print);
         if (m_mode == AppMode::Space3D) m_grid.draw();
         else m_grid.drawPlaneXY();
     }
