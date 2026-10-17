@@ -83,6 +83,8 @@ Each space has its own list of objects. The side bar shows:
 | Matrix | 3D | Cells (3×3 / 4×4, presets that add up; Identity starts over) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
 | Function / Curve / Surface / Implicit | 3D | Expressions in x, y (u for curves) and t; ranges; Detail per unit; Heat map; Next example |
+| Volume under z = f(x, y) | 3D | f, x/y ranges, boxes per side (a formula), Left/Middle/Right rule, Boxes, Surface; boxes' sum, exact value, error |
+| Work ∫ F·dr | 3D | F(x, y, z), curve x(u) y(u) z(u), u range, Up to (0..1); work so far and over the whole path |
 | Quaternion | 3D | q = formula (e.g. `qaxis([0, 0, 1], pi/2)`); the four numbers, angle and axis, \|q\|; Axis and angle, Rotated basis, Acts on a vector; Next example |
 | Vector field | 3D | F(x, y, z) (a vector formula); Plane / Volume; ranges; arrows per unit; color by strength, same length, flow lines, particles (+ speed); Next example |
 | Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration, start delay |
@@ -143,6 +145,20 @@ The clock is saved with the scene. Undo never moves it.
 `0` stands for zero, so `lerp(0, v, s)` grows v from nothing. `keys(s, A, B, C, …)` runs through several values
 as s goes from 0 to 1. The Add menu builds these for the selection: **Morph from identity** (a matrix),
 **Grow from zero** (a vector or complex number) and **Blend** (two objects), each with a new slider `s`.
+
+### Integrals
+Add → Calculus.
+- **Volume under z = f(x, y)**: the double integral over a rectangle. Boxes stand on a grid of n × n squares, each as
+  tall as f at its sample point (left corner, middle or right corner); their sum is the Riemann sum, shown next to
+  the precise value and the error. Volume below the floor counts negative (other color). n is a formula, so
+  `round(2 + 18*s)` with an animated s shows the boxes refining. The value (the precise integral) can be used in
+  other formulas.
+- **Work ∫ F·dr**: a vector field F along a curve. The path is green where F pushes along the motion and red where
+  it pushes against it, with F drawn at a few points. **Up to** (0..1) moves a marker and gives the work so far,
+  e.g. `mod(t/8, 1)` to travel the path with the clock.
+- Templates: a selected surface → its volume; a selected curve and vector field → the work. Gallery: volume under a
+  paraboloid, refining boxes, work around a circle, path independence. Tutorial: "Integrals as volumes". LaTeX
+  export draws the boxes and surface, or the path with F.
 
 ### Quaternions
 A quaternion w + xi + yj + zk is a rotation in four numbers: turning by an angle about an axis gives

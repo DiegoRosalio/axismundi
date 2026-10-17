@@ -62,6 +62,8 @@ floor grid larger.
 
 - **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form,
   quaternion axis and angle).
+- **Integrals** (Add → Calculus): the volume under a surface as boxes next to the exact value, and the work of a
+  vector field along a curve. Tutorial lesson "Integrals as volumes".
 - **Quaternions** (Add → Quaternion): rotations in four numbers, `qaxis([0, 0, 1], pi/2)`. The tutorial lesson
   "Quaternions" explains them step by step.
 - **B** Breakdown: the selected matrix as rotate → stretch → rotate, step by step.

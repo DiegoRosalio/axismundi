@@ -41,7 +41,8 @@ Vector fields and quaternions are in (see FEATURES.md); the rest later.
       pose/orientation object that rotates a model (e.g. a small airplane) instead of the basis, and Euler-angle
       gimbal-lock demo
 - [ ] Fourier transform visualization
-- [ ] Integration volume visualization
+- [ ] Integrals, next: triple integrals (boxes in a solid), regions bounded by curves (y from g(x) to h(x)), polar
+      regions, flux through a surface, Green's and Stokes' theorems side by side
 - [ ] Differential geometry tools
 - [ ] Tensor visualization
 

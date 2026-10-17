@@ -30,6 +30,12 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Parameters as slider, animation (with start delay) or formula of time
 - [x] Scrubbing shows any moment (time-driven values are computed from the time)
 
+## Integrals
+- [x] Volume under z = f(x, y): Riemann boxes (left/middle/right, n per side as a formula) next to the precise value
+      and the error; boxes below the floor in another color
+- [x] Work ∫ F·dr along a curve: path colored by F·T, F arrows, a marker with the work so far
+- [x] Templates, gallery, tutorial lesson, Analysis panel, LaTeX export, Paper style
+
 ## Quaternions
 - [x] Quaternion value kind in formulas: `qaxis(axis, angle)`, `quat(w, x, y, z)`, `quat(M)`, Hamilton product,
       `rotate`, `mat`, `axis`, `angle`, `slerp`, `conj`/`inv`/`abs`/`unit`, components; lerp/keys slerp
