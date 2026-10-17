@@ -2,6 +2,7 @@
 
 #include "math/Expression.hpp"
 #include "math/expr/Expr.hpp"
+#include "rendering/MeshBuilder.hpp"
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -86,18 +87,9 @@ private:
         Vector3 a, b;
         Color color;
     };
-    // Triangles collected on the CPU, then uploaded as one mesh
-    struct MeshData {
-        std::vector<float> positions;
-        std::vector<unsigned char> colors;
-        std::vector<unsigned short> indices;  // empty: plain triangle list
-        void add(Vector3 p, Color c);
-        size_t count() const { return positions.size() / 3; }
-    };
-    void addTube(MeshData& mesh, Vector3 a, Vector3 b, float radius, Color color) const;
-    // Upload to the GPU and keep the mesh in m_meshes; frees the CPU data
-    void upload(MeshData& data);
-    void releaseMeshes();
+    using MeshData = mesh::MeshData;
+    void upload(MeshData& data) { m_meshSet.upload(data); }
+    void releaseMeshes() { m_meshSet.release(); }
 
     const expr::Resolver* m_resolver = nullptr;
     double m_time = 0.0;
@@ -114,7 +106,7 @@ private:
     std::vector<Segment> m_wireframe;  // thin lines, drawn as lines
     MeshData m_triangles;              // heat map background (plain triangles)
     size_t m_filled = 0;               // triangles collected (surface + heat map)
-    std::vector<Mesh> m_meshes;        // GPU meshes: surface chunks, heat map, tubes
+    mesh::MeshSet m_meshSet;           // GPU meshes: surface chunks, heat map, tubes
     float m_minValue = 0.0f;
     float m_maxValue = 0.0f;
     std::string m_error;
