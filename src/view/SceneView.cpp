@@ -22,6 +22,10 @@ namespace {
 
 constexpr Vector2 kOffset = {8.0f, -8.0f};  // default label offset (design units)
 
+Vector3 w3(const integrals::D3& p) {
+    return mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+}
+
 // Labels of one frame: collected, laid out so they don't overlap (selected first, axes last),
 // then drawn
 class LabelBatch {
@@ -249,7 +253,7 @@ Color SceneView::colorOf(const SceneObject& o) {
     if (o.customColor) return {o.color.r, o.color.g, o.color.b, 255};
     const ViewStyle& s = activeStyle();
     const std::string& type = o.typeId();
-    if (type == "vector" || type == "quaternion") return paletteColor(s.vectors, o.paletteIndex);
+    if (type == "vector" || type == "quaternion" || type == "frame") return paletteColor(s.vectors, o.paletteIndex);
     if (type == "eigen") return s.eigen;
     if (type == "function" || type == "curve" || type == "surface" || type == "implicit" || type == "field" ||
         type == "doubleintegral" || type == "lineintegral")
@@ -284,6 +288,10 @@ bool SceneView::anchorPoint(const SceneObject& o, scene::SpaceKind kind, const D
             for (const auto& b : d.riemann().boxes) top = std::max(top, b.height);
             out = mathToWorld(static_cast<float>((r.x0 + r.x1) / 2), static_cast<float>((r.y0 + r.y1) / 2),
                               static_cast<float>(top) + 0.3f);
+            return true;
+        }
+        if (o.typeId() == "frame") {
+            out = w3(static_cast<const scene::FrameObject&>(o).frame().p);
             return true;
         }
         if (o.typeId() == "lineintegral") {
@@ -511,6 +519,10 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             arrow(mathToWorld(tail), mathToWorld(tail + v.vector), c, selected);
         } else if (type == "matrix" && v.type == expr::Type::Matrix) {
             basis(displayedMatrix(o, options), 1.0f, selected, dimmed(options, o));
+        } else if (type == "frame") {
+            bool dim = dimmed(options, o);
+            drawFrame(static_cast<const scene::FrameObject&>(o), dim ? faded(colorOf(o)) : colorOf(o), dim, false, BLACK,
+                      selected);
         } else if (type == "doubleintegral" && o.error().empty()) {
             bool dim = dimmed(options, o);
             drawDoubleIntegral(static_cast<const scene::DoubleIntegralObject&>(o), dim ? faded(colorOf(o)) : colorOf(o),
@@ -696,10 +708,6 @@ void SceneView::drawQuaternion(const scene::QuaternionObject& o, bool selected, 
 
 namespace {
 
-Vector3 w3(const integrals::D3& p) {
-    return mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-}
-
 Color mixColor(Color a, Color b, float k) {
     k = std::clamp(k, 0.0f, 1.0f);
     auto m = [&](unsigned char x, unsigned char y) { return static_cast<unsigned char>(x + (y - x) * k); };
@@ -766,6 +774,59 @@ void SceneView::drawLineIntegral(const scene::LineIntegralObject& o, Color c, bo
     DrawSphere(w3(o.marker()), 0.08f * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
 }
 
+void SceneView::drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
+    const ViewStyle& st = activeStyle();
+    float k = print ? 0.8f : st.lineScale;
+    const auto& curve = o.curve();
+    Color curveColor = print ? ink : (fade ? faded(c) : c);
+    if (o.showCurve()) {
+        for (size_t i = 1; i < curve.size(); i++) {
+            if (print) DrawLine3D(w3(curve[i - 1]), w3(curve[i]), curveColor);
+            else DrawCylinderEx(w3(curve[i - 1]), w3(curve[i]), 0.016f * k, 0.016f * k, 5, curveColor);
+        }
+    }
+    if (o.showComb()) {
+        Color comb = print ? Color{150, 150, 150, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 200);
+        const auto& teeth = o.comb();
+        for (size_t i = 0; i < teeth.size(); i++) {
+            DrawLine3D(w3(teeth[i].first), w3(teeth[i].second), comb);
+            if (i > 0) DrawLine3D(w3(teeth[i - 1].second), w3(teeth[i].second), comb);
+        }
+    }
+    if (!o.error().empty()) return;
+    const geometry::Frame& f = o.frame();
+    Vector3 p = w3(f.p);
+    if (o.showCircle() && f.hasNormal && f.kappa > 1e-3 && 1.0 / f.kappa < 60.0) {
+        // The osculating circle: radius 1/κ, centered on the normal line, in the T–N plane
+        double radius = 1.0 / f.kappa;
+        geometry::D3 center = geometry::add(f.p, geometry::scale(f.N, radius));
+        Color circle = print ? Color{120, 120, 120, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 220);
+        const int n = 96;
+        for (int i = 0; i < n; i++) {
+            double a0 = 2 * PI * i / n, a1 = 2 * PI * (i + 1) / n;
+            auto at = [&](double a) {
+                return w3(geometry::add(center, geometry::add(geometry::scale(f.N, -radius * std::cos(a)),
+                                                              geometry::scale(f.T, radius * std::sin(a)))));
+            };
+            DrawLine3D(at(a0), at(a1), circle);
+        }
+        DrawSphere(w3(center), 0.04f, circle);
+        DrawLine3D(p, w3(center), withAlpha(circle, 120));
+    }
+    if (o.showFrame()) {
+        // T, N, B in the axis colors (like x, y, z): a right-handed frame riding the curve
+        const geometry::D3 dirs[3] = {f.T, f.N, f.B};
+        const Color colors[3] = {st.axisX, st.axisY, st.axisZ};
+        for (int i = 0; i < 3; i++) {
+            if (i > 0 && !f.hasNormal) continue;
+            Color col = print ? ink : (fade ? faded(colors[i]) : colors[i]);
+            geometry::D3 tip = geometry::add(f.p, dirs[i]);
+            VectorRenderer::drawArrow(toVec(p), toVec(w3(tip)), col, 0.022f * k, 0.17f);
+        }
+    }
+    DrawSphere(p, (selected ? 0.11f : 0.08f) * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
+}
+
 void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& options) {
     const ViewSettings& view = *options.view;
     float len = view.axisLength;
@@ -809,6 +870,8 @@ void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& optio
                         if (cc == 0) DrawLine3D(corner(a, b, cc), corner(a, b, 1), cubeGray);
                     }
             for (int k = 0; k < 3; k++) printArrow(mathToWorld(origin), mathToWorld(origin + cols[k]), c, dash, selected);
+        } else if (type == "frame") {
+            drawFrame(static_cast<const scene::FrameObject&>(o), c, false, true, c, false);
         } else if (type == "doubleintegral" && o.error().empty()) {
             drawDoubleIntegral(static_cast<const scene::DoubleIntegralObject&>(o), c, false, true, c);
         } else if (type == "lineintegral" && o.error().empty()) {
@@ -959,6 +1022,10 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
         if (!anchorPoint(o, space.kind(), options, at)) continue;
         if (o.typeId() == "vector") {
             snprintf(text, sizeof(text), "%s  %.2f", o.name().c_str(), o.value().vector.magnitude());
+        } else if (o.typeId() == "frame") {
+            const geometry::Frame& f = static_cast<const scene::FrameObject&>(o).frame();
+            snprintf(text, sizeof(text), "%s  κ = %.3g  τ = %.3g", o.name().c_str(), f.kappa,
+                     std::fabs(f.tau) < 5e-5 ? 0.0 : f.tau);
         } else if (o.typeId() == "doubleintegral") {
             snprintf(text, sizeof(text), "%s = %.3f", o.name().c_str(), o.value().re);
         } else if (o.typeId() == "lineintegral") {

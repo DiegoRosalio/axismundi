@@ -277,6 +277,10 @@ void Tour::buildSteps() {
         runExample(app, "Order matters (quaternions)");
     }, 20);
     step("16q_quaternion_slerp", [](App& app) { runExample(app, "Slerp between two rotations"); }, 70);
+    // Curves: the Frenet frame on a helix, the comb of an ellipse, an osculating circle
+    step("16x_frame_helix", [](App& app) { runExample(app, "Frenet frame on a helix"); }, 40);
+    step("16y_frame_ellipse", [](App& app) { runExample(app, "Curvature of an ellipse"); }, 20);
+    step("16z_frame_parabola", [](App& app) { runExample(app, "Osculating circle on a parabola"); }, 50);
     // Integrals: volume under a surface, refining boxes, work along paths
     step("16r_integral_volume", [](App& app) { runExample(app, "Volume under a paraboloid"); }, 20);
     step("16s_integral_refine", [](App& app) { runExample(app, "Riemann boxes refine"); }, 120);

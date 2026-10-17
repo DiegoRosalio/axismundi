@@ -58,7 +58,9 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
     std::vector<const scene::SceneObject*> vectors, numbers, quats, integralObjs;
     for (const auto* o : picked) {
         if (!o->value().ok()) continue;
-        if (o->value().type == expr::Type::Quaternion) {
+        if (o->typeId() == "frame") {  // its value is a point, but it has its own section
+            integralObjs.push_back(o);
+        } else if (o->value().type == expr::Type::Quaternion) {
             if (quats.size() < 2) quats.push_back(o);
         } else if (o->value().type == expr::Type::Matrix) {
             matrixObj = o;  // the most recently selected matrix wins
@@ -99,6 +101,26 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
     for (size_t k = 0; k < integralObjs.size(); k++) {
         const scene::SceneObject* o = integralObjs[k];
         Section& s = section("integral." + std::to_string(k), o->name(), true);
+        if (o->typeId() == "frame") {
+            auto* fo = static_cast<const scene::FrameObject*>(o);
+            const geometry::Frame& f = fo->frame();
+            auto v3 = [](const geometry::D3& d) {
+                return vecStr(Vector3D(static_cast<float>(d.x), static_cast<float>(d.y), static_cast<float>(d.z)));
+            };
+            s.tip = "The Frenet frame at the point: how the curve moves, turns and twists there.";
+            body(s, fmt("at u = %.3f: r = %s", fo->u0(), v3(f.p).c_str()));
+            tipped(s, "T = " + v3(f.T), "Unit tangent: the direction of motion, r'/|r'|.");
+            if (f.hasNormal) {
+                tipped(s, "N = " + v3(f.N), "Unit normal: towards the center of the turn.");
+                tipped(s, "B = " + v3(f.B), "Binormal T × N: at right angles to the plane the curve turns in.");
+            } else {
+                note(s, "Straight here: no normal or binormal.");
+            }
+            tipped(s, fmt("κ = %.4f   τ = %.4f", f.kappa, std::fabs(f.tau) < 5e-5 ? 0.0 : f.tau),
+                   "Curvature κ = |r' × r''| / |r'|³; torsion τ = (r' × r'') · r''' / |r' × r''|².");
+            if (f.kappa > 1e-9) note(s, fmt("radius of the osculating circle 1/κ = %.3f", 1.0 / f.kappa));
+            continue;
+        }
         if (o->typeId() == "doubleintegral") {
             auto* d = static_cast<const scene::DoubleIntegralObject*>(o);
             s.tip = "The volume between the floor and z = f(x, y), and the boxes that approximate it.";

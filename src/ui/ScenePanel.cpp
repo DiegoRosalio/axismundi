@@ -47,6 +47,12 @@ std::string summaryOf(const SceneObject& o) {
     if (type == "curve") return "curve in u";
     if (type == "field") return "F = " + o.field("F")->text;
     if (type == "doubleintegral" || type == "lineintegral") return "= " + o.value().summary();
+    if (type == "frame") {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "κ = %.3g at u = %.3g", static_cast<const scene::FrameObject&>(o).frame().kappa,
+                 static_cast<const scene::FrameObject&>(o).u0());
+        return buf;
+    }
     if (type == "quaternion") {
         expr::Rotation r;
         if (!expr::rotationOf(o.value(), r)) return o.value().summary();
@@ -684,6 +690,62 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         note(col, curve ? "u runs along the curve; t is the scene time. Parameters work by name too."
                         : "Use x, y, t (the scene time) and parameters by name, e.g. a*sin(x - t).",
              t.textFaint);
+    } else if (type == "frame") {
+        auto& fr = static_cast<scene::FrameObject&>(o);
+        for (const char* k : {"x", "y", "z"}) col.setY(fieldRow(col.x(), col.y(), col.width(), fr, k, sc, 64.0f));
+        ui::anchor("frame.curve", {col.x(), col.y() - ui::px(120), col.width(), ui::px(116)});
+        {
+            Rectangle row = col.row(34.0f);
+            Rectangle l = ui::takeLeft(row, 34.0f, 6.0f);
+            ui::textIn(l, "u", ui::FontRole::Body, t.textMuted);
+            auto cells = ui::splitRow(row, {1, 1}, 26.0f);
+            const char* keys[2] = {"umin", "umax"};
+            for (int k = 0; k < 2; k++) {
+                std::string key = keys[k];
+                scene::Field* f = fr.field(key);
+                editText(cells[k], fieldId(fr, key), f->text, !f->error.empty(),
+                         [&sc, kind, oid, key](const std::string& text) {
+                             SceneObject* ob = sc.space(kind).find(oid);
+                             if (!ob) return false;
+                             ob->setField(key, text);
+                             sc.commit();
+                             return true;
+                         });
+            }
+            ui::textIn({cells[0].x + cells[0].width, row.y, ui::px(26), row.height}, "to", ui::FontRole::Small,
+                       t.textMuted, ui::Align::Center);
+        }
+        col.setY(fieldRow(col.x(), col.y(), col.width(), fr, "u0", sc, 64.0f));
+        ui::anchor("frame.u0", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+        auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
+            Rectangle tr = col.row(30);
+            bool v = current;
+            if (ui::toggleRow(tr, text, v)) {
+                fr.setProp(key, v);
+                commit();
+            }
+            ui::tooltip(tr, tip, text);
+        };
+        toggleProp("Frame T, N, B", "frame", fr.showFrame(),
+                   "Tangent T (direction of motion), normal N (towards the center of the turn), binormal B = T × N.");
+        toggleProp("Osculating circle", "circle", fr.showCircle(),
+                   "The circle that hugs the curve best at the point: radius 1/κ, in the plane of T and N.");
+        toggleProp("Curvature comb", "comb", fr.showComb(),
+                   "Teeth along the curve, as long as the curvature there: where it bends most, they are longest.");
+        ui::anchor("frame.comb", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+        toggleProp("Curve", "curve", fr.showCurve(), "Draw the curve itself.");
+        if (fr.error().empty()) {
+            const geometry::Frame& f = fr.frame();
+            char buf[160];
+            snprintf(buf, sizeof(buf), "κ = %.4f   (radius %s)", f.kappa,
+                     f.kappa > 1e-9 ? std::to_string(1.0 / f.kappa).substr(0, 6).c_str() : "∞, straight");
+            note(col, buf, t.text);
+            snprintf(buf, sizeof(buf), "τ = %.4f   speed |r'| = %.3f", std::fabs(f.tau) < 5e-5 ? 0.0 : f.tau, f.speed);
+            note(col, buf, t.text);
+            note(col, "κ: how sharply it turns (1/radius). τ: how fast it twists out of its plane (0 for flat curves). "
+                      "Use t in \"At u\" to ride along.",
+                 t.textFaint);
+        }
     } else if (type == "doubleintegral" || type == "lineintegral") {
         bool dbl = type == "doubleintegral";
         auto rangeRow = [&](const char* lo, const char* hi, const char* label) {

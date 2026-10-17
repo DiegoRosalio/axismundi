@@ -849,6 +849,12 @@ void App::pickInViewport() {
             if (o.typeId() == "vector") {
                 Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
                 consider(mathToWorld(tail), mathToWorld(tail + o.value().vector), o.id());
+            } else if (o.typeId() == "frame") {
+                const auto& fr = static_cast<const scene::FrameObject&>(o).frame();
+                Vector3 p = mathToWorld(static_cast<float>(fr.p.x), static_cast<float>(fr.p.y), static_cast<float>(fr.p.z));
+                Vector3 q = mathToWorld(static_cast<float>(fr.p.x + fr.T.x), static_cast<float>(fr.p.y + fr.T.y),
+                                        static_cast<float>(fr.p.z + fr.T.z));
+                consider(p, q, o.id());
             } else if (o.typeId() == "lineintegral") {
                 const auto& path = static_cast<const scene::LineIntegralObject&>(o).path();
                 auto w = [](const integrals::D3& p) {

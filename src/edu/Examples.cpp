@@ -337,6 +337,42 @@ std::vector<Example> build() {
                                    {"umax", "2pi"}});
                         app.restartTime(true);
                     }});
+    list.push_back({"Frenet frame on a helix", C::Plots,
+                    "T (red), N (green), B (blue) ride a helix as u0 follows the clock. A helix bends and twists "
+                    "the same everywhere: κ and τ stay constant, and N always points at the axis.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "frame", "P", {{"u0", "mod(t, 4pi)"}});
+                        app.select("P");
+                        app.setCameraView({5.5f, 5.0f, 6.5f}, {0, 1.4f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Curvature of an ellipse", C::Plots,
+                    "The comb shows κ along the ellipse: the teeth are longest at the ends of the long axis, where "
+                    "it turns sharply, and shortest at the flat sides. Drag u0.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0.5"}, {"min", "0"}, {"max", "6.2832"}});
+                        app.addObject(AppMode::Space3D, "frame", "P",
+                                      {{"x", "3cos(u)"}, {"y", "1.5sin(u)"}, {"z", "0"}, {"umin", "0"}, {"umax", "2pi"},
+                                       {"u0", "s"}},
+                                      {{"comb", "1"}});
+                        app.select("P");
+                        app.setCameraView({0.0f, 9.0f, 5.0f}, {0, 0, 0});
+                    }});
+    list.push_back({"Osculating circle on a parabola", C::Plots,
+                    "The circle that hugs y = x²/2 best: radius 1 at the vertex, growing as the parabola "
+                    "straightens out. u0 swings with the clock.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "frame", "P",
+                                      {{"x", "u"}, {"y", "u^2/2"}, {"z", "0"}, {"umin", "-3"}, {"umax", "3"},
+                                       {"u0", "2sin(t/2)"}});
+                        app.select("P");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.5f});
+                        app.restartTime(true);
+                    }});
     list.push_back({"Volume under a paraboloid", C::Plots,
                     "V = ∫∫ (4 − x² − y²) dA over the square [−1, 1]²: the boxes under the surface add up to "
                     "almost the exact volume 40/3 ≈ 13.33.",

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "animation/Playback.hpp"
+#include "math/CurveGeometry.hpp"
 #include "math/Integrals.hpp"
 #include "scene/SceneObject.hpp"
 #include <functional>
@@ -248,6 +249,35 @@ private:
     mutable std::vector<FieldArrow> m_arrows;
     mutable double m_total = 0.0, m_upto = 1.0, m_maxAlong = 0.0;
     mutable integrals::D3 m_marker;
+    mutable std::uint64_t m_version = 0;
+};
+
+// The moving (Frenet) frame on a curve r(u) at u = u0: tangent, normal, binormal, curvature, torsion,
+// the osculating circle and a curvature comb. The value is the point r(u0).
+class FrameObject : public SceneObject {
+public:
+    FrameObject();
+    bool showFrame() const { return propBool("frame", true); }
+    bool showCircle() const { return propBool("circle", true); }
+    bool showComb() const { return propBool("comb", false); }
+    bool showCurve() const { return propBool("curve", true); }
+    const std::vector<integrals::D3>& curve() const { return m_curve; }
+    // Comb: base points and the tips (base − κ·N·scale), along the curve
+    const std::vector<std::pair<integrals::D3, integrals::D3>>& comb() const { return m_comb; }
+    const geometry::Frame& frame() const { return m_frame; }
+    double u0() const { return m_u0; }
+    std::uint64_t geometryVersion() const { return m_version; }
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<FrameObject>(); }
+
+private:
+    mutable std::vector<integrals::D3> m_curve;
+    mutable std::vector<std::pair<integrals::D3, integrals::D3>> m_comb;
+    mutable geometry::Frame m_frame;
+    mutable double m_u0 = 0.0;
     mutable std::uint64_t m_version = 0;
 };
 

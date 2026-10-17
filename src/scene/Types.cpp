@@ -574,6 +574,62 @@ expr::Value LineIntegralObject::computeValue() const {
     return expr::Value::scalar(partial);
 }
 
+// --- Moving frame -------------------------------------------------------------------
+
+FrameObject::FrameObject() : SceneObject("frame") {
+    setProp("frame", true);
+    setProp("circle", true);
+    setProp("comb", false);
+    setProp("curve", true);
+    addField("x", "x(u) =", Expect::Plot, "2cos(u)");
+    addField("y", "y(u) =", Expect::Plot, "2sin(u)");
+    addField("z", "z(u) =", Expect::Plot, "u/4");
+    for (const char* k : {"x", "y", "z"}) markCurveVariable(k);
+    addField("umin", "u from", Expect::Number, "0");
+    addField("umax", "u to", Expect::Number, "4pi");
+    addField("u0", "At u =", Expect::Number, "2");
+}
+
+expr::Value FrameObject::computeValue() const {
+    std::string err = rangeError(*this, "umin", "umax");
+    if (!err.empty()) return expr::Value::fail(err);
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    const Field *fx = field("x"), *fy = field("y"), *fz = field("z");
+    integrals::Path r = [&](double u, integrals::D3& o) {
+        return evalNumber(fx, res, t, 0, 0, 0, u, o.x) && evalNumber(fy, res, t, 0, 0, 0, u, o.y) &&
+               evalNumber(fz, res, t, 0, 0, 0, u, o.z);
+    };
+    double a = numberOf(*this, "umin", 0), b = numberOf(*this, "umax", 6.28);
+    m_u0 = std::clamp(numberOf(*this, "u0", a), a, b);
+    double h = std::max(1e-6, (b - a) * 2e-4);
+    m_curve.clear();
+    m_comb.clear();
+    const int n = 240;
+    for (int i = 0; i <= n; i++) {
+        integrals::D3 p;
+        if (r(a + (b - a) * i / n, p)) m_curve.push_back(p);
+    }
+    // Comb: κ along the curve, the longest tooth 1.2 units, on the outer side (−N)
+    std::vector<geometry::Frame> frames;
+    double kmax = 0;
+    const int teeth = 80;
+    for (int i = 0; i <= teeth; i++) {
+        geometry::Frame f;
+        if (geometry::frenet(r, a + (b - a) * i / teeth, h, f)) {
+            frames.push_back(f);
+            kmax = std::max(kmax, f.kappa);
+        }
+    }
+    double combScale = kmax > 1e-9 ? 1.2 / kmax : 0.0;
+    for (const auto& f : frames) m_comb.push_back({f.p, geometry::sub(f.p, geometry::scale(f.N, f.kappa * combScale))});
+    m_version++;
+    if (!geometry::frenet(r, m_u0, h, m_frame))
+        return expr::Value::fail("the curve stops (r'(u) = 0) or is undefined at u = " + std::to_string(m_u0));
+    return expr::Value::vec(Vector3D(static_cast<float>(m_frame.p.x), static_cast<float>(m_frame.p.y),
+                                     static_cast<float>(m_frame.p.z)));
+}
+
 // --- Complex ------------------------------------------------------------------------
 
 ComplexObject::ComplexObject() : SceneObject("complex") {
@@ -642,6 +698,9 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"lineintegral", "Work ∫ F·dr along a curve", "Calculus", "W", spaceBit(SpaceKind::Euclidean3D),
          "A line integral: how much a vector field pushes along a path",
          [] { return std::make_unique<LineIntegralObject>(); }},
+        {"frame", "Moving frame on a curve", "Calculus", "P", spaceBit(SpaceKind::Euclidean3D),
+         "Tangent, normal, binormal, curvature and torsion at a point of a curve",
+         [] { return std::make_unique<FrameObject>(); }},
         {"complex", "Complex number", "Basics", "z", spaceBit(SpaceKind::Complex),
          "A point of the complex plane, such as 2 + i or exp(i*theta)",
          [] { return std::make_unique<ComplexObject>(); }},

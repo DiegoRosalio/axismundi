@@ -1488,6 +1488,32 @@ void testScene() {
         (void)e;
     }
 
+    // Moving frame: the value is the point; κ and τ of the default helix
+    {
+        Scene gs;
+        gs.clearAll();
+        auto* P = static_cast<FrameObject*>(gs.add(SpaceKind::Euclidean3D, "frame", "P"));
+        gs.evaluate();
+        CHECK(P->error().empty() && P->value().type == expr::Type::Vector);
+        CHECK_NEAR(P->frame().kappa, 2.0 / (4 + 1.0 / 16), 1e-4);  // 2cos u, 2sin u, u/4
+        CHECK_NEAR(P->frame().tau, 0.25 / (4 + 1.0 / 16), 1e-3);
+        CHECK(P->curve().size() > 100 && P->comb().size() > 50);
+        auto* q = gs.add(SpaceKind::Euclidean3D, "vector", "q");
+        q->setProp("mode", "formula");
+        q->setField("value", "P");  // other objects use the point
+        P->setField("u0", "0");
+        gs.evaluate();
+        CHECK(q->error().empty() && std::fabs(q->value().vector.x - 2.0f) < 1e-5f);
+        P->setField("u0", "100");  // clamped to the range
+        gs.evaluate();
+        CHECK_NEAR(P->u0(), 4 * 3.14159265358979, 1e-6);
+        P->setField("x", "1");
+        P->setField("y", "1");
+        P->setField("z", "1");  // standing still
+        gs.evaluate();
+        CHECK(P->error().find("stops") != std::string::npos);
+    }
+
     // Integral objects: values, boxes, partial work, and the value cache
     {
         Scene is;

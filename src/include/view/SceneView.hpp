@@ -66,6 +66,7 @@ private:
     void drawLabelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera);
     void drawQuaternion(const scene::QuaternionObject& o, bool selected, Color color, bool fade, bool print,
                         int printStyle);
+    void drawFrame(const scene::FrameObject& o, Color color, bool fade, bool print, Color ink, bool selected);
     void drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color color, bool fade, bool print, Color ink);
     void drawLineIntegral(const scene::LineIntegralObject& o, Color color, bool fade, bool print, Color ink,
                           bool selected);

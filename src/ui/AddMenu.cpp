@@ -101,6 +101,13 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             for (const char* k : {"f", "xmin", "xmax", "ymin", "ymax"}) c.fields[k] = text(s, k);
             out.push_back({"Volume under " + s->name() + " (boxes)", c});
         }
+        for (const SceneObject* cv : curves) {
+            AddChoice c;
+            c.typeId = "frame";
+            for (const char* k : {"x", "y", "z", "umin", "umax"}) c.fields[k] = text(cv, k);
+            c.fields["u0"] = "(" + text(cv, "umin") + " + " + text(cv, "umax") + ")/2";
+            out.push_back({"Moving frame on " + cv->name() + " (curvature)", c});
+        }
         if (!curves.empty() && !fields.empty()) {
             AddChoice c;
             c.typeId = "lineintegral";
