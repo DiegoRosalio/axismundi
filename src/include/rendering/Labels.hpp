@@ -13,4 +13,11 @@ void drawWorldLabel(const Camera3D& camera, Vector3 position, const char* text, 
                     Vector2 offset = {8.0f, -8.0f}, Color background = {0, 0, 0, 0}, bool large = false,
                     Color ring = {0, 0, 0, 0});
 
+// The pieces of drawWorldLabel, for laying out several labels before drawing them:
+// the screen point of a world position (false when behind the camera), the pill rectangle a
+// label gets at that point, and drawing a label in a given pill.
+bool labelScreenPoint(const Camera3D& camera, Vector3 position, Vector2& out);
+Rectangle labelPill(Vector2 screen, const char* text, Vector2 offset, bool large);
+void drawLabelPill(Rectangle pill, const char* text, Color color, Color background, bool large, Color ring);
+
 } // namespace linalg

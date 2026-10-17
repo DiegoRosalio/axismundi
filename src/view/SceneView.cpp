@@ -5,6 +5,11 @@
 #include "rendering/WorldMapping.hpp"
 #include "ui/core/Theme.hpp"
 #include "view/ViewStyle.hpp"
+#include "text/LabelLayout.hpp"
+#include "ui/core/Ui.hpp"
+#include <algorithm>
+#include <string>
+#include <vector>
 #include <raymath.h>
 #include <cmath>
 #include <cstdio>
@@ -16,6 +21,57 @@ using scene::SceneObject;
 namespace {
 
 constexpr Vector2 kOffset = {8.0f, -8.0f};  // default label offset (design units)
+
+// Labels of one frame: collected, laid out so they don't overlap (selected first, axes last),
+// then drawn
+class LabelBatch {
+public:
+    explicit LabelBatch(const Camera3D& camera) : m_camera(camera) {}
+
+    // priority: -1 = automatic (2 when ringed, i.e. selected; 1 otherwise); axes pass 0
+    void add(Vector3 position, const char* text, Color color, Vector2 offset, Color background, bool large = false,
+             Color ring = {0, 0, 0, 0}, int priority = -1) {
+        Vector2 screen;
+        if (!labelScreenPoint(m_camera, position, screen)) return;
+        Item item{screen, text, color, background, ring, offset, large, priority < 0 ? (ring.a ? 2 : 1) : priority};
+        m_items.push_back(std::move(item));
+    }
+
+    void draw() const {
+        std::vector<text::LabelRequest> requests;
+        std::vector<Rectangle> pills;
+        for (const Item& it : m_items) {
+            Rectangle pill = labelPill(it.screen, it.text.c_str(), it.offset, it.large);
+            pills.push_back(pill);
+            requests.push_back({it.screen.x, it.screen.y, pill.width, pill.height, pill.x - it.screen.x,
+                                pill.y - it.screen.y, it.priority});
+        }
+        auto boxes = text::layoutLabels(requests, ui::px(2.0f));
+        for (size_t i = 0; i < m_items.size(); i++) {
+            const Item& it = m_items[i];
+            Rectangle pill = {boxes[i].x, boxes[i].y, boxes[i].w, boxes[i].h};
+            // A label moved away from its point gets a thin leader line back to it
+            if (std::fabs(pill.x - pills[i].x) > 0.5f || std::fabs(pill.y - pills[i].y) > 0.5f) {
+                Vector2 near = {std::clamp(it.screen.x, pill.x, pill.x + pill.width),
+                                std::clamp(it.screen.y, pill.y, pill.y + pill.height)};
+                DrawLineEx(it.screen, near, ui::px(1.0f), Fade(it.color, 0.6f));
+            }
+            drawLabelPill(pill, it.text.c_str(), it.color, it.background, it.large, it.ring);
+        }
+    }
+
+private:
+    struct Item {
+        Vector2 screen;
+        std::string text;
+        Color color, background, ring;
+        Vector2 offset;
+        bool large;
+        int priority;
+    };
+    const Camera3D& m_camera;
+    std::vector<Item> m_items;
+};
 
 Vector3D toVec(Vector3 v) { return {v.x, v.y, v.z}; }
 
@@ -529,14 +585,15 @@ void SceneView::drawLabelsPrint(scene::Space& space, const DrawOptions& options,
     const ViewSettings& view = *options.view;
     float len = view.axisLength;
     const Color ink = {20, 20, 20, 255}, paper = {255, 255, 255, 220};
+    LabelBatch labels(camera);
     if (view.showAxes) {
         if (space.kind() == scene::SpaceKind::Euclidean3D) {
-            drawWorldLabel(camera, mathToWorld(len, 0, 0), "x", ink, {8.0f, -8.0f}, paper);
-            drawWorldLabel(camera, mathToWorld(0, len, 0), "y", ink, {8.0f, -8.0f}, paper);
-            drawWorldLabel(camera, mathToWorld(0, 0, len), "z", ink, {8.0f, -8.0f}, paper);
+            labels.add(mathToWorld(len, 0, 0), "x", ink, {8.0f, -8.0f}, paper, false, {0, 0, 0, 0}, 0);
+            labels.add(mathToWorld(0, len, 0), "y", ink, {8.0f, -8.0f}, paper, false, {0, 0, 0, 0}, 0);
+            labels.add(mathToWorld(0, 0, len), "z", ink, {8.0f, -8.0f}, paper, false, {0, 0, 0, 0}, 0);
         } else {
-            drawWorldLabel(camera, {len, 0, 0}, "Re", ink, {8.0f, -8.0f}, paper);
-            drawWorldLabel(camera, {0, len, 0}, "Im", ink, {8.0f, -8.0f}, paper);
+            labels.add({len, 0, 0}, "Re", ink, {8.0f, -8.0f}, paper, false, {0, 0, 0, 0}, 0);
+            labels.add({0, len, 0}, "Im", ink, {8.0f, -8.0f}, paper, false, {0, 0, 0, 0}, 0);
         }
     }
     for (const auto& obj : space.objects()) {
@@ -550,14 +607,15 @@ void SceneView::drawLabelsPrint(scene::Space& space, const DrawOptions& options,
                 if (!ev.isReal() || !ev.hasVector) continue;
                 char text[48];
                 snprintf(text, sizeof(text), "λ = %.3g", ev.re);
-                drawWorldLabel(camera, mathToWorld(ev.vector * ev.re), text, c, {8.0f, 14.0f}, paper);
+                labels.add(mathToWorld(ev.vector * ev.re), text, c, {8.0f, 14.0f}, paper);
             }
             continue;
         }
         Vector3 at;
         if (!anchorPoint(o, space.kind(), options, at)) continue;
-        drawWorldLabel(camera, at, o.name().c_str(), c, {8.0f, -8.0f}, paper);
+        labels.add(at, o.name().c_str(), c, {8.0f, -8.0f}, paper);
     }
+    labels.draw();
 }
 
 void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, const Camera3D& camera) {
@@ -569,23 +627,24 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
         drawLabelsPrint(space, options, camera);
         return;
     }
+    LabelBatch labels(camera);
 
     if (space.kind() == scene::SpaceKind::Euclidean3D) {
         if (view.showAxes) {
-            drawWorldLabel(camera, mathToWorld(len, 0, 0), "x", t.axisX, kOffset, t.labelBg, t.labelLarge);
-            drawWorldLabel(camera, mathToWorld(0, len, 0), "y", t.axisY, kOffset, t.labelBg, t.labelLarge);
-            drawWorldLabel(camera, mathToWorld(0, 0, len), "z", t.axisZ, kOffset, t.labelBg, t.labelLarge);
+            labels.add(mathToWorld(len, 0, 0), "x", t.axisX, kOffset, t.labelBg, t.labelLarge, {0, 0, 0, 0}, 0);
+            labels.add(mathToWorld(0, len, 0), "y", t.axisY, kOffset, t.labelBg, t.labelLarge, {0, 0, 0, 0}, 0);
+            labels.add(mathToWorld(0, 0, len), "z", t.axisZ, kOffset, t.labelBg, t.labelLarge, {0, 0, 0, 0}, 0);
         }
     } else if (view.showAxes) {
-        drawWorldLabel(camera, {len, 0, 0}, "Re", t.axisX, kOffset, t.labelBg, t.labelLarge);
-        drawWorldLabel(camera, {0, len, 0}, "Im", t.axisY, kOffset, t.labelBg, t.labelLarge);
+        labels.add({len, 0, 0}, "Re", t.axisX, kOffset, t.labelBg, t.labelLarge, {0, 0, 0, 0}, 0);
+        labels.add({0, len, 0}, "Im", t.axisY, kOffset, t.labelBg, t.labelLarge, {0, 0, 0, 0}, 0);
     }
 
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
         if (!o.visible || !o.value().ok()) continue;
         const bool dim = dimmed(options, o);
-        const Color ring = m_dim && isSelected(options, o) ? ui::theme().accent : Color{0, 0, 0, 0};
+        const Color ring = isSelected(options, o) ? ui::theme().accent : Color{0, 0, 0, 0};
         auto shade = [&](Color c) { return dim ? faded(c) : c; };
         char text[96];
         Vector3 at;
@@ -594,7 +653,7 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
             for (const auto& ev : e.values) {
                 if (!ev.isReal() || !ev.hasVector) continue;
                 snprintf(text, sizeof(text), "λ = %.2f", ev.re);
-                drawWorldLabel(camera, mathToWorld(ev.vector * ev.re), text, shade(colorOf(o)), {8.0f, 14.0f}, t.labelBg, t.labelLarge, ring);
+                labels.add(mathToWorld(ev.vector * ev.re), text, shade(colorOf(o)), {8.0f, 14.0f}, t.labelBg, t.labelLarge, ring);
             }
             continue;
         }
@@ -605,8 +664,9 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
             snprintf(text, sizeof(text), "%s", o.name().c_str());
         }
         Color c = o.typeId() == "matrix" ? t.text : colorOf(o);
-        drawWorldLabel(camera, at, text, shade(c), kOffset, t.labelBg, t.labelLarge, ring);
+        labels.add(at, text, shade(c), kOffset, t.labelBg, t.labelLarge, ring);
     }
+    labels.draw();
 }
 
 } // namespace linalg::view
