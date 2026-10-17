@@ -1,5 +1,6 @@
 #pragma once
 
+#include "animation/Playback.hpp"
 #include "ui/core/Icons.hpp"
 #include "ui/core/Ui.hpp"
 #include <raylib.h>
@@ -60,6 +61,15 @@ float keycap(float x, float y, const char* label);
 
 // Color swatch button
 bool swatch(Rectangle r, Color color, bool selected = false);
+
+// Small plot of an easing curve inside r
+void easingCurve(Rectangle r, Easing easing, Color color);
+// Button showing the current easing (curve + name); returns true when clicked
+bool easingButton(Rectangle r, Easing easing, bool open);
+// Grid of every easing with its curve; clicking one selects it. Returns the height used (pixels).
+float easingGrid(float x, float y, float width, Easing& easing, bool& changed);
+// Segmented control for Once / Loop / Ping-pong; returns true when changed
+bool repeatControl(Rectangle r, Repeat& repeat);
 
 } // namespace ui
 } // namespace linalg

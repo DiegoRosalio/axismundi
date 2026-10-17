@@ -81,6 +81,11 @@ public:
     void resetCamera();
     void startAnimation(AnimationPreset preset) { m_animator.start(preset); }
     void stopAnimation() { m_animator.stop(); }
+    void setAnimationStyle(Repeat repeat, Easing easing, bool showEasings = false) {
+        m_animator.setRepeat(repeat);
+        m_animator.setEasing(easing);
+        m_animationPanel.setEasingOpen(showEasings);
+    }
     void setUiMode(bool ui);  // true: cursor visible, panels active
     void showHelp(bool show);
     void showSettings(bool show);

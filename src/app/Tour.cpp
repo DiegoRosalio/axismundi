@@ -79,7 +79,11 @@ void Tour::buildSteps() {
         app.applyMatrixPreset(Matrix3D({{{{1, 1, 0}}, {{0, 1, 0}}, {{0, 0, 2}}}}));
         app.startAnimation(AnimationPreset::Morph);
     }, 50);
+    step("09b_animation_easing", [](App& app) {
+        app.setAnimationStyle(Repeat::PingPong, Easing::Elastic, true);
+    }, 40);
     step("10_projection_example", [](App& app) {
+        app.setAnimationStyle(Repeat::Loop, Easing::Linear, false);
         app.stopAnimation();
         runExample(app, "Projection of a vector");
     });

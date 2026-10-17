@@ -6,37 +6,31 @@ namespace linalg {
 
 void Animator::start(AnimationPreset preset) {
     m_preset = preset;
-    m_time = 0.0f;
-    m_playing = (preset != AnimationPreset::None);
+    m_playback.duration = kDuration;
+    m_playback.phase = 0.0f;
+    m_playback.direction = 1;
+    m_playback.playing = (preset != AnimationPreset::None);
 }
 
 void Animator::stop() {
     m_preset = AnimationPreset::None;
-    m_playing = false;
-    m_time = 0.0f;
+    m_playback.playing = false;
+    m_playback.phase = 0.0f;
+    m_playback.direction = 1;
 }
 
 void Animator::togglePlay() {
     if (!active()) return;
-    if (!m_playing && m_time >= 1.0f) m_time = 0.0f;  // replay from the start
-    m_playing = !m_playing;
+    m_playback.toggle();
 }
 
 void Animator::update(float deltaTime) {
-    if (!m_playing) return;
-    m_time += deltaTime * m_speed / kDuration;
-    if (m_time >= 1.0f) {
-        if (m_loop) {
-            m_time = std::fmod(m_time, 1.0f);
-        } else {
-            m_time = 1.0f;
-            m_playing = false;
-        }
-    }
+    m_playback.duration = kDuration;
+    m_playback.advance(deltaTime * m_speed);
 }
 
 void Animator::setTime(float t) {
-    m_time = std::clamp(t, 0.0f, 1.0f);
+    m_playback.setPhase(t);
 }
 
 void Animator::setSpeed(float s) {
@@ -57,7 +51,9 @@ Matrix4D Animator::lerp(const Matrix4D& a, const Matrix4D& b, float t) {
 }
 
 Matrix4D Animator::matrixAt(float t) const {
-    t = std::clamp(t, 0.0f, 1.0f);
+    // t may leave [0, 1] slightly with overshooting easings (Back, Elastic);
+    // presets extrapolate, keyframes clamp
+    t = std::clamp(t, -0.5f, 1.5f);
     switch (m_preset) {
         case AnimationPreset::None:
             return m_morphTarget;
@@ -74,7 +70,7 @@ Matrix4D Animator::matrixAt(float t) const {
             if (m_keyframes.size() == 1) return m_keyframes[0];
             // Evenly spaced keyframes over [0, 1]
             float segments = static_cast<float>(m_keyframes.size() - 1);
-            float pos = t * segments;
+            float pos = std::clamp(t, 0.0f, 1.0f) * segments;
             size_t i = std::min(static_cast<size_t>(pos), m_keyframes.size() - 2);
             return lerp(m_keyframes[i], m_keyframes[i + 1], pos - static_cast<float>(i));
         }

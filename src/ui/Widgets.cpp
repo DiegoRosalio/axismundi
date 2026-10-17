@@ -335,5 +335,80 @@ bool swatch(Rectangle r, Color color, bool selected) {
     return fired;
 }
 
+void easingCurve(Rectangle r, Easing easing, Color color) {
+    // Leave room for overshooting easings (Back, Elastic)
+    const float lo = -0.25f, hi = 1.25f;
+    auto toY = [&](float v) { return r.y + r.height - (v - lo) / (hi - lo) * r.height; };
+    Color faint = color;
+    faint.a = 60;
+    DrawLineEx({r.x, toY(0)}, {r.x + r.width, toY(0)}, 1.0f, faint);
+    DrawLineEx({r.x, toY(1)}, {r.x + r.width, toY(1)}, 1.0f, faint);
+    const int n = 40;
+    Vector2 prev = {r.x, toY(ease(easing, 0.0f))};
+    for (int i = 1; i <= n; i++) {
+        float u = i / static_cast<float>(n);
+        Vector2 p = {r.x + u * r.width, toY(ease(easing, u))};
+        DrawLineEx(prev, p, std::max(1.5f, px(1.8f)), color);
+        prev = p;
+    }
+}
+
+bool easingButton(Rectangle r, Easing easing, bool open) {
+    const Theme& t = theme();
+    bool hover = false, down = false;
+    bool fired = clickBehavior(r, true, hover, down);
+    fillRounded(r, px(kRadius), open ? t.accentSoft : down ? t.pressed : hover ? t.hover : t.panelAlt);
+    strokeRounded(r, px(kRadius), pxi(1.0f), open ? t.accent : hover ? t.borderStrong : t.border);
+    Rectangle curve = {r.x + px(8), r.y + px(5), px(30), r.height - px(10)};
+    easingCurve(curve, easing, open ? t.accent : t.text);
+    Rectangle label = {curve.x + curve.width + px(8), r.y, r.width - curve.width - px(34), r.height};
+    textIn(label, ellipsize(easingName(easing), FontRole::Body, label.width).c_str(), FontRole::Body, t.text);
+    float chevron = px(12);
+    drawIcon(open ? Icon::ChevronDown : Icon::ChevronRight,
+             {r.x + r.width - chevron - px(8), r.y + (r.height - chevron) / 2, chevron, chevron}, t.textMuted);
+    tooltip(r, easingDescription(easing), "Easing");
+    return fired;
+}
+
+float easingGrid(float x, float y, float width, Easing& easing, bool& changed) {
+    const Theme& t = theme();
+    changed = false;
+    const int columns = 3;
+    float gap = px(6.0f);
+    float cellW = (width - gap * (columns - 1)) / columns;
+    float cellH = px(58.0f);
+    for (int i = 0; i < kEasingCount; i++) {
+        Easing e = static_cast<Easing>(i);
+        Rectangle cell = {x + (i % columns) * (cellW + gap), y + (i / columns) * (cellH + gap), cellW, cellH};
+        bool selected = (e == easing);
+        bool hover = false, down = false;
+        if (clickBehavior(cell, true, hover, down) && !selected) {
+            easing = e;
+            changed = true;
+        }
+        fillRounded(cell, px(kRadius), selected ? t.accentSoft : hover ? t.hover : t.panelAlt);
+        if (selected) strokeRounded(cell, px(kRadius), pxi(1.5f), t.accent);
+        // Keep the preview's aspect ratio so the curve shape reads clearly
+        float ch = cellH - px(28), cw = std::min(cell.width - px(20), ch * 1.7f);
+        easingCurve({cell.x + (cell.width - cw) / 2, cell.y + px(6), cw, ch}, e, selected ? t.accent : t.textMuted);
+        textIn({cell.x, cell.y + cellH - px(22), cell.width, px(20)}, easingName(e), FontRole::Small,
+               selected ? t.text : t.textMuted, Align::Center);
+        tooltip(cell, easingDescription(e), easingName(e));
+    }
+    int rows = (kEasingCount + columns - 1) / columns;
+    return rows * cellH + (rows - 1) * gap;
+}
+
+bool repeatControl(Rectangle r, Repeat& repeat) {
+    int active = static_cast<int>(repeat);
+    if (segmented(r, {"Once", "Loop", "Ping-pong"}, active,
+                  {"Play once and stop at the end.", "Start again from the beginning.",
+                   "Run back and forth: forwards, then in reverse."})) {
+        repeat = static_cast<Repeat>(active);
+        return true;
+    }
+    return false;
+}
+
 } // namespace ui
 } // namespace linalg

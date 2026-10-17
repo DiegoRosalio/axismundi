@@ -2,6 +2,7 @@
 // Build and run with: make test
 
 #include "animation/Animator.hpp"
+#include "animation/Playback.hpp"
 #include "math/Complex.hpp"
 #include "math/Decompositions.hpp"
 #include "math/Expression.hpp"
@@ -252,6 +253,62 @@ void testExpression() {
     CHECK(!e.parse("foo(1)"));
     CHECK(!e.parse("1 $ 2"));
     CHECK(!e.parse(""));
+}
+
+void testPlayback() {
+    // Every easing starts at 0 and ends at 1
+    for (int i = 0; i < kEasingCount; i++) {
+        Easing e = static_cast<Easing>(i);
+        CHECK_NEAR(ease(e, 0.0f), 0.0f, 1e-5f);
+        CHECK_NEAR(ease(e, 1.0f), 1.0f, 1e-5f);
+        CHECK(std::string(easingName(e)).size() > 0);
+    }
+    // The monotonic ones never go backwards
+    for (Easing e : {Easing::Linear, Easing::EaseIn, Easing::EaseOut, Easing::EaseInOut, Easing::Sine, Easing::Step}) {
+        float prev = 0.0f;
+        for (int k = 1; k <= 100; k++) {
+            float v = ease(e, k / 100.0f);
+            CHECK(v >= prev - 1e-6f);
+            prev = v;
+        }
+    }
+    CHECK(ease(Easing::Back, 0.8f) > 1.0f);         // overshoots
+    CHECK_NEAR(ease(Easing::EaseInOut, 0.5f), 0.5f, 1e-5f);
+    CHECK(ease(Easing::EaseIn, 0.5f) < 0.5f);
+    CHECK(ease(Easing::EaseOut, 0.5f) > 0.5f);
+
+    Playback p;
+    p.duration = 2.0f;
+    p.repeat = Repeat::Once;
+    p.restart();
+    p.advance(1.0f);
+    CHECK_NEAR(p.phase, 0.5f, 1e-5f);
+    p.advance(5.0f);
+    CHECK_NEAR(p.phase, 1.0f, 1e-6f);
+    CHECK(!p.playing);
+    p.toggle();  // replays from the start
+    CHECK(p.playing && p.phase == 0.0f);
+
+    p.repeat = Repeat::Loop;
+    p.advance(3.0f);  // 1.5 runs
+    CHECK_NEAR(p.phase, 0.5f, 1e-5f);
+
+    p.repeat = Repeat::PingPong;
+    p.restart();
+    p.advance(3.0f);  // to the end and half way back
+    CHECK_NEAR(p.phase, 0.5f, 1e-5f);
+    CHECK(p.direction == -1);
+    p.advance(1.5f);  // past the start, forwards again
+    CHECK_NEAR(p.phase, 0.25f, 1e-5f);
+    CHECK(p.direction == 1);
+
+    SceneData data;
+    p.easing = Easing::Bounce;
+    p.save(data, "x.");
+    Playback q;
+    q.load(data, "x.");
+    CHECK(q.easing == Easing::Bounce && q.repeat == Repeat::PingPong);
+    CHECK_NEAR(q.duration, 2.0f, 1e-5f);
 }
 
 void testAnimator() {
@@ -694,6 +751,7 @@ int main() {
         {"Eigen", testEigen},
         {"Complex", testComplex},
         {"Expression", testExpression},
+        {"Playback", testPlayback},
         {"Animator", testAnimator},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},

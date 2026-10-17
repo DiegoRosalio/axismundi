@@ -19,6 +19,10 @@ public:
 
     static void saveState(const Animator& animator, SceneData& data);
     static void loadState(Animator& animator, const SceneData& data);
+    void setEasingOpen(bool open) { m_easingOpen = open; }
+
+private:
+    bool m_easingOpen = false;
 };
 
 } // namespace linalg

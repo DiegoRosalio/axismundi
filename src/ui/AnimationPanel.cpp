@@ -16,8 +16,7 @@ float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matr
     // Row 1: transport controls and timeline
     Rectangle row = col.row(32.0f);
     Rectangle play = ui::takeLeft(row, 32.0f, 4.0f);
-    Rectangle stop = ui::takeLeft(row, 32.0f, 4.0f);
-    Rectangle loop = ui::takeLeft(row, 32.0f, 12.0f);
+    Rectangle stop = ui::takeLeft(row, 32.0f, 12.0f);
     Rectangle timeText = ui::takeRight(row, 56.0f, 10.0f);
 
     if (ui::iconButton(play, animator.playing() ? ui::Icon::Pause : ui::Icon::Play, animator.playing())) {
@@ -25,11 +24,9 @@ float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matr
         else animator.start(AnimationPreset::Morph);
     }
     if (ui::iconButton(stop, ui::Icon::Stop, false, animator.active())) animator.stop();
-    if (ui::iconButton(loop, ui::Icon::Loop, animator.loop())) animator.setLoop(!animator.loop());
     ui::tooltip(play, "Play or pause (P). With nothing selected, morphs from the identity to your matrix.",
                 "Play / pause");
     ui::tooltip(stop, "Stop and show your matrix again.", "Stop");
-    ui::tooltip(loop, "Repeat the animation when it reaches the end.", "Loop");
 
     float tValue = animator.time();
     if (animator.active()) {
@@ -79,7 +76,14 @@ float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matr
     bool keysActive = animator.preset() == AnimationPreset::Keyframes;
     ui::textIn(keyText, buf, ui::FontRole::Small, keysActive ? t.accent : t.textMuted);
 
-    if (row.width > ui::px(120.0f)) {
+    // Row 3: repeat style, easing, speed
+    row = col.row(32.0f);
+    Rectangle repeatRect = ui::takeLeft(row, 250.0f, 10.0f);
+    Repeat repeat = animator.repeat();
+    if (ui::repeatControl(repeatRect, repeat)) animator.setRepeat(repeat);
+    Rectangle easingRect = ui::takeLeft(row, 150.0f, 12.0f);
+    if (ui::easingButton(easingRect, animator.easing(), m_easingOpen)) m_easingOpen = !m_easingOpen;
+    if (row.width > ui::px(110.0f)) {
         Rectangle speedLabel = ui::takeLeft(row, 44.0f, 6.0f);
         Rectangle speedValue = ui::takeRight(row, 34.0f, 6.0f);
         ui::textIn(speedLabel, "Speed", ui::FontRole::Small, t.textMuted);
@@ -88,12 +92,21 @@ float AnimationPanel::drawContent(Rectangle area, Animator& animator, const Matr
         snprintf(buf, sizeof(buf), "%.1f×", animator.speed());
         ui::textIn(speedValue, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
     }
+    if (m_easingOpen) {
+        Easing e = animator.easing();
+        bool changed = false;
+        float h = ui::easingGrid(col.x(), col.y(), col.width(), e, changed);
+        if (changed) animator.setEasing(e);
+        col.space(h / ui::scale() + 8.0f);
+    }
     return col.y() - area.y + ui::px(2.0f);
 }
 
 void AnimationPanel::saveState(const Animator& animator, SceneData& data) {
     putFloat(data, "anim.speed", animator.speed());
     putBool(data, "anim.loop", animator.loop());
+    putInt(data, "anim.repeat", static_cast<int>(animator.repeat()));
+    putInt(data, "anim.easing", static_cast<int>(animator.easing()));
     putInt(data, "anim.keyframes", static_cast<int>(animator.keyframes().size()));
     for (size_t k = 0; k < animator.keyframes().size(); k++) {
         std::ostringstream row;
@@ -109,6 +122,9 @@ void AnimationPanel::loadState(Animator& animator, const SceneData& data) {
     if (getFloat(data, "anim.speed", speed)) animator.setSpeed(speed);
     bool loop = animator.loop();
     if (getBool(data, "anim.loop", loop)) animator.setLoop(loop);
+    int v = 0;
+    if (getInt(data, "anim.repeat", v) && v >= 0 && v < kRepeatCount) animator.setRepeat(static_cast<Repeat>(v));
+    if (getInt(data, "anim.easing", v) && v >= 0 && v < kEasingCount) animator.setEasing(static_cast<Easing>(v));
 
     int count = 0;
     if (!getInt(data, "anim.keyframes", count)) return;
