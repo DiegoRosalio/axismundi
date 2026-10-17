@@ -2,13 +2,15 @@
 
 ## High Priority (Core Features)
 
-### Scene time in every formula
-- [ ] Built-in name `time` (the scene clock, seconds) usable in every formula: vectors, matrices, complex
-      numbers and all plots, e.g. `[cos(time), sin(time), 1]`, `rotz(time)`, `sin(x + time)`. Today only
-      Formula parameters see the clock (as `t`); the workaround is a parameter `time = t`.
-- [ ] Curves keep `t` as their own variable and can use both (`cos(t + time)`)
-- [ ] Functions, surfaces and implicit curves: `t` is silently 0 today; show an error pointing to `time`
-- [ ] Plots that use `time` rebuild while the clock plays (watch the cost of dense surfaces)
+### Scene time `t` in every formula
+- [ ] `t` (the scene clock, seconds) usable in every formula, not only in Formula parameters: vectors,
+      matrices, complex numbers and all plots, e.g. `[cos(t), sin(t), 1]`, `rotz(t)`, `exp(i*t)`,
+      `sin(x - t)`. Short name on purpose (not `time`). Today the workaround is a Formula parameter with
+      value `t`.
+- [ ] Curves: `t` becomes the scene time there too, so the curve's own variable needs another name
+      (e.g. `u`, with its `u from / to` range); convert old scene files by renaming `t` to `u` in curve fields
+- [ ] Functions, surfaces and implicit curves: `t` is silently 0 today; make it the scene time
+- [ ] Plots that use `t` rebuild while the clock plays (watch the cost of dense surfaces)
 
 ### Interactive Input
 - [x] Add text input for matrix values (implement text input boxes or integrate raygui)
