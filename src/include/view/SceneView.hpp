@@ -23,6 +23,9 @@ struct DrawOptions {
 // WorldMapping.hpp). Complex plane: real part along world X, imaginary along Y.
 class SceneView {
 public:
+    // Surfaces: smooth (blended colors, shading) or faceted (flat cells)
+    void setSmoothSurfaces(bool smooth) { m_smoothSurfaces = smooth; }
+
     // Call inside BeginMode3D
     void draw3D(scene::Space& space, const DrawOptions& options);
     // Call after EndMode3D
@@ -50,8 +53,10 @@ private:
         std::uint64_t builtAt = 0;
         bool dark = true;
         unsigned color = 0;
+        bool smooth = true;
     };
     std::map<scene::ObjectId, PlotCache> m_plots;
+    bool m_smoothSurfaces = true;
 };
 
 } // namespace linalg::view

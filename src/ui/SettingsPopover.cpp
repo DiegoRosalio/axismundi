@@ -14,7 +14,7 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     const ui::Theme& t = ui::theme();
 
     float w = ui::px(300.0f);
-    float h = ui::px(330.0f);
+    float h = ui::px(414.0f);
     float x = std::min(m_anchor.x + m_anchor.width - w, static_cast<float>(GetScreenWidth()) - w - ui::px(8));
     m_bounds = {std::max(ui::px(8), x), m_anchor.y + m_anchor.height + ui::px(6.0f), w, h};
 
@@ -52,6 +52,15 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     if (m_pendingZoom > 0.0f && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         ui::setZoom(m_pendingZoom);
         m_pendingZoom = 0.0f;
+    }
+    col.space(6.0f);
+
+    ui::textIn(col.row(18), ui::upper("Surfaces").c_str(), ui::FontRole::Caption, t.textMuted);
+    int style = settings.smoothSurfaces ? 0 : 1;
+    if (ui::segmented(col.row(32), {"Smooth", "Faceted"}, style,
+                      {"Colors blend across the surface, with soft shading by slope.",
+                       "Flat cells, one color each: the grid of samples stays visible."})) {
+        settings.smoothSurfaces = (style == 0);
     }
     col.space(6.0f);
 

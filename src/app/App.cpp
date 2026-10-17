@@ -435,6 +435,7 @@ void App::applyPreferences(const SceneData& prefs) {
     if (getFloat(prefs, "ui.zoom", zoom)) ui::setZoom(zoom);
     getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
+    getBool(prefs, "ui.smooth_surfaces", m_uiSettings.smoothSurfaces);
     m_tutorialPanel.loadState(prefs);
     for (auto* p : m_panels.panels()) p->loadState(prefs);
 }
@@ -445,6 +446,7 @@ void App::savePreferences() {
     prefs["ui.theme"] = ui::themeKind() == ui::ThemeKind::Light ? "light" : "dark";
     putBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     putBool(prefs, "ui.hud", m_uiSettings.showHud);
+    putBool(prefs, "ui.smooth_surfaces", m_uiSettings.smoothSurfaces);
     if (!IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE) && !IsWindowFullscreen()) {
         putInt(prefs, "window.width", GetScreenWidth());
         putInt(prefs, "window.height", GetScreenHeight());
@@ -704,6 +706,7 @@ void App::update(float deltaTime) {
     m_grid.setShowGrid(view.showGrid);
     m_grid.setShowAxes(view.showAxes);
     m_grid.setSize(static_cast<int>(view.gridSize));
+    m_sceneView.setSmoothSurfaces(m_uiSettings.smoothSurfaces);
 }
 
 // ---------------------------------------------------------------------------

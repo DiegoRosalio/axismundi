@@ -109,6 +109,9 @@ docs/screenshots/     images for the docs, produced by --tour
   SceneView passes to `PlotRenderer` as `samplesX/Y`. Old `resolution` props are converted after loading
   (`Scene::convertOldPlots`). PlotRenderer uploads meshes once per change (indexed surface bands under
   65 536 vertices, curve tubes, heat map) and frees them in its destructor (CPU-only after CloseWindow).
+  `PlotSpec::smooth` picks smooth surfaces (per-vertex color + slope shading) or faceted ones (flat cells,
+  plain triangle list); it comes from the Settings preference `UiSettings::smoothSurfaces`
+  (`ui.smooth_surfaces`) through `SceneView::setSmoothSurfaces`, and is part of the plot cache key.
 
 ### Adding a new object type (e.g. quaternion, vector field, tensor)
 1. Model in `src/scene/Types.{hpp,cpp}`: subclass `SceneObject`; in the constructor `addField(...)` and

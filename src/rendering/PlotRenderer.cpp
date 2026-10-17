@@ -354,7 +354,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
     // Indexed meshes share each vertex between its cells. raylib indices are
     // 16-bit, so the grid is split into bands of rows under 65536 vertices.
     const int rowsPerBand = std::max(1, 65535 / (nx + 1) - 1);
-    for (int j0 = 0; j0 < ny; j0 += rowsPerBand) {
+    for (int j0 = 0; spec.smooth && j0 < ny; j0 += rowsPerBand) {
         int j1 = std::min(ny, j0 + rowsPerBand);
         MeshData band;
         band.positions.reserve(static_cast<size_t>(j1 - j0 + 1) * (nx + 1) * 3);
@@ -372,6 +372,26 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
         }
         m_filled += band.indices.size() / 3;
         upload(band);
+    }
+    if (!spec.smooth) {
+        // Faceted: flat cells, one color each (heat by the cell's average height), no shading
+        m_triangles.positions.reserve(static_cast<size_t>(nx) * ny * 18);
+        m_triangles.colors.reserve(static_cast<size_t>(nx) * ny * 24);
+        for (int j = 0; j < ny; j++) {
+            for (int i = 0; i < nx; i++) {
+                bool cellOk = ok[idx(i, j)] && ok[idx(i + 1, j)] && ok[idx(i + 1, j + 1)] && ok[idx(i, j + 1)];
+                if (!cellOk) continue;
+                float avg = (z[idx(i, j)] + z[idx(i + 1, j)] + z[idx(i + 1, j + 1)] + z[idx(i, j + 1)]) / 4.0f;
+                Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : plain;
+                Vector3 p00 = point(i, j), p10 = point(i + 1, j), p11 = point(i + 1, j + 1), p01 = point(i, j + 1);
+                m_triangles.add(p00, c);
+                m_triangles.add(p10, c);
+                m_triangles.add(p11, c);
+                m_triangles.add(p00, c);
+                m_triangles.add(p11, c);
+                m_triangles.add(p01, c);
+            }
+        }
     }
 
     // Wire lines: about one per unit, each sampled with at most ~150 segments

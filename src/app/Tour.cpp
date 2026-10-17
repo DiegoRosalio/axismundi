@@ -139,7 +139,12 @@ void Tour::buildSteps() {
                       {{"density", "12"}});
         app.setCameraView({22, 18, 26}, {0, 0, 0});
     }, 40);
+    step("14b2_plot_faceted", [](App& app) {
+        runExample(app, "Ripple with a slider");
+        app.setSmoothSurfaces(false);
+    }, 20);
     step("14c_large_grid", [](App& app) {
+        app.setSmoothSurfaces(true);
         app.view().gridSize = 60.0f;
         app.select("S");
         app.setCameraView({45, 30, 55}, {0, 0, 0});

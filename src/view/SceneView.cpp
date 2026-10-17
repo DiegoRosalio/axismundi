@@ -136,7 +136,9 @@ void SceneView::updatePlots(scene::Space& space) {
         Color color = colorOf(*p);
         unsigned colorKey = static_cast<unsigned>(ColorToInt(color));
         bool dark = ui::theme().dark;
-        if (cache.builtAt == p->changedAt() && cache.builtAt != 0 && cache.dark == dark && cache.color == colorKey) continue;
+        if (cache.builtAt == p->changedAt() && cache.builtAt != 0 && cache.dark == dark && cache.color == colorKey &&
+            cache.smooth == m_smoothSurfaces)
+            continue;
 
         PlotSpec spec;
         static const PlotType kinds[4] = {PlotType::Function2D, PlotType::Parametric, PlotType::Surface, PlotType::Implicit};
@@ -156,11 +158,13 @@ void SceneView::updatePlots(scene::Space& space) {
         spec.samplesX = samples.nx;
         spec.samplesY = samples.ny;
         spec.heatmap = p->heatmap();
+        spec.smooth = m_smoothSurfaces;
         spec.color = (p->customColor || p->paletteIndex > 0) ? color : Color{0, 0, 0, 0};
         cache.renderer.rebuild(spec, &space);
         cache.builtAt = p->changedAt();
         cache.dark = dark;
         cache.color = colorKey;
+        cache.smooth = m_smoothSurfaces;
     }
 }
 

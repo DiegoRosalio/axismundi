@@ -174,7 +174,8 @@ reference. Each tab keeps its own camera.
 
 ## Settings (gear icon)
 
-Theme, interface size, tooltips, status overlay, reset panel layout. Preferences are saved in
+Theme, interface size, **Surfaces** (Smooth: colors blend with soft shading by slope; Faceted: flat cells, one
+color each, so the sample grid stays visible), tooltips, status overlay, reset panel layout. Preferences are saved in
 `$XDG_CONFIG_HOME/axismundi/settings.txt` (usually `~/.config/axismundi/settings.txt`) when the app closes.
 
 ## Screenshots and fullscreen

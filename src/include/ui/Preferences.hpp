@@ -18,6 +18,7 @@ struct Preferences {
 struct UiSettings {
     bool tooltips = true;
     bool showHud = true;
+    bool smoothSurfaces = true;  // surfaces: smooth shading, or flat cells (faceted)
 };
 
 } // namespace linalg

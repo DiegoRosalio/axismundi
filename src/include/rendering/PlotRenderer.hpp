@@ -27,6 +27,7 @@ struct PlotSpec {
     int samplesX = 300;            // samples (or cells) along x, or along t for curves
     int samplesY = 60;             // cells along y (surfaces, implicit curves)
     bool heatmap = true;
+    bool smooth = true;            // surfaces: blended colors + shading, or flat-colored cells
     Color color = {0, 0, 0, 0};    // without heat map (alpha 0: theme color)
 };
 

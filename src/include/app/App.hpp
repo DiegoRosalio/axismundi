@@ -91,6 +91,7 @@ public:
     void openColorPicker();  // for the selected object
     void closePopovers();
     void setTheme(bool dark);
+    void setSmoothSurfaces(bool smooth) { m_uiSettings.smoothSurfaces = smooth; }
     void toast(const std::string& message, bool error = false);
 
     // Floating panels by id ("analysis", "animation" (the Time panel), ...)
