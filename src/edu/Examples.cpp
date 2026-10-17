@@ -279,6 +279,41 @@ std::vector<Example> build() {
                                    {"umax", "2pi"}});
                         app.restartTime(true);
                     }});
+    list.push_back({"Rotation field", C::Plots,
+                    "F = [−y, x, 0] turns around the origin: arrows grow with the distance, and the flow lines "
+                    "are circles.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y, x, 0]"}}, {{"lines", "1"}});
+                        app.setCameraView({0.0f, 10.0f, 6.5f}, {0, 0, 0});
+                    }});
+    list.push_back({"Source and sink", C::Plots,
+                    "A source at (−2, 0) and a sink at (2, 0): every flow line leaves the source and ends in the "
+                    "sink, like an electric dipole.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F",
+                                      {{"F", "([x + 2, y, 0]/((x + 2)^2 + y^2) - [x - 2, y, 0]/((x - 2)^2 + y^2))"}},
+                                      {{"lines", "1"}, {"same_length", "1"}, {"seeds", "8"}});
+                        app.setCameraView({0.0f, 10.0f, 6.5f}, {0, 0, 0});
+                    }});
+    list.push_back({"Flow with particles", C::Plots,
+                    "A vortex that drains into the origin. Particles drift along the flow lines while the clock "
+                    "plays: watch them spiral in.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y - x/4, x - y/4, 0]"}},
+                                      {{"lines", "1"}, {"particles", "1"}, {"seeds", "5"}});
+                        app.setCameraView({0.0f, 10.0f, 6.5f}, {0, 0, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"3D swirl", C::Plots,
+                    "F = [−y, x, 0.4] in a box: every flow line is a helix around the z axis.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y, x, 0.4]"}},
+                                      {{"domain", "volume"}, {"lines", "1"}, {"seeds", "3"}, {"density", "0.75"}});
+                    }});
     return list;
 }
 

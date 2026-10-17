@@ -57,6 +57,12 @@ struct FlowLine {
 // it closes on itself. Flow time advances by step / |F|, so particles move at the field's speed.
 FlowLine traceFlowLine(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps);
 
+// Flow lines from several seeds, kept apart: a line is cut where it comes closer than `separation`
+// to a line already kept (its own neighbourhood around the seed excepted), and a seed that is
+// already that close is skipped. Spirals into a sink then stay readable.
+std::vector<FlowLine> traceFlowLines(const FieldFunction& f, const std::vector<Vector3D>& seeds, const Box& box,
+                                     double step, int maxSteps, double separation);
+
 // Evenly spaced seeds: perAxis × perAxis on the floor (plane) or perAxis³ in the box
 std::vector<Vector3D> flowSeeds(const Box& box, bool plane, int perAxis);
 

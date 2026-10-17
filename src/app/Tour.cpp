@@ -223,7 +223,27 @@ void Tour::buildSteps() {
     step("16b_travelling_wave", [](App& app) { runExample(app, "Travelling wave"); }, 30);
     step("16c_travelling_wave_later", [](App&) {}, 30);
     step("16d_spinning_vector", [](App& app) { runExample(app, "Spinning vector"); }, 40);
+    // Vector fields: plane with flow lines, particles at two times, a volume, styles
+    step("16e_field_rotation", [](App& app) {
+        runExample(app, "Rotation field");
+        app.select("F");
+    }, 20);
+    step("16f_field_particles", [](App& app) {
+        runExample(app, "Flow with particles");
+        app.select("F");
+    }, 30);
+    step("16g_field_particles_later", [](App&) {}, 60);
+    step("16h_field_volume", [](App& app) {
+        runExample(app, "3D swirl");
+        app.select("F");
+    }, 25);
+    step("16i_field_source_sink_chalk", [](App& app) {
+        runExample(app, "Source and sink");
+        app.view().style = view::StyleId::Chalkboard;
+    }, 25);
+    step("16j_field_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 20);
     step("17_help", [](App& app) {
+        app.view().style = view::StyleId::Colorful;
         app.resetScene();
         app.setMode(AppMode::Space3D);
         app.showHelp(true);

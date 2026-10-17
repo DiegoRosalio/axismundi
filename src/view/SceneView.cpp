@@ -204,7 +204,7 @@ Color SceneView::colorOf(const SceneObject& o) {
     const std::string& type = o.typeId();
     if (type == "vector") return paletteColor(s.vectors, o.paletteIndex);
     if (type == "eigen") return s.eigen;
-    if (type == "function" || type == "curve" || type == "surface" || type == "implicit")
+    if (type == "function" || type == "curve" || type == "surface" || type == "implicit" || type == "field")
         return paletteColor(s.plots, o.paletteIndex);
     if (type == "complex") return paletteColor(s.complexes, o.paletteIndex);
     if (type == "product") return s.product;
@@ -317,6 +317,69 @@ bool SceneView::dimmed(const DrawOptions& options, const SceneObject& o) const {
     return m_dim && !isSelected(options, o);
 }
 
+const FieldRenderer* SceneView::fieldRenderer(scene::ObjectId id) const {
+    auto it = m_fields.find(id);
+    return it == m_fields.end() ? nullptr : &it->second.renderer;
+}
+
+void SceneView::updateFields(scene::Space& space) {
+    for (auto it = m_fields.begin(); it != m_fields.end();) {
+        if (!space.find(it->first)) it = m_fields.erase(it);
+        else ++it;
+    }
+    const ViewStyle& style = activeStyle();
+    for (const auto& obj : space.objects()) {
+        auto* f = dynamic_cast<scene::VectorFieldObject*>(obj.get());
+        if (!f) continue;
+        FieldCache& cache = m_fields[f->id()];
+        Color color = colorOf(*f);
+        unsigned colorKey = static_cast<unsigned>(ColorToInt(color));
+        int printStyle = m_print ? printStyleOf(f->id()) : -2;
+        int styleKey = ((static_cast<int>(style.id) * 2 + (ui::theme().dark ? 1 : 0)) * 64) + printStyle + 2;
+        if (cache.builtAt == f->changedAt() && cache.builtAt != 0 && cache.styleKey == styleKey &&
+            cache.color == colorKey)
+            continue;
+
+        FieldSpec spec;
+        spec.formula = f->field("F") ? f->field("F")->text : std::string();
+        spec.plane = !f->volume();
+        auto range = [&](const char* key, double fallback) { return static_cast<float>(f->rangeValue(key, fallback)); };
+        spec.box.min = {range("xmin", -4), range("ymin", -4), spec.plane ? 0.0f : range("zmin", -2)};
+        spec.box.max = {range("xmax", 4), range("ymax", 4), spec.plane ? 0.0f : range("zmax", 2)};
+        scene::VectorFieldObject::Counts counts = f->counts();
+        spec.nx = counts.nx;
+        spec.ny = counts.ny;
+        spec.nz = counts.nz;
+        spec.sameLength = f->sameLength();
+        spec.heatmap = f->heatmap();
+        spec.color = color;
+        spec.lineColor = Color{color.r, color.g, color.b, 230};
+        if (spec.heatmap) spec.lineColor = style.text;  // heat-colored arrows: neutral flow lines
+        spec.particleColor = style.text;
+        spec.lines = f->lines();
+        spec.seeds = f->seeds();
+        spec.particles = f->particles();
+        spec.speed = f->speed();
+        spec.time = f->time();
+        spec.lineScale = style.lineScale;
+        spec.heatSoften = style.heatSoften;
+        spec.heatSoftenTo = style.text;
+        if (m_print) {
+            // Paper: grays from the export's style table, no heat map
+            Color g = grayOf(printStyle);
+            spec.heatmap = false;
+            spec.color = g;
+            spec.lineColor = g;
+            spec.particleColor = Color{20, 20, 20, 255};
+            spec.lineScale = 0.8f;
+        }
+        cache.renderer.rebuild(spec, &space);
+        cache.builtAt = f->changedAt();
+        cache.styleKey = styleKey;
+        cache.color = colorKey;
+    }
+}
+
 int SceneView::printStyleOf(scene::ObjectId id) const {
     auto it = m_printStyle.find(id);
     return it == m_printStyle.end() ? -1 : it->second;
@@ -348,6 +411,7 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
     }
 
     updatePlots(space);
+    updateFields(space);
     if (options.print) {
         drawEuclideanPrint(space, options);
         return;
@@ -388,6 +452,10 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             auto it = m_plots.find(o.id());
             if (it != m_plots.end() && it->second.renderer.error().empty())
                 it->second.renderer.draw(dimmed(options, o) ? 0.3f : 1.0f);
+        } else if (type == "field" && o.error().empty()) {
+            auto it = m_fields.find(o.id());
+            if (it != m_fields.end() && it->second.renderer.error().empty())
+                it->second.renderer.draw(o.time(), dimmed(options, o) ? 0.3f : 1.0f);
         }
     }
 }
@@ -536,6 +604,9 @@ void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& optio
         } else if (dynamic_cast<const scene::PlotObject*>(&o)) {
             auto it = m_plots.find(o.id());
             if (it != m_plots.end() && it->second.renderer.error().empty()) it->second.renderer.draw();
+        } else if (type == "field" && o.error().empty()) {
+            auto it = m_fields.find(o.id());
+            if (it != m_fields.end() && it->second.renderer.error().empty()) it->second.renderer.draw(o.time());
         }
     }
 }

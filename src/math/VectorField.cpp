@@ -1,6 +1,7 @@
 #include "math/VectorField.hpp"
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 
 namespace linalg::field {
 
@@ -158,6 +159,77 @@ FlowLine traceFlowLine(const FieldFunction& f, const Vector3D& seed, const Box& 
     }
     if (line.points.size() < 2) line.points.clear(), line.times.clear();
     return line;
+}
+
+namespace {
+
+// Points of the kept lines in a hash grid with cells of the separation size
+class PointGrid {
+public:
+    explicit PointGrid(double cell) : m_cell(cell > 0 ? cell : 1.0) {}
+    void add(const Vector3D& p) { m_cells[key(p)].push_back(p); }
+    bool near(const Vector3D& p, double dist) const {
+        long cx = coord(p.x), cy = coord(p.y), cz = coord(p.z);
+        for (long dx = -1; dx <= 1; dx++)
+            for (long dy = -1; dy <= 1; dy++)
+                for (long dz = -1; dz <= 1; dz++) {
+                    auto it = m_cells.find(pack(cx + dx, cy + dy, cz + dz));
+                    if (it == m_cells.end()) continue;
+                    for (const Vector3D& q : it->second)
+                        if ((q - p).magnitude() < dist) return true;
+                }
+        return false;
+    }
+
+private:
+    long coord(float v) const { return static_cast<long>(std::floor(v / m_cell)); }
+    static long long pack(long x, long y, long z) {
+        return (static_cast<long long>(x & 0x1FFFFF) << 42) | (static_cast<long long>(y & 0x1FFFFF) << 21) |
+               static_cast<long long>(z & 0x1FFFFF);
+    }
+    long long key(const Vector3D& p) const { return pack(coord(p.x), coord(p.y), coord(p.z)); }
+    double m_cell;
+    std::unordered_map<long long, std::vector<Vector3D>> m_cells;
+};
+
+} // namespace
+
+std::vector<FlowLine> traceFlowLines(const FieldFunction& f, const std::vector<Vector3D>& seeds, const Box& box,
+                                     double step, int maxSteps, double separation) {
+    std::vector<FlowLine> kept;
+    PointGrid grid(separation);
+    for (const Vector3D& seed0 : seeds) {
+        Vector3D seed = seed0;
+        if (f.plane()) seed.z = 0.0f;
+        if (separation > 0 && grid.near(seed, separation)) continue;
+        FlowLine line = traceFlowLine(f, seed, box, step, maxSteps);
+        if (line.points.size() < 2) continue;
+        if (separation > 0) {
+            // The seed's index: the point with the largest time not after the seed's (the seed is a point)
+            size_t s = 0;
+            for (size_t i = 0; i < line.points.size(); i++)
+                if ((line.points[i] - seed).magnitude() < 1e-6f) {
+                    s = i;
+                    break;
+                }
+            size_t hi = s, lo = s;
+            while (hi + 1 < line.points.size() && !grid.near(line.points[hi + 1], separation)) hi++;
+            while (lo > 0 && !grid.near(line.points[lo - 1], separation)) lo--;
+            if (hi < line.points.size() - 1 || lo > 0) {
+                FlowLine cut;
+                double t0 = line.times[lo];
+                for (size_t i = lo; i <= hi; i++) {
+                    cut.points.push_back(line.points[i]);
+                    cut.times.push_back(line.times[i] - t0);
+                }
+                line = std::move(cut);
+            }
+            if (line.points.size() < 3) continue;
+        }
+        for (const Vector3D& p : line.points) grid.add(p);
+        kept.push_back(std::move(line));
+    }
+    return kept;
 }
 
 std::vector<Vector3D> flowSeeds(const Box& box, bool plane, int perAxis) {

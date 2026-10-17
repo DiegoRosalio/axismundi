@@ -103,7 +103,7 @@ float TimePanel::drawContent(Rectangle area, scene::Scene& sc, scene::SpaceKind 
     for (const auto& o : space.objects()) {
         // Animate parameters, and anything with a formula that uses t
         const auto* p = dynamic_cast<const scene::ParameterObject*>(o.get());
-        bool driven = p ? p->timeDriven() : o->usesTime();
+        bool driven = p ? p->timeDriven() : o->followsClock();
         if (!driven) continue;
         listed++;
         Rectangle r = col.row(30.0f);
@@ -125,11 +125,12 @@ float TimePanel::drawContent(Rectangle area, scene::Scene& sc, scene::SpaceKind 
                     what = f.label + " " + f.text;
                     break;
                 }
+            if (what.empty()) what = "particles move with the clock";
         }
         bool ok = o->error().empty();
         ui::textIn(inner, ui::ellipsize(what.c_str(), ui::FontRole::Small, inner.width).c_str(), ui::FontRole::Small,
                    ok ? t.textMuted : t.danger);
-        std::string shown = !ok ? "error" : p ? shortNumber(p->number()) : o->value().ok() ? o->value().summary() : "plot";
+        std::string shown = !ok ? "error" : p ? shortNumber(p->number()) : o->value().ok() ? o->value().summary() : o->typeId() == "field" ? "field" : "plot";
         ui::textIn(value, ui::ellipsize(shown.c_str(), ui::FontRole::Mono, value.width).c_str(), ui::FontRole::Mono,
                    ok ? t.text : t.danger, ui::Align::Right);
         ui::tooltip(r, ok ? "Click to select it and edit it in the inspector." : o->error().c_str(), o->name().c_str());

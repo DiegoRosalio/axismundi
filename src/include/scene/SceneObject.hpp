@@ -81,6 +81,8 @@ public:
     void setTime(double seconds) { m_time = seconds; }
     // True when an active field uses t (the object follows the scene clock)
     bool usesTime() const;
+    // Moves when the scene clock runs (listed in the Time panel): formulas of t by default
+    virtual bool followsClock() const { return usesTime(); }
     double time() const { return m_time; }
 
     // --- Properties (non-expression settings, saved as text) -------------------
@@ -90,6 +92,8 @@ public:
     void setProp(const std::string& key, const std::string& value);
     void setProp(const std::string& key, double value);
     void setProp(const std::string& key, bool value);
+    // A string literal would otherwise pick the bool overload
+    void setProp(const std::string& key, const char* value) { setProp(key, std::string(value)); }
     void removeProp(const std::string& key);
     const std::map<std::string, std::string>& props() const { return m_props; }
 

@@ -2,6 +2,7 @@
 
 #include "export/LatexExport.hpp"
 #include "math/Matrix4D.hpp"
+#include "rendering/FieldRenderer.hpp"
 #include "rendering/PlotRenderer.hpp"
 #include "scene/Scene.hpp"
 #include "ui/ViewPanel.hpp"
@@ -54,6 +55,8 @@ public:
 
     // Plot status (error text and value range) for the inspector
     const PlotRenderer* plot(scene::ObjectId id) const;
+    // Vector field status (arrow count, |F| range) for the inspector
+    const FieldRenderer* fieldRenderer(scene::ObjectId id) const;
 
 private:
     void drawEuclidean(scene::Space& space, const DrawOptions& options);
@@ -62,6 +65,7 @@ private:
     void drawComplexPrint(scene::Space& space, const DrawOptions& options);
     void drawLabelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera);
     void updatePlots(scene::Space& space);
+    void updateFields(scene::Space& space);
 
     struct PlotCache {
         PlotRenderer renderer;
@@ -72,6 +76,13 @@ private:
         int printKey = -2;  // print style the geometry was built with (-2: normal)
     };
     std::map<scene::ObjectId, PlotCache> m_plots;
+    struct FieldCache {
+        FieldRenderer renderer;
+        std::uint64_t builtAt = 0;
+        int styleKey = -1;   // style + theme + print style the geometry was built with
+        unsigned color = 0;
+    };
+    std::map<scene::ObjectId, FieldCache> m_fields;
     // Print preview: style index of each exported object (-1: not exported)
     std::map<scene::ObjectId, int> m_printStyle;
     bool m_print = false;

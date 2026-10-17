@@ -144,6 +144,37 @@ protected:
     std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<ProductObject>(); }
 };
 
+// A vector field F(x, y, z): arrows on a grid, optional flow lines and particles. Plane fields
+// live on the floor z = 0 (F's x and y are used); volume fields fill a box.
+class VectorFieldObject : public SceneObject {
+public:
+    VectorFieldObject();
+    bool volume() const { return prop("domain", "plane") == "volume"; }
+    bool heatmap() const { return propBool("heatmap", true); }
+    bool sameLength() const { return propBool("same_length", false); }
+    bool lines() const { return propBool("lines", false); }
+    bool particles() const { return propBool("particles", false); }
+    int seeds() const;            // flow lines per axis
+    double speed() const;         // particle speed (flow time per second)
+    double rangeValue(const char* key, double fallback) const;
+
+    // Arrows per unit of the range, capped for speed
+    static constexpr double kDensityMin = 0.25, kDensityMax = 4.0, kDensityDefault = 1.0;
+    static constexpr int kPlaneCap = 40, kVolumeCap = 12;  // most arrows along one axis
+    double density() const;
+    struct Counts {
+        int nx = 1, ny = 1, nz = 1;
+        bool capped = false;
+    };
+    Counts counts() const;
+    bool followsClock() const override { return usesTime() || particles(); }
+
+protected:
+    bool fieldActive(const Field& f) const override;
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<VectorFieldObject>(); }
+};
+
 // --- Registry ----------------------------------------------------------------------
 
 struct ObjectTypeInfo {

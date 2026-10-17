@@ -535,6 +535,26 @@ void testVectorField() {
     CHECK(out.points.front().magnitude() < 0.05);  // traced back to the source at the origin
     for (size_t i = 1; i < out.times.size(); i++) CHECK(out.times[i] >= out.times[i - 1]);
 
+    // Kept apart: spirals into a sink don't pile up; a rotation still gives whole circles
+    auto sink = program("[-y - x/4, x - y/4, 0]");
+    FieldFunction vortex(*sink, nullptr, 0, true);
+    auto seeds = flowSeeds(box, true, 5);
+    auto apart = traceFlowLines(vortex, seeds, box, 0.05, 600, 0.4);
+    CHECK(!apart.empty() && apart.size() <= seeds.size());
+    bool spaced = true;
+    for (size_t a = 0; a < apart.size(); a++)
+        for (size_t b = a + 1; b < apart.size(); b++)
+            for (const Vector3D& p : apart[b].points)
+                for (const Vector3D& q : apart[a].points)
+                    if ((p - q).magnitude() < 0.4 - 1e-4) spaced = false;
+    CHECK(spaced);
+    Box big{{-6, -6, -2}, {6, 6, 2}};  // every circle through the seeds fits
+    auto rings = traceFlowLines(plane, flowSeeds({{-4, -4, 0}, {4, 4, 0}}, true, 4), big, 0.05, 2000, 0.3);
+    bool allClosed = !rings.empty();
+    for (const FlowLine& r : rings) allClosed = allClosed && r.closed;
+    CHECK(allClosed);
+    CHECK(rings.size() == 3);  // radii √2, √10, √18: seeds on a circle already drawn are skipped
+
     // Seeds and particle times (periodic in the scene time, spread along the line)
     CHECK(flowSeeds(box, true, 5).size() == 25);
     CHECK(flowSeeds(box, false, 3).size() == 27);
@@ -1230,6 +1250,57 @@ void testScene() {
         CHECK(s2 && !s2->props().count("resolution"));
         if (s2) CHECK_NEAR(s2->density(), 5.0, 1e-9);
         (void)e;
+    }
+
+    // Vector fields: formula of x, y, z using other objects, counts, ranges, saving
+    {
+        Scene fs;
+        auto* k = static_cast<ParameterObject*>(fs.add(SpaceKind::Euclidean3D, "parameter", "k"));
+        k->setField("value", "2");
+        auto* F = static_cast<VectorFieldObject*>(fs.add(SpaceKind::Euclidean3D, "field", "F"));
+        CHECK(F && F->name() == "F");
+        F->setField("F", "k*[-y, x, z]");
+        fs.evaluate();
+        CHECK(F->error().empty());
+        CHECK(F->field("F")->program.usesZ());
+        CHECK(F->dependencies().count("k") == 1);
+        VectorFieldObject::Counts c = F->counts();
+        CHECK(c.nx == 8 && c.ny == 8 && c.nz == 1);  // plane, 1 arrow per unit over -4..4
+        CHECK(!F->followsClock());
+        F->setProp("particles", "1");
+        CHECK(F->followsClock());
+        // z range only matters in Volume
+        F->setField("zmin", "3");
+        fs.evaluate();
+        CHECK(F->error().empty());
+        F->setProp("domain", "volume");
+        fs.evaluate();
+        CHECK(F->error().find("must be less than") != std::string::npos);
+        F->setField("zmin", "-2");
+        F->setProp("density", "100");  // capped
+        fs.evaluate();
+        CHECK(F->error().empty());
+        c = F->counts();
+        CHECK(c.capped && c.nx == VectorFieldObject::kVolumeCap && c.nz == VectorFieldObject::kVolumeCap);
+        F->setField("F", "[1, 2]");  // not a vector of three? [1, 2] is invalid
+        fs.evaluate();
+        CHECK(!F->error().empty());
+        F->setField("F", "x + y");  // a number, not a vector
+        fs.evaluate();
+        CHECK(F->error().find("should be a vector") != std::string::npos);
+        F->setField("F", "[-y, x, z]");
+        fs.evaluate();
+        SceneData data;
+        fs.save(data);
+        Scene back;
+        std::string err;
+        CHECK(back.load(data, err));
+        auto* G = dynamic_cast<VectorFieldObject*>(back.space(SpaceKind::Euclidean3D).find("F"));
+        CHECK(G && G->volume() && G->particles());
+        if (G) {
+            back.evaluate();
+            CHECK(G->error().empty() && G->field("F")->program.usesZ());
+        }
     }
 
     // Parameter modes driven by the scene clock

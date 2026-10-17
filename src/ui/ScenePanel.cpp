@@ -44,6 +44,7 @@ std::string summaryOf(const SceneObject& o) {
     if (type == "surface") return "z = " + o.field("f")->text;
     if (type == "implicit") return o.field("f")->text + " = 0";
     if (type == "curve") return "curve in u";
+    if (type == "field") return "F = " + o.field("F")->text;
     if (type == "product") return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
     if (type == "vector" && static_cast<const scene::VectorObject&>(o).byFormula()) {
         return o.field("value")->text + " = " + o.value().summary();
@@ -674,6 +675,155 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         note(col, curve ? "u runs along the curve; t is the scene time. Parameters work by name too."
                         : "Use x, y, t (the scene time) and parameters by name, e.g. a*sin(x - t).",
              t.textFaint);
+    } else if (type == "field") {
+        auto& fo = static_cast<scene::VectorFieldObject&>(o);
+        col.setY(fieldRow(col.x(), col.y(), col.width(), fo, "F", sc, 92.0f));
+        ui::anchor("field.formula", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+
+        Rectangle domainRow = col.row(30.0f);
+        int domain = fo.volume() ? 1 : 0;
+        if (ui::segmented(domainRow, {"Plane", "Volume"}, domain,
+                          {"On the floor z = 0: F's x and y components, e.g. [-y, x, 0].",
+                           "A box of arrows in space: F(x, y, z) with all three components."})) {
+            fo.setProp("domain", domain == 1 ? "volume" : "plane");
+            commit();
+        }
+        ui::anchor("field.domain", domainRow);
+
+        auto rangeRow = [&](const char* lo, const char* hi, const char* label) {
+            Rectangle row = col.row(34.0f);
+            Rectangle l = ui::takeLeft(row, 34.0f, 6.0f);
+            ui::textIn(l, label, ui::FontRole::Body, t.textMuted);
+            auto cells = ui::splitRow(row, {1, 1}, 26.0f);
+            const char* keys[2] = {lo, hi};
+            for (int k = 0; k < 2; k++) {
+                std::string key = keys[k];
+                scene::Field* f = fo.field(key);
+                editText(cells[k], fieldId(fo, key), f->text, !f->error.empty(),
+                         [&sc, kind, oid, key](const std::string& text) {
+                             SceneObject* ob = sc.space(kind).find(oid);
+                             if (!ob) return false;
+                             ob->setField(key, text);
+                             sc.commit();
+                             return true;
+                         });
+            }
+            ui::textIn({cells[0].x + cells[0].width, row.y, ui::px(26), row.height}, "to", ui::FontRole::Small,
+                       t.textMuted, ui::Align::Center);
+        };
+        rangeRow("xmin", "xmax", "x");
+        rangeRow("ymin", "ymax", "y");
+        if (fo.volume()) rangeRow("zmin", "zmax", "z");
+
+        // Arrows per unit
+        Rectangle row = col.row(30.0f);
+        Rectangle label = ui::takeLeft(row, 52.0f, 8.0f);
+        Rectangle value = ui::takeRight(row, 64.0f, 8.0f);
+        ui::textIn(label, "Detail", ui::FontRole::Body, t.text);
+        float density = static_cast<float>(fo.density());
+        if (ui::slider(row, density, static_cast<float>(scene::VectorFieldObject::kDensityMin),
+                       static_cast<float>(scene::VectorFieldObject::kDensityMax))) {
+            fo.setProp("density", std::round(static_cast<double>(density) * 4.0) / 4.0);
+            m_sliderDirty = true;
+        }
+        ui::anchor("field.detail", row);
+        char dbuf[48];
+        snprintf(dbuf, sizeof(dbuf), "%g/unit", fo.density());
+        ui::textIn(value, dbuf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+        ui::tooltip({label.x, row.y, value.x + value.width - label.x, row.height},
+                    "Arrows per unit along each axis. A wider range gets more arrows.", "Detail");
+        scene::VectorFieldObject::Counts cn = fo.counts();
+        char cbuf[96];
+        if (fo.volume()) snprintf(cbuf, sizeof(cbuf), "%d × %d × %d arrows", cn.nx, cn.ny, cn.nz);
+        else snprintf(cbuf, sizeof(cbuf), "%d × %d arrows", cn.nx, cn.ny);
+        std::string counts = std::string(cbuf) + (cn.capped ? " (capped for speed)" : "");
+        note(col, counts, cn.capped ? t.warning : t.textFaint);
+
+        auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
+            Rectangle r = col.row(30);
+            bool v = current;
+            if (ui::toggleRow(r, text, v)) {
+                fo.setProp(key, v);
+                commit();
+            }
+            ui::tooltip(r, tip, text);
+            return v;
+        };
+        toggleProp("Color by strength", "heatmap", fo.heatmap(),
+                   "Arrows colored by |F| with the heat map (blue weak, red strong); off: the object's color.");
+        toggleProp("Same length", "same_length", fo.sameLength(),
+                   "All arrows one length: only the direction shows (a direction field). The color still shows |F|.");
+        bool lines = toggleProp("Flow lines", "lines", fo.lines(),
+                                "Curves that follow F everywhere (streamlines), with an arrowhead showing the way.");
+        ui::anchor("field.lines", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+        bool particles = toggleProp("Particles", "particles", fo.particles(),
+                                    "Dots drifting along the flow lines as the scene clock plays (press P).");
+        ui::anchor("field.particles", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+        if (lines || particles) {
+            Rectangle sr = col.row(30.0f);
+            Rectangle sl = ui::takeLeft(sr, 92.0f, 8.0f);
+            Rectangle sv = ui::takeRight(sr, 40.0f, 8.0f);
+            ui::textIn(sl, "Lines per axis", ui::FontRole::Body, t.text);
+            float seeds = static_cast<float>(fo.seeds());
+            if (ui::slider(sr, seeds, 2.0f, fo.volume() ? 6.0f : 16.0f)) {
+                fo.setProp("seeds", std::round(static_cast<double>(seeds)));
+                m_sliderDirty = true;
+            }
+            char sb[16];
+            snprintf(sb, sizeof(sb), "%d", fo.seeds());
+            ui::textIn(sv, sb, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+            ui::tooltip({sl.x, sr.y, sv.x + sv.width - sl.x, sr.height},
+                        "How many flow lines start along each axis (evenly spaced).", "Lines per axis");
+        }
+        if (particles) {
+            Rectangle pr = col.row(30.0f);
+            Rectangle pl = ui::takeLeft(pr, 92.0f, 8.0f);
+            Rectangle pv = ui::takeRight(pr, 40.0f, 8.0f);
+            ui::textIn(pl, "Speed", ui::FontRole::Body, t.text);
+            float speed = static_cast<float>(fo.speed());
+            if (ui::slider(pr, speed, 0.1f, 5.0f)) {
+                fo.setProp("speed", std::round(static_cast<double>(speed) * 10.0) / 10.0);
+                m_sliderDirty = true;
+            }
+            char pb[16];
+            snprintf(pb, sizeof(pb), "%.1f×", fo.speed());
+            ui::textIn(pv, pb, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+            ui::tooltip({pl.x, pr.y, pv.x + pv.width - pl.x, pr.height},
+                        "How fast particles move: 1× is the field's own speed.", "Speed");
+        }
+
+        if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
+            m_activeId = -1;
+            struct FieldExample {
+                const char* f;
+                bool volume;
+            };
+            static const FieldExample kFields[] = {
+                {"[-y, x, 0]", false},                        // rotation
+                {"[x, y, 0]", false},                         // source
+                {"[x, -y, 0]", false},                        // saddle
+                {"[-y - x/4, x - y/4, 0]", false},            // vortex sink
+                {"[sin(y), sin(x), 0]", false},               // cells
+                {"[-y, x, 0.4]", true},                       // helix
+                {"[-y, x, -z]/2 + [0, 0, sin(x)]/3", true},   // swirl
+            };
+            int n = static_cast<int>(sizeof(kFields) / sizeof(kFields[0]));
+            m_exampleIndex = (m_exampleIndex + 1) % n;
+            fo.setField("F", kFields[m_exampleIndex].f);
+            fo.setProp("domain", kFields[m_exampleIndex].volume ? "volume" : "plane");
+            commit();
+        }
+        const FieldRenderer* fr = view.fieldRenderer(fo.id());
+        if (!fo.error().empty()) note(col, fo.error(), t.danger);
+        else if (fr && !fr->error().empty()) note(col, fr->error(), t.danger);
+        else if (fr && fr->arrowCount() > 0) {
+            char buf[96];
+            snprintf(buf, sizeof(buf), "|F| ranges over [%.2f, %.2f]", fr->minMagnitude(), fr->maxMagnitude());
+            note(col, buf, t.textMuted);
+        }
+        note(col, "F is a vector formula of x, y, z (and t, the scene time); parameters work by name, e.g. "
+                  "k*[-y, x, 0].",
+             t.textFaint);
     } else if (type == "parameter") {
         auto& p = static_cast<scene::ParameterObject&>(o);
         using PMode = scene::ParameterObject::Mode;
@@ -836,7 +986,7 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         }
     }
 
-    if (!o.error().empty() && type != "matrix" && !dynamic_cast<scene::PlotObject*>(&o)) {
+    if (!o.error().empty() && type != "matrix" && type != "field" && !dynamic_cast<scene::PlotObject*>(&o)) {
         bool shown = false;
         for (const auto& f : o.fields()) {
             if (!f.error.empty()) shown = true;

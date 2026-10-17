@@ -336,6 +336,76 @@ expr::Value PlotObject::computeValue() const {
     return expr::Value::fail("no value");  // plots are drawn, not used in formulas
 }
 
+// --- Vector field ---------------------------------------------------------------------
+
+VectorFieldObject::VectorFieldObject() : SceneObject("field") {
+    setProp("domain", "plane");
+    setProp("density", kDensityDefault);
+    setProp("heatmap", true);
+    setProp("same_length", false);
+    setProp("lines", false);
+    setProp("seeds", 6.0);
+    setProp("particles", false);
+    setProp("speed", 1.0);
+    addField("F", "F(x, y, z) =", Expect::Field, "[-y, x, 0]");
+    markFieldVariable("F");
+    addField("xmin", "x from", Expect::Number, "-4");
+    addField("xmax", "x to", Expect::Number, "4");
+    addField("ymin", "y from", Expect::Number, "-4");
+    addField("ymax", "y to", Expect::Number, "4");
+    addField("zmin", "z from", Expect::Number, "-2");
+    addField("zmax", "z to", Expect::Number, "2");
+}
+
+bool VectorFieldObject::fieldActive(const Field& f) const {
+    if (f.key == "zmin" || f.key == "zmax") return volume();
+    return true;
+}
+
+int VectorFieldObject::seeds() const {
+    return static_cast<int>(std::clamp(propNumber("seeds", 6), 2.0, 16.0));
+}
+
+double VectorFieldObject::speed() const {
+    return std::clamp(propNumber("speed", 1), 0.1, 5.0);
+}
+
+double VectorFieldObject::rangeValue(const char* key, double fallback) const {
+    const Field* f = field(key);
+    if (!f || !f->value.isRealNumber()) return fallback;
+    return f->value.re;
+}
+
+double VectorFieldObject::density() const {
+    return std::clamp(propNumber("density", kDensityDefault), kDensityMin, kDensityMax);
+}
+
+VectorFieldObject::Counts VectorFieldObject::counts() const {
+    double d = density();
+    int cap = volume() ? kVolumeCap : kPlaneCap;
+    Counts c;
+    auto count = [&](const char* lo, const char* hi, double a, double b) {
+        double span = rangeValue(hi, b) - rangeValue(lo, a);
+        if (!(span > 0.0) || !std::isfinite(span)) span = 1.0;
+        int wanted = static_cast<int>(std::clamp(std::round(span * d), 1.0, 1e6));
+        if (wanted > cap) c.capped = true;
+        return std::min(wanted, cap);
+    };
+    c.nx = count("xmin", "xmax", -4, 4);
+    c.ny = count("ymin", "ymax", -4, 4);
+    c.nz = volume() ? count("zmin", "zmax", -2, 2) : 1;
+    return c;
+}
+
+expr::Value VectorFieldObject::computeValue() const {
+    for (auto [lo, hi] : {std::pair{"xmin", "xmax"}, std::pair{"ymin", "ymax"}, std::pair{"zmin", "zmax"}}) {
+        if (!volume() && lo[0] == 'z') continue;
+        if (!(rangeValue(lo, 0) < rangeValue(hi, 0)))
+            return expr::Value::fail(std::string(field(lo)->label) + " must be less than " + field(hi)->label);
+    }
+    return expr::Value::fail("no value");  // drawn, not used in formulas
+}
+
 // --- Complex ------------------------------------------------------------------------
 
 ComplexObject::ComplexObject() : SceneObject("complex") {
@@ -392,6 +462,9 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"implicit", "Implicit curve f(x, y) = 0", "Plots", "g", spaceBit(SpaceKind::Euclidean3D),
          "All points where f(x, y) = 0",
          [] { return std::make_unique<PlotObject>(PlotObject::Kind::Implicit); }},
+        {"field", "Vector field F(x, y, z)", "Fields", "F", spaceBit(SpaceKind::Euclidean3D),
+         "Arrows of F at every point, with flow lines and moving particles",
+         [] { return std::make_unique<VectorFieldObject>(); }},
         {"complex", "Complex number", "Basics", "z", spaceBit(SpaceKind::Complex),
          "A point of the complex plane, such as 2 + i or exp(i*theta)",
          [] { return std::make_unique<ComplexObject>(); }},
