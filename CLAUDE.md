@@ -68,7 +68,8 @@ src/
   view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache
   animation/          NO raylib: Playback (0..1 run: Once/Loop/PingPong + 9 easings, save/load), Animator
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
-  rendering/          Grid, VectorRenderer::drawArrow, PlotRenderer (geometry from expressions + resolver),
+  rendering/          Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
+                      VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
                       CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips), Theme,
                       Layout, Icons, FloatingPanel + PanelManager
@@ -135,6 +136,8 @@ Saving/loading is automatic (fields and props are serialized generically).
 - **Section headers** uppercase their title; pass `keepCase = true` when it contains object names
   (names are case-sensitive).
 - **Tooltips**: `ui::tooltip(rect, body, title)` after drawing a widget; `segmented()` takes per-segment tips.
+- **Playback widgets** (Widgets): `repeatControl` (Once/Loop/Ping-pong), `easingButton` + `easingGrid`
+  (curve previews; the open/closed state lives in the owning panel), `easingCurve`.
 - **Anchors**: `ui::anchor("id", rect)` names a control so tutorial steps can highlight it.
 - **Theme colors** are read at draw time; the plot cache in SceneView rebuilds when the theme or an
   object's color changes.
@@ -152,8 +155,15 @@ Saving/loading is automatic (fields and props are serialized generically).
   and end messages with the `Co-Authored-By` trailer. Don't modify the git config.
 - Pushing needs an SSH key in the session; on "Permission denied (publickey)" ask the user.
 
+## Performance notes
+
+Measured under xvfb with Mesa llvmpipe (software rendering, so real GPUs are far faster): a 400×400
+surface (161k vertices, indexed) draws in ~57 ms/frame (unindexed it was ~140 ms); rebuilding it takes
+~0.2 s, which happens every frame if a playing parameter feeds the surface. Wireframe lines are still
+drawn per frame (capped at ~60 lines × ~150 segments per direction).
+
 ## Not yet verified
 
 The tour exercises everything visually, but real mouse dragging, typing feel, viewport picking with a
 real mouse, fullscreen toggling and the preferences round trip (written on normal exit) have only been
-checked in code, not interactively.
+checked in code, not interactively. Plot frame rates on real GPU hardware have not been measured.
