@@ -69,6 +69,9 @@ public:
     bool setField(const std::string& key, const std::string& text);
     // Fields that currently matter (e.g. matrix cells vs. a single formula)
     virtual bool fieldActive(const Field& f) const;
+    // Variables (x, y, t) an object supplies to its own fields, e.g. a parameter's
+    // clock t. Return false for none (the default).
+    virtual bool provideSlots(expr::Slots& slots) const;
 
     // --- Properties (non-expression settings, saved as text) -------------------
     std::string prop(const std::string& key, const std::string& fallback = "") const;

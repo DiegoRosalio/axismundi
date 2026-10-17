@@ -8,13 +8,54 @@ namespace linalg::scene {
 // --- Parameter -------------------------------------------------------------------
 
 ParameterObject::ParameterObject() : SceneObject("parameter") {
+    setProp("mode", std::string("slider"));
     setProp("value", 1.0);
     setProp("min", 0.0);
     setProp("max", 6.2832);
     setProp("step", 0.0);
     setProp("playing", false);
-    setProp("loop", true);
-    setProp("speed", 0.15);
+    setProp("clock", 0.0);
+    setProp("period", 0.0);  // formula mode: wrap the clock after this many seconds (0 = never)
+    Playback p;
+    p.duration = 6.0f;
+    setPlayback(p);
+    addField("formula", "Value =", Expect::Number, "sin(t)");
+}
+
+ParameterObject::Mode ParameterObject::mode() const {
+    std::string m = prop("mode", "slider");
+    if (m == "animate") return Mode::Animate;
+    if (m == "formula") return Mode::Formula;
+    return Mode::Slider;
+}
+
+void ParameterObject::setMode(Mode m) {
+    setProp("mode", std::string(m == Mode::Animate ? "animate" : m == Mode::Formula ? "formula" : "slider"));
+}
+
+Playback ParameterObject::playback() const {
+    Playback p;
+    p.load(props(), "anim.");
+    p.phase = static_cast<float>(propNumber("anim.phase", 0.0));
+    p.direction = propNumber("anim.direction", 1.0) < 0 ? -1 : 1;
+    p.playing = playing();
+    return p;
+}
+
+void ParameterObject::setPlayback(const Playback& p) {
+    SceneData d;
+    p.save(d, "anim.");
+    for (const auto& [k, v] : d) setProp(k, v);
+    setProp("anim.phase", static_cast<double>(p.phase));
+    setProp("anim.direction", static_cast<double>(p.direction));
+}
+
+double ParameterObject::number() const {
+    if (mode() == Mode::Formula) {
+        const Field* f = field("formula");
+        return (f && f->value.isRealNumber()) ? f->value.re : 0.0;
+    }
+    return propNumber("value", 0.0);
 }
 
 void ParameterObject::setNumber(double v) {
@@ -23,25 +64,58 @@ void ParameterObject::setNumber(double v) {
     double step = propNumber("step", 0.0);
     if (step > 0) v = lo + std::round((v - lo) / step) * step;
     setProp("value", v);
+    if (mode() == Mode::Animate && hi > lo) {
+        // Jump the animation to the matching point (inverse only for linear progress)
+        Playback p = playback();
+        p.phase = static_cast<float>((v - lo) / (hi - lo));
+        setPlayback(p);
+    }
+}
+
+void ParameterObject::restart() {
+    setProp("clock", 0.0);
+    Playback p = playback();
+    p.phase = 0.0f;
+    p.direction = 1;
+    setPlayback(p);
+    if (mode() == Mode::Animate) setProp("value", minimum());
+    setPlaying(true);
 }
 
 void ParameterObject::advance(double dt) {
     if (!playing()) return;
-    double lo = minimum(), hi = maximum();
-    if (!(lo < hi)) return;
-    double v = number() + dt * propNumber("speed", 0.15) * (hi - lo);
-    if (v > hi) {
-        if (propBool("loop", true)) v = lo + std::fmod(v - lo, hi - lo);
-        else {
-            v = hi;
-            setProp("playing", false);
-        }
+    if (mode() == Mode::Formula) {
+        double t = clock() + dt;
+        double period = propNumber("period", 0.0);
+        if (period > 0.0) t = std::fmod(t, period);
+        setProp("clock", t);
+        return;
     }
-    setProp("value", v);
+    if (mode() == Mode::Animate) {
+        Playback p = playback();
+        p.advance(static_cast<float>(dt));
+        setPlayback(p);
+        setPlaying(p.playing);
+        double lo = minimum(), hi = maximum();
+        setProp("value", lo + (hi - lo) * static_cast<double>(p.value()));
+        return;
+    }
+    setPlaying(false);  // a plain slider does not play
+}
+
+bool ParameterObject::fieldActive(const Field& f) const {
+    return f.key == "formula" ? mode() == Mode::Formula : true;
+}
+
+bool ParameterObject::provideSlots(expr::Slots& slots) const {
+    slots.t = clock();
+    slots.hasT = true;
+    return true;
 }
 
 expr::Value ParameterObject::computeValue() const {
-    return expr::Value::scalar(number());
+    if (mode() == Mode::Formula) return field("formula")->value;
+    return expr::Value::scalar(propNumber("value", 0.0));
 }
 
 // --- Vector -----------------------------------------------------------------------
@@ -224,8 +298,8 @@ expr::Value ProductObject::computeValue() const {
 
 const std::vector<ObjectTypeInfo>& objectTypes() {
     static const std::vector<ObjectTypeInfo> types = {
-        {"parameter", "Parameter (slider)", "Basics", "s", spaceBit(SpaceKind::Euclidean3D) | spaceBit(SpaceKind::Complex),
-         "A named number you can drag or animate, usable in any formula",
+        {"parameter", "Parameter", "Basics", "s", spaceBit(SpaceKind::Euclidean3D) | spaceBit(SpaceKind::Complex),
+         "A named number: a slider, an animation or a formula of time t",
          [] { return std::make_unique<ParameterObject>(); }},
         {"vector", "Vector", "Basics", "v", spaceBit(SpaceKind::Euclidean3D),
          "An arrow given by components or by a formula such as a + b",

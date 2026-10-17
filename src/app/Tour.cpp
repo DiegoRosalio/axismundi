@@ -69,6 +69,27 @@ void Tour::buildSteps() {
         app.select("w", AppMode::Space3D, true);
     });
     step("07_parameter_rotation", [](App& app) { runExample(app, "Animated rotation"); }, 50);
+    step("07b_parameter_animate", [](App& app) {
+        auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
+        if (p) {
+            Playback pb = p->playback();
+            pb.repeat = Repeat::PingPong;
+            pb.easing = Easing::Bounce;
+            p->setPlayback(pb);
+        }
+        app.scenePanel().setEasingOpen(true);
+        app.select("theta");
+    }, 40);
+    step("07c_parameter_formula", [](App& app) {
+        app.scenePanel().setEasingOpen(false);
+        auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
+        if (p) {
+            p->setMode(scene::ParameterObject::Mode::Formula);
+            p->setField("formula", "pi/4*sin(2t)");
+            p->restart();
+        }
+        app.select("theta");
+    }, 50);
     step("08_matrix_formula_4x4", [](App& app) {
         runExample(app, "Move and turn (4×4)");
         app.select("M");

@@ -634,10 +634,90 @@ void testScene() {
     sc.evaluate();
     CHECK_NEAR(d.find("Ma")->value().vector.y, 1.0f, 1e-5f);
     std::uint64_t before = d.find("Ma")->changedAt();
-    theta->setProp("playing", true);
+    theta->setMode(ParameterObject::Mode::Animate);
+    theta->setPlaying(true);
     theta->advance(0.5);
     sc.evaluate();
     CHECK(d.find("Ma")->changedAt() > before);  // change propagated
+
+    // Parameter modes
+    {
+        Scene ps;
+        auto* k = static_cast<ParameterObject*>(ps.add(SpaceKind::Euclidean3D, "parameter", "k"));
+        auto* q = static_cast<ParameterObject*>(ps.add(SpaceKind::Euclidean3D, "parameter", "q"));
+        // Formula of time, using another object
+        q->setMode(ParameterObject::Mode::Formula);
+        q->setField("formula", "2t + k");
+        k->setNumber(1.0);
+        q->setPlaying(true);
+        q->advance(1.5);
+        ps.evaluate();
+        CHECK(q->error().empty());
+        CHECK_NEAR(q->number(), 4.0, 1e-9);
+        CHECK_NEAR(q->value().re, 4.0, 1e-9);
+        q->setProp("period", 2.0);
+        q->advance(1.0);  // 2.5 s wraps to 0.5 s
+        ps.evaluate();
+        CHECK_NEAR(q->clock(), 0.5, 1e-9);
+        q->restart();
+        CHECK_NEAR(q->clock(), 0.0, 1e-12);
+        // A slider ignores t in its (inactive) formula field
+        k->setField("formula", "nonsense(");
+        ps.evaluate();
+        CHECK(k->error().empty());
+        // Animate: eased value stays in range, ping-pong comes back
+        k->setMode(ParameterObject::Mode::Animate);
+        k->setProp("min", 2.0);
+        k->setProp("max", 4.0);
+        Playback pb = k->playback();
+        pb.duration = 2.0f;
+        pb.repeat = Repeat::PingPong;
+        pb.easing = Easing::EaseInOut;
+        pb.phase = 0.0f;
+        k->setPlayback(pb);
+        k->setPlaying(true);
+        k->advance(1.0);
+        CHECK_NEAR(k->number(), 3.0, 1e-5);  // ease-in-out(0.5) = 0.5
+        k->advance(0.5);
+        CHECK(k->number() > 3.0 && k->number() <= 4.0);
+        k->advance(1.0);  // reached the end and went back half way to 0.75 -> eased
+        CHECK(k->playback().direction == -1);
+        CHECK(k->number() >= 2.0 && k->number() <= 4.0);
+        // Round trip keeps mode, formula and style
+        SceneData data;
+        ps.save(data);
+        Scene back;
+        std::string err;
+        CHECK(back.load(data, err));
+        auto* q2 = static_cast<ParameterObject*>(back.space(SpaceKind::Euclidean3D).find("q"));
+        auto* k2 = static_cast<ParameterObject*>(back.space(SpaceKind::Euclidean3D).find("k"));
+        CHECK(q2 && q2->mode() == ParameterObject::Mode::Formula && q2->field("formula")->text == "2t + k");
+        CHECK(k2 && k2->playback().easing == Easing::EaseInOut && k2->playback().repeat == Repeat::PingPong);
+        // Old files: speed + loop, no mode
+        for (auto it = data.begin(); it != data.end();) {
+            if (it->first.find(".prop.mode") != std::string::npos || it->first.find(".prop.anim.") != std::string::npos)
+                it = data.erase(it);
+            else
+                ++it;
+        }
+        for (auto& [key, v] : data) {
+            if (key.size() > 13 && key.compare(key.size() - 13, 13, ".prop.playing") == 0) v = "1";
+        }
+        std::string kp;
+        for (auto& [key, v] : data)
+            if (v == "k" && key.size() > 5 && key.compare(key.size() - 5, 5, ".name") == 0) kp = key.substr(0, key.size() - 4);
+        CHECK(!kp.empty());
+        data[kp + "prop.speed"] = "0.25";
+        data[kp + "prop.loop"] = "0";
+        Scene old;
+        CHECK(old.load(data, err));
+        auto* k3 = static_cast<ParameterObject*>(old.space(SpaceKind::Euclidean3D).find("k"));
+        CHECK(k3 && k3->mode() == ParameterObject::Mode::Animate);
+        if (k3) {
+            CHECK_NEAR(k3->playback().duration, 4.0f, 1e-4f);
+            CHECK(k3->playback().repeat == Repeat::Once);
+        }
+    }
 
     // Unique names and rename with reference rewriting
     SceneObject* v = sc.add(SpaceKind::Euclidean3D, "vector", "a");

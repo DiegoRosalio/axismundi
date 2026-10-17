@@ -185,6 +185,16 @@ void Scene::restore(const SceneData& data) {
                 else if (it->first.compare(0, propPrefix.size(), propPrefix) == 0)
                     obj->setProp(it->first.substr(propPrefix.size()), it->second);
             }
+            if (type == "parameter" && !data.count(propPrefix + "mode")) {
+                // Files from before parameter modes: speed (range widths per second) + loop
+                auto* p = static_cast<ParameterObject*>(obj.get());
+                Playback pb = p->playback();
+                double speed = p->propNumber("speed", 0.15);
+                pb.duration = static_cast<float>(1.0 / std::max(0.01, speed));
+                pb.repeat = p->propBool("loop", true) ? Repeat::Loop : Repeat::Once;
+                p->setPlayback(pb);
+                p->setMode(p->playing() ? ParameterObject::Mode::Animate : ParameterObject::Mode::Slider);
+            }
             sp.add(std::move(obj), name);
         }
         for (const auto& n : selectedNames)

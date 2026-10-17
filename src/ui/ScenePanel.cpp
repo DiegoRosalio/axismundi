@@ -28,7 +28,13 @@ std::string fmt(double v) {
 std::string summaryOf(const SceneObject& o) {
     const std::string& type = o.typeId();
     if (!o.error().empty()) return o.error();
-    if (type == "parameter") return "slider = " + fmt(static_cast<const scene::ParameterObject&>(o).number());
+    if (type == "parameter") {
+        const auto& p = static_cast<const scene::ParameterObject&>(o);
+        const char* how = p.mode() == scene::ParameterObject::Mode::Formula
+                              ? "f(t)"
+                              : p.mode() == scene::ParameterObject::Mode::Animate ? "animated" : "slider";
+        return std::string(how) + " = " + fmt(p.number());
+    }
     if (type == "eigen") {
         const scene::Field* f = o.field("of");
         return "eigenvectors of " + (f ? f->text : std::string("?"));
@@ -565,57 +571,137 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         note(col, "Use x, y, t and parameters by name, e.g. a*sin(x).", t.textFaint);
     } else if (type == "parameter") {
         auto& p = static_cast<scene::ParameterObject&>(o);
-        Rectangle row = col.row(30.0f);
-        Rectangle value = ui::takeRight(row, 56.0f, 8.0f);
-        float v = static_cast<float>(p.number());
-        if (ui::slider(row, v, static_cast<float>(p.minimum()), static_cast<float>(p.maximum()))) {
-            p.setNumber(v);
-            m_sliderDirty = true;
+        using PMode = scene::ParameterObject::Mode;
+        Rectangle modeRow = col.row(30.0f);
+        int m = static_cast<int>(p.mode());
+        if (ui::segmented(modeRow, {"Slider", "Animate", "Formula"}, m,
+                          {"Set the value by hand.",
+                           "Run from min to max with a repeat style and an easing curve.",
+                           "The value is a formula of time t (seconds), e.g. 2pi*t/5 or sin(t)."})) {
+            p.setMode(static_cast<PMode>(m));
+            if (p.mode() == PMode::Slider) p.setPlaying(false);
+            commit();
         }
-        ui::anchor("parameter.slider", row);
-        ui::textIn(value, fmt(p.number()).c_str(), ui::FontRole::Mono, t.text, ui::Align::Right);
+        ui::anchor("parameter.mode", modeRow);
 
-        Rectangle range = col.row(34.0f);
-        Rectangle l = ui::takeLeft(range, 52.0f, 6.0f);
-        ui::textIn(l, "Range", ui::FontRole::Body, t.textMuted);
-        auto cells = ui::splitRow(range, {1, 1}, 26.0f);
-        const char* keys[2] = {"min", "max"};
-        for (int k = 0; k < 2; k++) {
-            std::string key = keys[k];
-            editText(cells[k], fieldId(p, std::string("#") + key), fmt(p.propNumber(key)), false,
-                     [&sc, kind, oid, key](const std::string& text) {
-                         float val;
+        if (p.mode() == PMode::Formula) {
+            col.setY(fieldRow(col.x(), col.y(), col.width(), o, "formula", sc, 64.0f));
+            ui::anchor("parameter.formula", {col.x(), col.y() - ui::px(40), col.width(), ui::px(36)});
+            char buf[96];
+            snprintf(buf, sizeof(buf), "t = %.2f s     %s = %s", p.clock(), p.name().c_str(), fmt(p.number()).c_str());
+            ui::textIn(col.row(18.0f), buf, ui::FontRole::Mono, t.textMuted);
+        } else {
+            Rectangle row = col.row(30.0f);
+            Rectangle value = ui::takeRight(row, 56.0f, 8.0f);
+            float v = static_cast<float>(p.number());
+            if (ui::slider(row, v, static_cast<float>(p.minimum()), static_cast<float>(p.maximum()))) {
+                p.setNumber(v);
+                m_sliderDirty = true;
+            }
+            ui::anchor("parameter.slider", row);
+            ui::textIn(value, fmt(p.number()).c_str(), ui::FontRole::Mono, t.text, ui::Align::Right);
+
+            Rectangle range = col.row(34.0f);
+            Rectangle l = ui::takeLeft(range, 52.0f, 6.0f);
+            ui::textIn(l, "Range", ui::FontRole::Body, t.textMuted);
+            auto cells = ui::splitRow(range, {1, 1}, 26.0f);
+            const char* keys[2] = {"min", "max"};
+            for (int k = 0; k < 2; k++) {
+                std::string key = keys[k];
+                editText(cells[k], fieldId(p, std::string("#") + key), fmt(p.propNumber(key)), false,
+                         [&sc, kind, oid, key](const std::string& text) {
+                             float val;
+                             auto* ob = dynamic_cast<scene::ParameterObject*>(sc.space(kind).find(oid));
+                             if (!ob || !parseNumber(text.c_str(), val)) return false;
+                             ob->setProp(key, static_cast<double>(val));
+                             ob->setNumber(ob->number());
+                             sc.commit();
+                             return true;
+                         });
+            }
+            ui::textIn({cells[0].x + cells[0].width, range.y, ui::px(26), range.height}, "to", ui::FontRole::Small,
+                       t.textMuted, ui::Align::Center);
+        }
+
+        if (p.mode() == PMode::Animate) {
+            Playback pb = p.playback();
+            bool changed = false;
+            changed |= ui::repeatControl(col.row(30.0f), pb.repeat);
+            Rectangle row = col.row(32.0f);
+            Rectangle easeRect = ui::takeLeft(row, 150.0f, 10.0f);
+            if (ui::easingButton(easeRect, pb.easing, m_easingOpen)) m_easingOpen = !m_easingOpen;
+            ui::anchor("parameter.easing", easeRect);
+            Rectangle durValue = ui::takeRight(row, 44.0f, 6.0f);
+            float dur = pb.duration;
+            if (ui::slider(row, dur, 0.5f, 30.0f)) {
+                pb.duration = dur;
+                changed = true;
+                m_sliderDirty = true;
+            }
+            ui::tooltip(row, "Seconds for one run from min to max.", "Duration");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%.1fs", pb.duration);
+            ui::textIn(durValue, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+            if (m_easingOpen) {
+                bool picked = false;
+                float h = ui::easingGrid(col.x(), col.y(), col.width(), pb.easing, picked);
+                col.space(h / ui::scale() + 6.0f);
+                changed |= picked;
+            }
+            if (changed) {
+                p.setPlayback(pb);
+                if (!m_sliderDirty) commit();
+            }
+        }
+
+        // Transport: play / pause, restart (Play on a plain slider switches it to Animate)
+        Rectangle controls = col.row(32.0f);
+        Rectangle play = ui::takeLeft(controls, 32.0f, 6.0f);
+        Rectangle restart = ui::takeLeft(controls, 32.0f, 10.0f);
+        if (ui::iconButton(play, p.playing() ? ui::Icon::Pause : ui::Icon::Play, p.playing())) {
+            if (p.mode() == PMode::Slider) {
+                p.setMode(PMode::Animate);
+                Playback pb = p.playback();
+                double lo = p.minimum(), hi = p.maximum();
+                pb.phase = hi > lo ? static_cast<float>((p.number() - lo) / (hi - lo)) : 0.0f;
+                p.setPlayback(pb);
+                p.setPlaying(true);
+                commit();
+            } else {
+                Playback pb = p.playback();
+                if (p.mode() == PMode::Animate && !p.playing() && pb.repeat == Repeat::Once && pb.phase >= 1.0f) {
+                    p.restart();
+                } else {
+                    p.setPlaying(!p.playing());
+                }
+            }
+        }
+        if (ui::iconButton(restart, ui::Icon::Reset, false)) p.restart();
+        ui::anchor("parameter.play", play);
+        ui::tooltip(play, p.mode() == PMode::Formula ? "Run or pause the clock t."
+                                                     : "Run through the range (switches a slider to Animate).",
+                    "Play / pause");
+        ui::tooltip(restart, p.mode() == PMode::Formula ? "Set t back to 0 and play." : "Start again from min.",
+                    "Restart");
+        if (p.mode() == PMode::Formula) {
+            Rectangle wrapLabel = ui::takeLeft(controls, 96.0f, 6.0f);
+            ui::textIn(wrapLabel, "Wrap t after", ui::FontRole::Small, t.textMuted);
+            Rectangle wrapField = ui::takeLeft(controls, 70.0f, 6.0f);
+            double period = p.propNumber("period", 0.0);
+            editText(wrapField, fieldId(p, "#period"), period > 0 ? fmt(period) : std::string("never"), false,
+                     [&sc, kind, oid](const std::string& text) {
                          auto* ob = dynamic_cast<scene::ParameterObject*>(sc.space(kind).find(oid));
-                         if (!ob || !parseNumber(text.c_str(), val)) return false;
-                         ob->setProp(key, static_cast<double>(val));
-                         ob->setNumber(ob->number());
+                         if (!ob) return false;
+                         float val = 0.0f;
+                         if (text == "never" || text.empty()) val = 0.0f;
+                         else if (!parseNumber(text.c_str(), val) || val < 0.0f) return false;
+                         ob->setProp("period", static_cast<double>(val));
                          sc.commit();
                          return true;
                      });
-        }
-        ui::textIn({cells[0].x + cells[0].width, range.y, ui::px(26), range.height}, "to", ui::FontRole::Small,
-                   t.textMuted, ui::Align::Center);
-
-        Rectangle controls = col.row(32.0f);
-        Rectangle play = ui::takeLeft(controls, 32.0f, 6.0f);
-        Rectangle loop = ui::takeLeft(controls, 32.0f, 12.0f);
-        if (ui::iconButton(play, p.playing() ? ui::Icon::Pause : ui::Icon::Play, p.playing())) {
-            p.setProp("playing", !p.playing());
-        }
-        bool looping = p.propBool("loop", true);
-        if (ui::iconButton(loop, ui::Icon::Loop, looping)) {
-            p.setProp("loop", !looping);
-            commit();
-        }
-        ui::anchor("parameter.play", play);
-        ui::tooltip(play, "Animate: run through the range", "Play");
-        ui::tooltip(loop, "Start again at the end", "Loop");
-        Rectangle speedLabel = ui::takeLeft(controls, 46.0f, 6.0f);
-        ui::textIn(speedLabel, "Speed", ui::FontRole::Small, t.textMuted);
-        float speed = static_cast<float>(p.propNumber("speed", 0.15));
-        if (ui::slider(controls, speed, 0.02f, 1.0f)) {
-            p.setProp("speed", static_cast<double>(speed));
-            m_sliderDirty = true;
+            ui::tooltip(wrapField, "Restart t at 0 after this many seconds (empty or \"never\": keep counting).",
+                        "Period");
+            ui::textIn(controls, "s", ui::FontRole::Small, t.textMuted);
         }
         note(col, "Use " + p.name() + " in any formula, e.g. rotz(" + p.name() + ") or exp(i*" + p.name() + ").",
              t.textFaint);

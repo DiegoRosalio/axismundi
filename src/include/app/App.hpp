@@ -116,6 +116,7 @@ public:
     bool breakdownActive() const;
     BreakdownPanel& breakdownPanel() { return m_breakdownPanel; }
     TutorialPanel& tutorialPanel() { return m_tutorialPanel; }
+    ScenePanel& scenePanel() { return m_scenePanel; }
     bool addMenuOpen() const { return m_addMenu.isOpen(); }
 
     void saveScene();

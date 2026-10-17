@@ -1,5 +1,6 @@
 #pragma once
 
+#include "animation/Playback.hpp"
 #include "scene/SceneObject.hpp"
 #include <functional>
 #include <memory>
@@ -9,17 +10,33 @@ namespace linalg::scene {
 
 // --- Concrete object types ------------------------------------------------------
 
-// A named number with a slider range; can play (animate) through its range
+// A named number, driven three ways:
+//  - Slider:  set by hand
+//  - Animate: runs from min to max with a repeat style, easing and duration
+//  - Formula: an expression of t, the parameter's own clock in seconds
+//             (e.g. 2pi*t/5, sin(t), 3 + cos(2t)*k)
 class ParameterObject : public SceneObject {
 public:
+    enum class Mode { Slider, Animate, Formula };
+
     ParameterObject();
-    double number() const { return propNumber("value", 0.0); }
-    void setNumber(double v);
+    Mode mode() const;
+    void setMode(Mode mode);
+    double number() const;          // current value (in Formula mode: the last evaluated one)
+    void setNumber(double v);       // Slider/Animate: set by hand (Animate jumps to that point)
     double minimum() const { return propNumber("min", 0.0); }
     double maximum() const { return propNumber("max", 1.0); }
     bool playing() const { return propBool("playing"); }
-    // Advance while playing; speed is in range-widths per second
+    void setPlaying(bool playing) { setProp("playing", playing); }
+    void restart();                 // back to the start (t = 0 or min) and play
+    double clock() const { return propNumber("clock", 0.0); }
+    Playback playback() const;      // repeat, easing, duration and phase from the properties
+    void setPlayback(const Playback& p);
+    // Advance while playing (clock or animation)
     void advance(double deltaSeconds);
+
+    bool fieldActive(const Field& f) const override;
+    bool provideSlots(expr::Slots& slots) const override;
 
 protected:
     expr::Value computeValue() const override;

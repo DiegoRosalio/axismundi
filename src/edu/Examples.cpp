@@ -71,7 +71,7 @@ std::vector<Example> build() {
                     [](App& app) {
                         fresh(app, AppMode::Space3D);
                         app.addObject(AppMode::Space3D, "parameter", "theta", {},
-                                      {{"value", "0"}, {"min", "0"}, {"max", "6.2832"}, {"playing", "1"}});
+                                      {{"value", "0"}, {"min", "0"}, {"max", "6.2832"}, {"mode", "animate"}, {"playing", "1"}});
                         app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "rotz(theta)"}}, {{"mode", "formula"}});
                         app.addObject(AppMode::Space3D, "vector", "a", {{"x", "2"}, {"y", "0"}, {"z", "1"}});
                         app.addObject(AppMode::Space3D, "vector", "Ma", {{"value", "M*a"}}, {{"mode", "formula"}});

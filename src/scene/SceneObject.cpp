@@ -89,6 +89,10 @@ bool SceneObject::fieldActive(const Field&) const {
     return true;
 }
 
+bool SceneObject::provideSlots(expr::Slots&) const {
+    return false;
+}
+
 std::string SceneObject::prop(const std::string& key, const std::string& fallback) const {
     auto it = m_props.find(key);
     return it == m_props.end() ? fallback : it->second;
@@ -152,7 +156,8 @@ void SceneObject::evaluate(const expr::Resolver& resolver, std::uint64_t epoch, 
             slots.hasX = slots.hasY = slots.hasT = true;
             v = f.program.eval(&resolver, &slots);
         } else {
-            v = f.program.eval(&resolver);
+            expr::Slots own;
+            v = provideSlots(own) ? f.program.eval(&resolver, &own) : f.program.eval(&resolver);
         }
         f.error = checkExpect(f.expect, v);
         f.value = v;

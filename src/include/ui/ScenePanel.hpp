@@ -35,6 +35,8 @@ public:
     void finishEditing(scene::Scene& scene);
     void cancelEditing() { m_activeId = -1; }
 
+    void setEasingOpen(bool open) { m_easingOpen = open; }
+
 private:
     // One editable text: the object it belongs to and what committing does
     struct Editable {
@@ -65,6 +67,7 @@ private:
     bool m_showInspector = true;
     int m_exampleIndex = 0;
     bool m_sliderDirty = false;  // a slider changed the scene; commit on release
+    bool m_easingOpen = false;   // easing grid in the parameter inspector
 };
 
 } // namespace linalg
