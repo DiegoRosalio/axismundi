@@ -53,6 +53,7 @@ std::string compact(const expr::Value& v) {
             }
             return s + "]";
         }
+        case Type::Quaternion: return v.summary();
         case Type::Error: return v.error;
     }
     return "";

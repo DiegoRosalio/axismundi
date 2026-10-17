@@ -565,6 +565,72 @@ void testVectorField() {
     CHECK_NEAR(particleTime(circle, 0, 3, 0.25, 2.0), 0.5, 1e-9);
 }
 
+void testQuaternions() {
+    using namespace expr;
+    auto ev = [](const char* text) {
+        Program p;
+        if (!p.compile(text)) return Value::fail("parse: " + p.error());
+        return p.eval();
+    };
+    auto near = [](const Value& v, double w, double x, double y, double z) {
+        return v.type == Type::Quaternion && std::fabs(v.re - w) < 1e-9 && std::fabs(v.qi - x) < 1e-9 &&
+               std::fabs(v.qj - y) < 1e-9 && std::fabs(v.qk - z) < 1e-9;
+    };
+    // Hamilton's rules: i·j = k, j·i = −k, i² = −1
+    CHECK(near(ev("quat(0, 1, 0, 0) * quat(0, 0, 1, 0)"), 0, 0, 0, 1));
+    CHECK(near(ev("quat(0, 0, 1, 0) * quat(0, 1, 0, 0)"), 0, 0, 0, -1));
+    CHECK(near(ev("quat(0, 1, 0, 0)^2"), -1, 0, 0, 0));
+    CHECK(near(ev("2 * quat(1, 2, 3, 4) - quat(1, 2, 3, 4)"), 1, 2, 3, 4));
+    CHECK(near(ev("quat(1, 2, 3, 4) + 1"), 2, 2, 3, 4));
+    CHECK(near(ev("conj(quat(1, 2, 3, 4))"), 1, -2, -3, -4));
+    CHECK(near(ev("quat(1, 2, 3, 4) * inv(quat(1, 2, 3, 4))"), 1, 0, 0, 0));
+    CHECK(near(ev("quat(1, 2, 3, 4) / quat(1, 2, 3, 4)"), 1, 0, 0, 0));
+    CHECK_NEAR(ev("abs(quat(1, 1, 1, 1))").re, 2, 1e-12);
+    CHECK_NEAR(ev("abs(unit(quat(1, 2, 3, 4)))").re, 1, 1e-12);
+    CHECK_NEAR(ev("quat(1, 2, 3, 4).y").re, 3, 1e-12);
+    CHECK_NEAR(ev("quat(1, 2, 3, 4).w").re, 1, 1e-12);
+    CHECK(ev("quat(1, 0, 0, 0.7071)").summary() == "1 + 0.707k");
+    CHECK(ev("quat(0, -1, 0, 0)").summary() == "−i");
+    CHECK(ev("quat(0, 0, 0, 0)").summary() == "0");
+    // Rotations: qaxis agrees with rotz, rotate turns vectors, angle/axis read it back
+    const double s2 = std::sqrt(0.5);
+    CHECK(near(ev("qaxis([0, 0, 2], pi/2)"), s2, 0, 0, s2));
+    Value turned = ev("rotate(qaxis([0, 0, 1], pi/2), [1, 0, 0])");
+    CHECK(turned.type == Type::Vector && std::fabs(turned.vector.y - 1) < 1e-6 && std::fabs(turned.vector.x) < 1e-6);
+    Value m = ev("mat(qaxis([0, 0, 1], 0.7)) - rotz(0.7)");
+    double worst = 0;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) worst = std::max(worst, static_cast<double>(std::fabs(m.matrix.m[i][j])));
+    CHECK(worst < 1e-6);
+    CHECK_NEAR(ev("angle(qaxis([1, 1, 0], 2))").re, 2, 1e-6);  // vectors are single precision
+    CHECK_NEAR(ev("angle(-qaxis([1, 1, 0], 2))").re, 2, 1e-6);  // −q is the same rotation
+    CHECK_NEAR(ev("axis(qaxis([0, 3, 0], 1)).y").re, 1, 1e-6);
+    CHECK(ev("axis(quat(1, 0, 0, 0))").error.find("no rotation") == 0);
+    // quat(M) round trip (w ≥ 0), and only for rotation matrices
+    CHECK(near(ev("quat(mat(qaxis([1, 2, 2], 1.2)))"), ev("qaxis([1, 2, 2], 1.2)").re,
+               ev("qaxis([1, 2, 2], 1.2)").qi, ev("qaxis([1, 2, 2], 1.2)").qj, ev("qaxis([1, 2, 2], 1.2)").qk) ||
+          std::fabs(ev("abs(quat(mat(qaxis([1, 2, 2], 1.2))) - qaxis([1, 2, 2], 1.2))").re) < 1e-5);
+    CHECK(!ev("quat(scale(2))").ok());
+    // Order matters: rotating about x then z differs from z then x
+    CHECK(ev("abs(qaxis([0, 0, 1], pi/2) * qaxis([1, 0, 0], pi/2) - qaxis([1, 0, 0], pi/2) * qaxis([0, 0, 1], pi/2))").re > 0.5);
+    // slerp: halfway between the identity and a half turn about z is a quarter turn; lerp/keys slerp too
+    CHECK(near(ev("slerp(quat(1, 0, 0, 0), qaxis([0, 0, 1], pi), 0.5)"), s2, 0, 0, s2));
+    CHECK(near(ev("lerp(quat(1, 0, 0, 0), qaxis([0, 0, 1], pi), 0.5)"), s2, 0, 0, s2));
+    CHECK(near(ev("keys(0.5, quat(1, 0, 0, 0), qaxis([0, 0, 1], pi/2), qaxis([0, 0, 1], pi))"), s2, 0, 0, s2));
+    CHECK_NEAR(ev("abs(slerp(quat(2, 0, 0, 0), quat(0, 0, 0, 3), 0.3))").re, 1, 1e-9);  // unit result
+    // Mixing with other kinds explains itself
+    CHECK(ev("qaxis([0, 0, 1], 1) * [1, 0, 0]").error.find("rotate(q, v)") != std::string::npos);
+    CHECK(ev("qaxis([0, 0, 1], 1) * rotz(1)").error.find("mat(q)") != std::string::npos);
+    CHECK(ev("qaxis([0, 0, 1], 1) + (1 + 2i)").error.find("quat(re, im, 0, 0)") != std::string::npos);
+    CHECK(!ev("quat(1, 2, 3, 4)^0.5").ok());
+    // Common words stay usable as object names: angle( is the function, angle alone a name
+    CHECK(isValidName("angle") && isValidName("axis") && isValidName("mat") && isValidName("rotate"));
+    CHECK(!isValidName("qaxis") && !isValidName("slerp"));
+    Program named;
+    CHECK(named.compile("2*angle + angle(qaxis([0, 0, 1], 1))"));
+    CHECK(named.names().count("angle") == 1);
+}
+
 void testFieldVariable() {
     using namespace expr;
     // z is a variable only with kVarZ; otherwise a name (objects may be called z)
@@ -689,7 +755,9 @@ void testExprEngine() {
     expr::Program bad;
     CHECK(!bad.compile("dot([1,0,0])"));   // wrong argument count
     CHECK(!bad.compile("[1, 2"));
-    CHECK(!bad.compile("a.w"));
+    CHECK(!bad.compile("a.u"));
+    CHECK(bad.compile("[1, 0, 0].w"));  // .w is for quaternions: an evaluation error on a vector
+    CHECK(bad.eval().error.find(".w is for quaternions") == 0);
     CHECK(expr::isValidName("z1"));
     CHECK(expr::isValidName("M_2"));
     CHECK(!expr::isValidName("sin"));
@@ -1562,6 +1630,7 @@ int main() {
         {"Contour", testContour},
         {"Text layout", testTextLayout},
         {"Field variable z", testFieldVariable},
+        {"Quaternions", testQuaternions},
         {"Vector field", testVectorField},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},

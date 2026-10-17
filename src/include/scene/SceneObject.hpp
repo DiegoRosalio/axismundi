@@ -28,6 +28,7 @@ enum class Expect {
     ComplexNum,   // real or complex number
     Vector,
     Matrix,
+    Quaternion,
     Plot,         // real-valued function of x, y, t (checked with sample values)
     Field,        // vector-valued function of x, y, z, t (vector fields; checked with sample values)
 };

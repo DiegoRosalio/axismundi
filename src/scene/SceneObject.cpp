@@ -19,6 +19,7 @@ bool sameValue(const expr::Value& a, const expr::Value& b) {
                 for (int j = 0; j < 4; j++)
                     if (a.matrix.m[i][j] != b.matrix.m[i][j]) return false;
             return true;
+        case expr::Type::Quaternion: return a.re == b.re && a.qi == b.qi && a.qj == b.qj && a.qk == b.qk;
         case expr::Type::Error:   return a.error == b.error;
     }
     return false;
@@ -42,6 +43,10 @@ std::string checkExpect(Expect expect, const expr::Value& v) {
             return v.type == expr::Type::Vector ? "" : "should be a vector, not " + v.typeName();
         case Expect::Matrix:
             return v.type == expr::Type::Matrix ? "" : "should be a matrix, not " + v.typeName();
+        case Expect::Quaternion:
+            return v.type == expr::Type::Quaternion ? ""
+                                                    : "should be a quaternion such as qaxis([0, 0, 1], pi/2), not " +
+                                                          v.typeName();
     }
     return "";
 }

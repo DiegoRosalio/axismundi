@@ -77,6 +77,30 @@ std::vector<ReferenceSection> build() {
                      {"eye()   eye(4)", "The identity, 3×3 or 4×4.", "eye(4)"},
                  }});
 
+    s.push_back({"Quaternions",
+                 "A quaternion w + xi + yj + zk is a rotation in four numbers: turning by an angle about an axis "
+                 "gives w = cos(angle/2) and (x, y, z) = the axis times sin(angle/2). Multiplying two of them does "
+                 "one rotation after the other.",
+                 {
+                     {"qaxis(axis, angle)", "The rotation by angle (radians) about the axis: a unit quaternion.",
+                      "qaxis([0, 0, 1], pi/2)"},
+                     {"quat(w, x, y, z)   quat(M)", "A quaternion from its four numbers, or from a rotation matrix.",
+                      "quat(rotz(pi/2))"},
+                     {"q1 * q2", "First q2, then q1 (like matrices). The order matters: qx·qz ≠ qz·qx.",
+                      "qaxis([1, 0, 0], pi/2) * qaxis([0, 0, 1], pi/2)"},
+                     {"rotate(q, v)", "The vector v turned by q (q v q⁻¹).", "rotate(qaxis([0, 0, 1], pi/2), [1, 0, 0])"},
+                     {"mat(q)", "The rotation matrix of q.", "mat(qaxis([0, 0, 1], pi/2))"},
+                     {"axis(q)   angle(q)", "The rotation axis (length 1) and angle (0 to π) of q.",
+                      "angle(qaxis([0, 1, 0], 2))"},
+                     {"slerp(a, b, s)", "Turns from rotation a to rotation b as s goes from 0 to 1, along the "
+                                        "shortest way and at constant speed. lerp and keys do the same with "
+                                        "quaternions.",
+                      "slerp(quat(1, 0, 0, 0), qaxis([0, 0, 1], pi), 0.5)"},
+                     {"conj(q)   inv(q)   abs(q)   unit(q)   q.w q.x q.y q.z",
+                      "Conjugate (the opposite rotation for |q| = 1), inverse, length, q scaled to length 1, and "
+                      "the four numbers.", "abs(quat(1, 1, 1, 1))"},
+                 }});
+
     s.push_back({"Complex numbers",
                  "Used in the complex plane: the real part runs along the red axis, the imaginary part along the "
                  "green one. Most functions accept complex numbers.",
