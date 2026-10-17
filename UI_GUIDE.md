@@ -71,7 +71,9 @@ Each space has its own list of objects. The side bar shows:
 - a matrix and vectors: M·v;
 - a matrix: its eigenvectors, inverse, transpose;
 - two matrices: their product;
-- complex numbers: product, sum, quotient, conjugate, square.
+- complex numbers: product, sum, quotient, conjugate, square;
+- two quaternions: compose a·b or b·a, turn from a to b (slerp with a slider); a quaternion and vectors: rotate
+  them; one quaternion: its matrix, its inverse, a turn from no rotation; a matrix: its quaternion.
 
 ### Object types
 
@@ -81,6 +83,7 @@ Each space has its own list of objects. The side bar shows:
 | Matrix | 3D | Cells (3×3 / 4×4, presets that add up; Identity starts over) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
 | Function / Curve / Surface / Implicit | 3D | Expressions in x, y (u for curves) and t; ranges; Detail per unit; Heat map; Next example |
+| Quaternion | 3D | q = formula (e.g. `qaxis([0, 0, 1], pi/2)`); the four numbers, angle and axis, \|q\|; Axis and angle, Rotated basis, Acts on a vector; Next example |
 | Vector field | 3D | F(x, y, z) (a vector formula); Plane / Volume; ranges; arrows per unit; color by strength, same length, flow lines, particles (+ speed); Next example |
 | Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration, start delay |
 | Complex number | complex | Value; circle, cos/sin projections, helix options; length and angle |
@@ -95,6 +98,8 @@ The **Formula reference** (F2) has all of this with live examples. Every field i
 - vectors: `dot cross norm normalize`;
 - matrices: `det tr inv transpose rotx roty rotz rot(axis, angle) scale translate eye`;
 - complex numbers: `conj re im arg polar`;
+- quaternions: `qaxis(axis, angle) quat(w, x, y, z) quat(M) rotate(q, v) mat(q) axis(q) angle(q) slerp(a, b, s)`,
+  `q1*q2` (q2 first), `conj inv abs unit`, `q.w q.x q.y q.z`; `lerp`/`keys` slerp between quaternions;
 - blending: `lerp(a, b, s)`, `keys(s, A, B, …)`; and `mod(a, b)`.
 
 `M*v` applies a matrix to a vector (a 4×4 matrix treats v as a point); `M*N` composes; `M^-1` inverts.
@@ -138,6 +143,23 @@ The clock is saved with the scene. Undo never moves it.
 `0` stands for zero, so `lerp(0, v, s)` grows v from nothing. `keys(s, A, B, C, …)` runs through several values
 as s goes from 0 to 1. The Add menu builds these for the selection: **Morph from identity** (a matrix),
 **Grow from zero** (a vector or complex number) and **Blend** (two objects), each with a new slider `s`.
+
+### Quaternions
+A quaternion w + xi + yj + zk is a rotation in four numbers: turning by an angle about an axis gives
+w = cos(angle/2) and (x, y, z) = the axis × sin(angle/2). Add → Linear algebra → **Quaternion**.
+- Write them with functions: `qaxis([0, 0, 1], pi/2)` (a quarter turn about z), `quat(w, x, y, z)`, `quat(M)`
+  from a rotation matrix. Results show as `0.707 + 0.707k`. There are no i/j/k units to type: `i` is the complex
+  unit and j, k stay free as names.
+- **q1*q2** is "q2 first, then q1"; the order matters. `rotate(q, v)` turns a vector, `mat(q)` gives the matrix,
+  `axis(q)` and `angle(q)` read it back, `slerp(a, b, s)` turns from a to b at constant speed (lerp and keys do the
+  same with quaternions).
+- The view shows the **axis** (dashed line, arrow, label `q  90° about (0, 0, 1)`), the **angle** as an arc with
+  an arrowhead (right-hand rule), the **rotated basis**, and with **Acts on a vector** a vector v (gray), its
+  image q v q⁻¹ and the circle its tip follows.
+- Any quaternion is allowed; one whose length isn't 1 is drawn as the rotation of q/|q| and the inspector says so.
+- The names `rotate`, `mat`, `axis` and `angle` can still be object names: followed by `(` they are the functions.
+- Analysis, templates, LaTeX export and the Paper style support them. Gallery: quarter turn, order matters,
+  slerp, quaternion from a matrix. Tutorial: "Quaternions".
 
 ### Vector fields
 Add → Fields → **Vector field**. **F(x, y, z)** is a vector formula of the point, such as `[-y, x, 0]`

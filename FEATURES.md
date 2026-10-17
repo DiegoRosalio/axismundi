@@ -30,6 +30,13 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Parameters as slider, animation (with start delay) or formula of time
 - [x] Scrubbing shows any moment (time-driven values are computed from the time)
 
+## Quaternions
+- [x] Quaternion value kind in formulas: `qaxis(axis, angle)`, `quat(w, x, y, z)`, `quat(M)`, Hamilton product,
+      `rotate`, `mat`, `axis`, `angle`, `slerp`, `conj`/`inv`/`abs`/`unit`, components; lerp/keys slerp
+- [x] Quaternion object: axis and angle, rotated basis, acting on a vector; non-unit quaternions explained
+- [x] Analysis panel (axis/angle, matrix, yaw/pitch/roll; two quaternions: both products, angle between), Add menu
+      templates, gallery examples, tutorial lesson, LaTeX export and Paper style
+
 ## Vector fields
 - [x] Vector field object F(x, y, z) (`z` is a variable in field formulas), on the floor (Plane) or in a box
       (Volume), with ranges and arrows per unit

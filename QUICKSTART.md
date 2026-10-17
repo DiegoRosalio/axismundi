@@ -60,7 +60,10 @@ floor grid larger.
 
 ## Tools
 
-- **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form).
+- **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form,
+  quaternion axis and angle).
+- **Quaternions** (Add → Quaternion): rotations in four numbers, `qaxis([0, 0, 1], pi/2)`. The tutorial lesson
+  "Quaternions" explains them step by step.
 - **B** Breakdown: the selected matrix as rotate → stretch → rotate, step by step.
 - **K** Calculation steps: worked calculations with your numbers.
 - **F2** Formula reference: everything you can type in a formula, with live examples and a box to try your own.

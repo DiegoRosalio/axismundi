@@ -5,10 +5,9 @@ Open work, roughly in the order it makes sense to do it. Everything already done
 
 ## Next up (in this order)
 
-1. Quaternions: a new value kind in the expression engine
-2. CI: `make test` and the headless tour on every push
-3. Recording the Time panel to a PNG sequence or video
-4. Later: the remaining Advanced Math items, Windows/macOS builds, performance
+1. CI: `make test` and the headless tour on every push
+2. Recording the Time panel to a PNG sequence or video
+3. Later: the remaining Advanced Math items, Windows/macOS builds, performance
 
 ## Medium priority
 
@@ -33,12 +32,14 @@ More export options
 - [ ] A frame series for the `animate` package
 
 ### Advanced math
-Quaternions next (roadmap step 5); the rest later. Vector fields are in (see FEATURES.md).
+Vector fields and quaternions are in (see FEATURES.md); the rest later.
 - [ ] Vector fields, next: divergence and curl (numerical; color by div F, curl as small arrows, values at a probe
       point in the Analysis panel), seed placement by clicking, true path lines for fields that change with t
 - [ ] Vector field performance: fields of t rebuild arrows and flow lines every frame (about 10–25 ms on the CPU
       for typical sizes, more for dense ones); consider caching per time step or tracing on a worker thread
-- [ ] Quaternion visualization (roadmap step 5: a quaternion value kind, axis-angle view, slerp)
+- [ ] Quaternions, next: the 3-sphere picture (unit quaternions as points of S³, stereographic view), a
+      pose/orientation object that rotates a model (e.g. a small airplane) instead of the basis, and Euler-angle
+      gimbal-lock demo
 - [ ] Fourier transform visualization
 - [ ] Integration volume visualization
 - [ ] Differential geometry tools

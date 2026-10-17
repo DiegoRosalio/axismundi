@@ -55,9 +55,17 @@ input_stop
 
 # Second session: a vector field from the Add menu (fresh start, so the menu has no templates)
 OUT=$DEV/input/field; input_start || { input_stop; exit 1; }
-click 290 83; click 97 623;        shot 30_field_added            # Add > Fields > Vector field
+click 290 83; click 97 671;        shot 30_field_added            # Add > Fields > Vector field
 click 205 264; key ctrl+a; type_ "[-y - x/4, x - y/4, 0]"; key Return
 click 305 589;                    shot 31_field_particles_on     # Particles switch
 hover 1000 250; key p; sleep 1.5; shot 32_particles_moving       # P plays the clock
 key p
+input_stop
+
+# Third session: a quaternion from the Add menu, a new formula, acting on a vector
+OUT=$DEV/input/quaternion; input_start || { input_stop; exit 1; }
+click 290 83; click 99 375;        shot 40_quaternion_added       # Add > Linear algebra > Quaternion
+click 175 264; key ctrl+a; type_ "qaxis([1, 1, 0], 2pi/3)"; key Return
+                                  shot 41_formula                # 120° about (0.71, 0.71, 0)
+click 305 447;                    shot 42_acts_on_vector         # the switch shows v and q v q⁻¹
 input_stop

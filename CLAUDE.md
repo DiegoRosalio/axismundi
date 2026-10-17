@@ -94,7 +94,7 @@ src/
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
                       VectorField (arrows on a grid, RK4 flow lines kept apart, particles as a function of t)
   math/expr/          NO raylib: typed expression engine — Value (number, complex, vector, 3x3/4x4
-                      matrix, error), Program (compile once, names used, eval with Resolver + x/y/t/u slots);
+                      matrix, quaternion, error; rotationOf gives a quaternion's axis/angle/matrix), Program (compile once, names used, eval with Resolver + x/y/t/u slots);
                       Reference (the in-app formula cheat sheet as data: sections, entries, examples)
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
@@ -211,6 +211,12 @@ docs/screenshots/     images for the docs, produced by --tour
   nine gallery scenes to `<shots>/latex/`. Compile them with `pdflatex` (TeX Live + poppler-utils are
   installed) and view them with `pdftoppm -png`.
 
+### Formula functions and names
+Function names are reserved as object names, except entries marked `nameable` in `kFunctions` (common words
+added later: `rotate`, `mat`, `axis`, `angle`): followed by `(` they are the function, otherwise a name, so old
+scenes with such objects keep working. Quaternions live in `Value` as w = `re` plus `qi qj qk` (doubles); the
+Hamilton product and slerp helpers are in Expr.cpp.
+
 ### Formula reference
 `math/expr/Reference.cpp` holds the cheat sheet shown by `ui/ReferencePanel` (F2). `testReference` checks that
 every example compiles and evaluates (unless it is marked `usesObjects`) and that every name in the
@@ -297,6 +303,9 @@ surface (161k vertices, indexed) draws in ~57 ms/frame (unindexed it was ~140 ms
 drawn per frame (capped at ~60 lines × ~150 segments per direction).
 
 ## Tutorials
+
+Finished lessons are saved as a bitmask by position (`tutorial.completed`): add new lessons at the end of
+`lessons()` (or convert the preference) so existing progress keeps pointing at the right lessons.
 
 Lesson steps have `setup`/`check`; App calls `TutorialPanel::update` every frame while the tutorial panel is
 visible (this call was lost once, silently disabling every lesson). After changing lessons, walk them: a

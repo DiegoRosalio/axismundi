@@ -35,6 +35,9 @@ and worked calculations.
   - plots: `y = f(x)`, curves `(x(u), y(u), z(u))`, surfaces `z = f(x, y)` and implicit curves
     `f(x, y) = 0`, with heat maps. Detail is set **per unit** (e.g. 30 samples per unit), so a wider range
     stays just as smooth. Surfaces are shaded GPU meshes.
+  - quaternions: rotations in four numbers (`qaxis([0, 0, 1], pi/2)`), drawn as their axis and angle with the
+    rotated basis and, optionally, a vector before and after; products compose rotations and `slerp` blends
+    them (with a gallery set and a tutorial lesson);
   - vector fields `F(x, y, z)` (e.g. `[-y, x, 0]`) on the floor or in a box: arrows scaled and colored by
     strength, flow lines kept evenly apart, and particles that drift along the flow while the clock plays;
     exported to LaTeX as PGFPlots quiver plots.
@@ -47,6 +50,8 @@ and worked calculations.
   - One vector: its length and unit vector. Two vectors: dot product, angle and cross product.
   - A matrix: determinant, trace, inverse, eigenvalues, LU, QR and SVD.
   - Complex numbers: polar form, product and quotient.
+  - Quaternions: the four numbers, axis and angle, the matrix, yaw/pitch/roll; for two, both products and the
+    angle between them.
 - **Transformation breakdown** (B): the selected matrix as *rotate → stretch → rotate (→ move)*, played step
   by step.
 - **Calculation steps** (K): worked calculations with the selected objects' numbers.
@@ -105,6 +110,8 @@ Fields accept:
   - vectors: `dot cross norm normalize`;
   - matrices: `det tr inv transpose rotx roty rotz rot(axis, angle) scale translate eye`;
   - complex numbers: `conj re im arg polar`;
+  - quaternions (rotations): `qaxis(axis, angle) quat(w, x, y, z) quat(M) rotate(q, v) mat(q) axis(q) angle(q)
+    slerp(a, b, s)`, products `q1*q2`, and `conj inv abs unit q.w`;
   - blending: `lerp(a, b, s)` (any value kind), `keys(s, A, B, …)`, and `mod(a, b)`.
 
 `M*v` applies a matrix to a vector (4×4 matrices treat v as a point), and `M*N` composes matrices.
