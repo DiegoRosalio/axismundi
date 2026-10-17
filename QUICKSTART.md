@@ -30,8 +30,14 @@ make run
 
 ## Parameters
 
-Add a **Parameter** (a slider), give it a name like `theta`, and use it in any formula, for example a matrix
-`rotz(theta)` or a surface `sin(theta*x)`. Press its **Play** button to animate it.
+Add a **Parameter**, give it a name like `theta`, and use it in any formula, for example a matrix
+`rotz(theta)` or a surface `sin(theta*x)`. A parameter can be:
+- a **Slider**;
+- an **Animation** (Play): once, loop or ping-pong, with an easing curve;
+- a **Formula** of time `t`, such as `pi/4*cos(2t)`.
+
+Plot **Detail** is per unit of the range, so wide plots stay smooth. **Grid size** (View section) makes the
+floor grid larger.
 
 ## The two spaces
 

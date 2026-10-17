@@ -15,8 +15,12 @@ and worked calculations.
   `Ma = M*a`, a matrix cell `cos(theta)`, a whole matrix `rotz(theta)` or `[u, v, w]` (vectors as columns).
   When an input changes, everything that depends on it updates. Circular references and missing names are
   reported on the objects involved.
-- **Parameters** are named sliders (θ, k, t, …) that can be used in any formula and **played** like an
-  animation, so a slider can turn a rotation matrix, reshape a surface or move e^(iθ) around the circle.
+- **Parameters** are named numbers (θ, k, …) usable in any formula, so they can turn a rotation matrix,
+  reshape a surface or move e^(iθ) around the circle. Each one is driven in one of three ways:
+  - a **slider**;
+  - an **animation** from min to max: once, loop or ping-pong, with an easing curve (ease in/out, sine,
+    back, elastic, bounce, steps) and a duration;
+  - a **formula of time** `t`, such as `pi/4*cos(2t)`, which may use other objects.
 - The **Add menu** offers templates for the current selection: sum, difference, cross product and projection
   of two vectors, M·v, the eigenvectors, inverse or transpose of a matrix, A·B, z₁·z₂, conjugates…
 - Undo/redo covers every change (Ctrl+Z / Ctrl+Y).
@@ -27,7 +31,9 @@ and worked calculations.
   - 3×3 / 4×4 matrices (by cells with presets, or by formula) drawn as the moved basis;
   - eigenvector sets;
   - plots: `y = f(x)`, curves `(x(t), y(t), z(t))`, surfaces `z = f(x, y)` and implicit curves
-    `f(x, y) = 0`, with heat maps.
+    `f(x, y) = 0`, with heat maps. Detail is set **per unit** (e.g. 30 samples per unit), so a wider range
+    stays just as smooth. Surfaces are shaded GPU meshes.
+  - a floor grid from ±5 to ±100 units, with major lines every 5 units.
 - **Complex plane** (key 2): complex numbers (e.g. `2 + i`, `z1*z2`, `exp(i*theta)`), with optional circle,
   cos/sin projections and the helix of e^(it), and products drawn as a rotation plus a scaling.
 
@@ -39,7 +45,8 @@ and worked calculations.
 - **Transformation breakdown** (B): the selected matrix as *rotate → stretch → rotate (→ move)*, played step
   by step.
 - **Calculation steps** (K): worked calculations with the selected objects' numbers.
-- **Animation**: morph from the identity to the selected matrix, rotation and scaling presets, keyframes.
+- **Animation**: morph from the identity to the selected matrix, rotation and scaling presets, keyframes,
+  with the same repeat styles and easing curves as parameters.
 - **Tutorial** (F1): 11 lessons with tasks that are checked as you work, including adding objects, formulas
   and parameters.
 - **Example gallery** (E): about 20 ready-made scenes.
@@ -160,7 +167,7 @@ Shortcuts are ignored while a text field is being edited.
     │   └── expr/             #   breakdown, worked explanations; typed expression engine
     ├── scene/                # object model: objects, spaces, dependencies, undo, files
     ├── view/                 # SceneView: draws the objects of a space
-    ├── animation/            # Animator
+    ├── animation/            # Playback (repeat styles, easing) and Animator
     ├── edu/                  # tutorial lessons and gallery examples
     ├── rendering/            # grid, arrows, plots, camera, labels
     ├── ui/                   # side bar (objects + inspector), panels, popovers, widgets

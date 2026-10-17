@@ -77,6 +77,33 @@ std::vector<Example> build() {
                         app.addObject(AppMode::Space3D, "vector", "Ma", {{"value", "M*a"}}, {{"mode", "formula"}});
                         app.select("theta");
                     }});
+    list.push_back({"Pendulum (formula of time)", C::Matrices,
+                    "θ is a formula of time: θ = π/4·cos(2t). The arm r hangs from (0, 0, 4) and swings with it; "
+                    "edit the formula to change the swing.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "theta", {{"formula", "pi/4*cos(2t)"}},
+                                      {{"mode", "formula"}, {"playing", "1"}});
+                        app.addObject(AppMode::Space3D, "vector", "r",
+                                      {{"value", "[3sin(theta), 0, -3cos(theta)]"}, {"tail", "[0, 0, 4]"}},
+                                      {{"mode", "formula"}});
+                        app.select("theta");
+                    }});
+    list.push_back({"Stretch back and forth", C::Matrices,
+                    "s runs from 0.5 to 2 and back (ping-pong) with an ease-in-out curve. M = diag(s, 1/s, 1) "
+                    "stretches one way and squeezes the other, so areas stay the same: det M = 1.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0.5"}, {"min", "0.5"}, {"max", "2"}, {"mode", "animate"},
+                                       {"anim.repeat", "2"}, {"anim.easing", "3"}, {"anim.duration", "3"},
+                                       {"playing", "1"}});
+                        app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "scale(s, 1/s, 1)"}},
+                                      {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "vector", "a", {{"x", "1"}, {"y", "1"}, {"z", "0"}});
+                        app.addObject(AppMode::Space3D, "vector", "Ma", {{"value", "M*a"}}, {{"mode", "formula"}});
+                        app.select("s");
+                    }});
     list.push_back({"Non-uniform scale", C::Matrices,
                     "Stretches x by 2 and squeezes y to half. The axes are eigenvectors with λ = 2, 0.5 and 1.",
                     [](App& app) { matrixScene(app, Matrix3D({{{{2, 0, 0}}, {{0, 0.5f, 0}}, {{0, 0, 1}}}})); }});

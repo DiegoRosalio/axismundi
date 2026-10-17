@@ -209,6 +209,28 @@ std::vector<Lesson> build() {
              return p && (p->playing() || std::fabs(p->number() - 0.5) > 0.2);
          },
          "The play button is in theta's inspector. Dragging the slider works too.", "parameter.play"},
+        {"Repeat and easing",
+         "Playing switched theta to Animate: it runs from min to max. Ping-pong runs back and forth, and the easing "
+         "curve shapes the motion (Ease in-out starts and stops gently, Bounce bounces at the end).",
+         nullptr, "Choose Ping-pong and a different easing for theta.",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
+             if (!p) return false;
+             Playback pb = p->playback();
+             return pb.repeat == Repeat::PingPong && pb.easing != Easing::Linear;
+         },
+         "Both are in theta's inspector, under the range, when the mode is Animate.", "parameter.easing"},
+        {"A formula of time",
+         "A parameter can also be a formula of t, its own clock in seconds. pi/4*sin(2t) swings back and forth "
+         "between ±45°; t/2 grows forever.",
+         nullptr, "Switch theta to Formula and type a formula that uses t, e.g. pi/4*sin(2t).",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
+             if (!p || p->mode() != scene::ParameterObject::Mode::Formula || !p->error().empty()) return false;
+             const scene::Field* f = p->field("formula");
+             return f && f->program.valid();
+         },
+         "The mode switch is at the top of theta's inspector. Press Play if the clock is paused.", "parameter.mode"},
     }});
 
     list.push_back({"Breaking a matrix down", "Rotate, stretch, rotate", {

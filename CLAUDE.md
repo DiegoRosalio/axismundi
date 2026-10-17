@@ -66,7 +66,7 @@ src/
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
   view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache
-  animation/          NO raylib: Animator
+  animation/          NO raylib: Playback (0..1 run: Once/Loop/PingPong + 9 easings, save/load), Animator
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
   rendering/          Grid, VectorRenderer::drawArrow, PlotRenderer (geometry from expressions + resolver),
                       CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
@@ -91,6 +91,15 @@ docs/screenshots/     images for the docs, produced by --tour
   topological, cycles and missing names become object errors, `changedAt()` tells views what to redraw.
 - `Scene::commit()` after each user change pushes an undo snapshot (the whole scene serialized).
 - 3D space uses math coordinates with z up; draw with `mathToWorld()` (rendering/WorldMapping.hpp).
+- `SceneObject::provideSlots(expr::Slots&)` lets an object feed x/y/t to its own (non-plot) fields;
+  ParameterObject uses it for its clock t (Formula mode). Time-dependent objects can reuse it.
+- Parameters: `mode` prop slider|animate|formula; Animate state lives in props `anim.*` (via
+  `Playback::save/load` + `anim.phase`/`anim.direction`). Old files with `speed`/`loop` are converted in
+  `Scene::restore`.
+- Plots: `density` prop = samples (cells) per unit; `PlotObject::samples()` gives capped counts, which
+  SceneView passes to `PlotRenderer` as `samplesX/Y`. Old `resolution` props are converted after loading
+  (`Scene::convertOldPlots`). PlotRenderer uploads meshes once per change (indexed surface bands under
+  65 536 vertices, curve tubes, heat map) and frees them in its destructor (CPU-only after CloseWindow).
 
 ### Adding a new object type (e.g. quaternion, vector field, tensor)
 1. Model in `src/scene/Types.{hpp,cpp}`: subclass `SceneObject`; in the constructor `addField(...)` and

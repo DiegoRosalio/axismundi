@@ -69,8 +69,8 @@ Each space has its own list of objects. The side bar shows:
 | Vector | 3D | Components (x, y, z) or Formula; Starts at (tail point); length |
 | Matrix | 3D | Cells (3×3 / 4×4, presets) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
-| Function / Curve / Surface / Implicit | 3D | Expressions in x, y, t; ranges; Detail; Heat map; Next example |
-| Parameter | both | Slider, range, play / loop / speed |
+| Function / Curve / Surface / Implicit | 3D | Expressions in x, y, t; ranges; Detail per unit; Heat map; Next example |
+| Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration; play, restart |
 | Complex number | complex | Value; circle, cos/sin projections, helix options; length and angle |
 | Product | complex | Two factors; rotation and scaling construction; length and angle breakdown |
 
@@ -90,8 +90,25 @@ Problems are shown live: a red outline while typing a broken formula, an error l
 red summary in the list for errors such as unknown names, wrong types or circular references.
 
 ### Parameters
-A parameter is a named number with a slider. Use it in any formula; press **Play** to run it through its
-range (Loop restarts it at the end, Speed sets how fast). Several parameters can play at once.
+A parameter is a named number that can be used in any formula. The switch at the top of its inspector picks
+how it is driven:
+- **Slider**: set it by hand within its range.
+- **Animate**: Play runs it from min to max.
+  - **Once** stops at the end, **Loop** starts again, **Ping-pong** runs back and forth.
+  - The **easing** button opens a grid of curves: Linear, Ease in, Ease out, Ease in-out, Sine, Back
+    (overshoots), Elastic, Bounce and Steps. Hover one to read what it does.
+  - The slider next to it sets the duration of one run.
+- **Formula**: the value is a formula of `t`, the parameter's own clock in seconds, and may use other objects.
+  Examples: `2pi*t/5` (one turn every 5 s), `pi/4*sin(2t)`, `1 + k*cos(t)`. Play / pause runs the clock,
+  restart sets t back to 0, and "Wrap t after" can restart it periodically.
+
+Pressing Play on a slider switches it to Animate. Several parameters can play at once.
+
+### Plot detail
+**Detail** is set per unit of the range: samples per unit of x (functions) or t (curves), and grid cells per
+unit for surfaces and implicit curves. Doubling the range doubles the samples, so the plot stays as smooth.
+The line under the slider shows the actual count. Counts are capped for speed (20 000 samples, 400 × 400
+surface cells, 800 × 800 implicit cells), and the line says so when the cap applies.
 
 ## Text fields
 
@@ -105,7 +122,10 @@ range (Loop restarts it at the end, Speed sets how fast). Several parameters can
 z points up and the floor grid is the xy-plane, the usual math convention, so vectors and surfaces
 `z = f(x, y)` agree. The axes are x (red), y (green), z (blue). Matrices are drawn as their moved basis on top
 of the faint original basis. The Animation panel morphs the selected matrix (or the first one) from the
-identity.
+identity, with a repeat style (Once / Loop / Ping-pong) and an easing curve.
+
+The floor grid has a line every unit and a stronger one every 5 units, and fades out at its edge. **Grid size**
+in the View section sets how far it reaches (±5 to ±100 units).
 
 ## The complex plane
 
@@ -124,7 +144,7 @@ reference. Each tab keeps its own camera.
 
 ## View section
 
-- Grid (G), Axes, Labels (L), Axis length, Reset camera (C), Save (F5) / Load (F9) of `scene.txt`
+- Grid (G), Axes, Labels (L), Axis length, Grid size, Reset camera (C), Save (F5) / Load (F9) of `scene.txt`
 - Object colors are set per object: click the color swatch next to the name in the inspector (presets, hex
   value, "Theme color" resets it).
 

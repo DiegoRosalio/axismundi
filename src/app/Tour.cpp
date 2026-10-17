@@ -103,6 +103,10 @@ void Tour::buildSteps() {
     step("09b_animation_easing", [](App& app) {
         app.setAnimationStyle(Repeat::PingPong, Easing::Elastic, true);
     }, 40);
+    step("09c_pendulum", [](App& app) {
+        app.setAnimationStyle(Repeat::Loop, Easing::Linear, false);
+        runExample(app, "Pendulum (formula of time)");
+    }, 50);
     step("10_projection_example", [](App& app) {
         app.setAnimationStyle(Repeat::Loop, Easing::Linear, false);
         app.stopAnimation();
