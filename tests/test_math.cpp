@@ -8,6 +8,7 @@
 #include "export/PdfCompile.hpp"
 #include "math/VectorField.hpp"
 #include "math/Integrals.hpp"
+#include "math/CurveGeometry.hpp"
 #include "text/LabelLayout.hpp"
 #include "text/TextLayout.hpp"
 #include <fstream>
@@ -564,6 +565,44 @@ void testVectorField() {
     CHECK_NEAR(particleTime(circle, 1, 3, 0.0, 1.0), T / 3, 1e-9);
     CHECK_NEAR(particleTime(circle, 0, 3, T + 0.25, 1.0), 0.25, 1e-9);
     CHECK_NEAR(particleTime(circle, 0, 3, 0.25, 2.0), 0.5, 1e-9);
+}
+
+void testCurveGeometry() {
+    using namespace geometry;
+    // Helix (a cos u, a sin u, b u): κ = a/(a² + b²), τ = b/(a² + b²) everywhere
+    const double a = 2.0, b = 0.5;
+    Path helix = [a, b](double u, D3& o) { o = {a * std::cos(u), a * std::sin(u), b * u}; return true; };
+    Frame f;
+    CHECK(frenet(helix, 1.3, 1e-3, f));
+    CHECK_NEAR(f.kappa, a / (a * a + b * b), 1e-5);
+    CHECK_NEAR(f.tau, b / (a * a + b * b), 1e-4);
+    CHECK_NEAR(f.speed, std::sqrt(a * a + b * b), 1e-6);
+    // Orthonormal and right-handed
+    CHECK_NEAR(length(f.T), 1, 1e-9);
+    CHECK_NEAR(length(f.N), 1, 1e-9);
+    CHECK_NEAR(dot(f.T, f.N), 0, 1e-9);
+    D3 tn = cross(f.T, f.N);
+    CHECK_NEAR(length(sub(tn, f.B)), 0, 1e-9);
+    // N points to the axis of the helix (towards the center of curvature)
+    CHECK(dot(f.N, D3{-f.p.x, -f.p.y, 0}) > 0);
+    // Circle of radius 3 in a plane: κ = 1/3, τ = 0; traced at another speed, the same
+    Path circle = [](double u, D3& o) { o = {3 * std::cos(2 * u), 3 * std::sin(2 * u), 1}; return true; };
+    CHECK(frenet(circle, 0.4, 1e-3, f));
+    CHECK_NEAR(f.kappa, 1.0 / 3.0, 1e-6);
+    CHECK_NEAR(f.tau, 0, 1e-5);
+    CHECK_NEAR(f.speed, 6, 1e-5);
+    // Parabola y = x²/2 at the vertex: κ = 1
+    Path parabola = [](double u, D3& o) { o = {u, u * u / 2, 0}; return true; };
+    CHECK(frenet(parabola, 0.0, 1e-3, f));
+    CHECK_NEAR(f.kappa, 1.0, 1e-6);
+    // A straight line has no normal
+    Path line = [](double u, D3& o) { o = {u, 2 * u, -u}; return true; };
+    CHECK(frenet(line, 0.7, 1e-3, f));
+    CHECK(!f.hasNormal && f.kappa == 0.0);
+    CHECK_NEAR(dot(f.T, f.N), 0, 1e-9);
+    // Standing still (r' = 0) fails
+    Path still = [](double, D3& o) { o = {1, 1, 1}; return true; };
+    CHECK(!frenet(still, 0, 1e-3, f));
 }
 
 void testIntegrals() {
@@ -1814,6 +1853,7 @@ int main() {
         {"Field variable z", testFieldVariable},
         {"Quaternions", testQuaternions},
         {"Integrals", testIntegrals},
+        {"Curve geometry", testCurveGeometry},
         {"Vector field", testVectorField},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},
