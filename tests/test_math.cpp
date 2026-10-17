@@ -302,6 +302,23 @@ void testPlayback() {
     CHECK_NEAR(p.phase, 0.25f, 1e-5f);
     CHECK(p.direction == 1);
 
+    // Pure phase from a clock (scrubbable)
+    Playback c;
+    c.duration = 2.0f;
+    c.repeat = Repeat::Once;
+    CHECK_NEAR(c.phaseAt(0.0), 0.0f, 1e-6f);
+    CHECK_NEAR(c.phaseAt(1.0), 0.5f, 1e-6f);
+    CHECK_NEAR(c.phaseAt(9.0), 1.0f, 1e-6f);
+    c.repeat = Repeat::Loop;
+    CHECK_NEAR(c.phaseAt(3.0), 0.5f, 1e-6f);
+    CHECK_NEAR(c.phaseAt(4.0), 1.0f, 1e-6f);
+    c.repeat = Repeat::PingPong;
+    CHECK_NEAR(c.phaseAt(3.0), 0.5f, 1e-6f);   // on the way back
+    CHECK_NEAR(c.phaseAt(2.0), 1.0f, 1e-6f);
+    CHECK_NEAR(c.phaseAt(5.0), 0.5f, 1e-6f);   // forwards again
+    c.easing = Easing::EaseIn;
+    CHECK_NEAR(c.valueAt(1.0), 0.25f, 1e-6f);
+
     SceneData data;
     p.easing = Easing::Bounce;
     p.save(data, "x.");
@@ -610,6 +627,37 @@ void testExprEngine() {
     CHECK(evalText("-i").summary() == "−i");
 }
 
+void testBlendFunctions() {
+    using namespace expr;
+    auto run = [](const std::string& text) {
+        Program p;
+        if (!p.compile(text)) return Value::fail(p.error());
+        return p.eval(nullptr);
+    };
+    CHECK_NEAR(run("lerp(2, 4, 0.25)").re, 2.5, 1e-12);
+    CHECK_NEAR(run("mod(7, 5)").re, 2.0, 1e-12);
+    CHECK_NEAR(run("mod(-1, 5)").re, 4.0, 1e-12);
+    CHECK(!run("mod(1, 0)").ok());
+    Value v = run("lerp([0, 0, 0], [2, 4, 6], 0.5)");
+    CHECK(v.type == Type::Vector && std::fabs(v.vector.y - 2.0f) < 1e-6f);
+    v = run("lerp(0, [2, 4, 6], 0.5)");  // 0 = zero vector
+    CHECK(v.type == Type::Vector && std::fabs(v.vector.z - 3.0f) < 1e-6f);
+    v = run("lerp(1, i, 0.5)");
+    CHECK(v.type == Type::Complex && std::fabs(v.re - 0.5) < 1e-12 && std::fabs(v.im - 0.5) < 1e-12);
+    v = run("lerp(eye(), 3eye(), 0.5)");
+    CHECK(v.type == Type::Matrix && std::fabs(v.matrix.m[1][1] - 2.0f) < 1e-6f && std::fabs(v.matrix.m[0][1]) < 1e-6f);
+    CHECK(!run("lerp([1, 0, 0], eye(), 0.5)").ok());
+    CHECK(!run("lerp(1, 2, i)").ok());
+    // keys: s = 0, 0.5, 1 hit the values; in between it blends
+    CHECK_NEAR(run("keys(0, 1, 5, 3)").re, 1.0, 1e-12);
+    CHECK_NEAR(run("keys(0.5, 1, 5, 3)").re, 5.0, 1e-12);
+    CHECK_NEAR(run("keys(1, 1, 5, 3)").re, 3.0, 1e-12);
+    CHECK_NEAR(run("keys(0.75, 1, 5, 3)").re, 4.0, 1e-12);
+    CHECK_NEAR(run("keys(2, 1, 5, 3)").re, 3.0, 1e-12);  // clamped
+    v = run("keys(0.25, eye(), rotz(pi/2), 2eye())");
+    CHECK(v.type == Type::Matrix);
+}
+
 void testScene() {
     using namespace scene;
     Scene sc;
@@ -881,6 +929,7 @@ int main() {
         {"Complex", testComplex},
         {"Expression", testExpression},
         {"Playback", testPlayback},
+        {"Blend functions", testBlendFunctions},
         {"Animator", testAnimator},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},

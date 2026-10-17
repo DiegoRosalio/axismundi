@@ -101,6 +101,24 @@ void Playback::toggle() {
     playing = !playing;
 }
 
+float Playback::phaseAt(double seconds) const {
+    if (duration <= 0.0f || seconds <= 0.0) return 0.0f;
+    double u = seconds / duration;
+    switch (repeat) {
+        case Repeat::Once: return static_cast<float>(std::min(u, 1.0));
+        case Repeat::Loop: {
+            double f = u - std::floor(u);
+            // Land exactly on 1 at the end of each run instead of jumping back to 0 early
+            return static_cast<float>(f == 0.0 ? 1.0 : f);
+        }
+        case Repeat::PingPong: {
+            double m = std::fmod(u, 2.0);
+            return static_cast<float>(m <= 1.0 ? m : 2.0 - m);
+        }
+    }
+    return 0.0f;
+}
+
 void Playback::setPhase(float u) {
     phase = std::clamp(u, 0.0f, 1.0f);
 }

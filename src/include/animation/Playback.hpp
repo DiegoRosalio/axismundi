@@ -47,6 +47,9 @@ struct Playback {
     void advance(float deltaSeconds);
     void setPhase(float u);
     float value() const { return ease(easing, phase); }
+    // Raw phase after `seconds` from the start (pure: no state), for a clock you can scrub
+    float phaseAt(double seconds) const;
+    float valueAt(double seconds) const { return ease(easing, phaseAt(seconds)); }
 
     void save(SceneData& data, const std::string& prefix) const;
     void load(const SceneData& data, const std::string& prefix);

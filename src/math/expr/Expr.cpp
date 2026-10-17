@@ -46,7 +46,9 @@ const FunctionInfo kFunctions[] = {
     {"sin", 1, 1}, {"cos", 1, 1}, {"tan", 1, 1}, {"asin", 1, 1}, {"acos", 1, 1}, {"atan", 1, 1},
     {"sinh", 1, 1}, {"cosh", 1, 1}, {"tanh", 1, 1}, {"exp", 1, 1}, {"log", 1, 1}, {"ln", 1, 1},
     {"sqrt", 1, 1}, {"abs", 1, 1}, {"floor", 1, 1}, {"ceil", 1, 1}, {"atan2", 2, 2}, {"min", 2, 2},
-    {"max", 2, 2},
+    {"max", 2, 2}, {"mod", 2, 2},
+    // blending (any value kind)
+    {"lerp", 3, 3}, {"keys", 3, 33},
     // vectors
     {"dot", 2, 2}, {"cross", 2, 2}, {"norm", 1, 1}, {"normalize", 1, 1}, {"unit", 1, 1},
     // matrices
@@ -509,6 +511,37 @@ Value callFunction(const std::string& name, const std::vector<Value>& args) {
         if (v.type == Type::Complex) return Value::scalar(std::abs(toComplex(v)));
         if (v.type == Type::Vector) return Value::scalar(v.vector.magnitude());
         return Value::fail("abs needs a number or a vector");
+    }
+    if (name == "mod") {
+        if (!realArg(0, x) || !realArg(1, y)) return Value::fail("mod needs two real numbers");
+        if (y == 0.0) return Value::fail("mod: division by zero");
+        return Value::scalar(x - y * std::floor(x / y));
+    }
+    if (name == "lerp" || name == "keys") {
+        double s = 0;
+        if (!realArg(0 + (name == "lerp" ? 2 : 0), s)) return Value::fail(name + ": the blend amount must be a real number");
+        // lerp(a, b, s) = a + (b - a)·s; a plain 0 stands for "zero" of the other value's kind
+        auto blend = [&](const Value& a, const Value& b, double u) -> Value {
+            if (!a.ok()) return a;
+            if (!b.ok()) return b;
+            bool aZero = a.type == Type::Scalar && a.re == 0.0, bZero = b.type == Type::Scalar && b.re == 0.0;
+            if (aZero && b.type != Type::Scalar) return binaryOp('*', Value::scalar(u), b);
+            if (bZero && a.type != Type::Scalar) return binaryOp('*', Value::scalar(1.0 - u), a);
+            if (a.type != b.type && !(a.isNumber() && b.isNumber()))
+                return Value::fail(name + " needs values of the same kind (got " + a.typeName() + " and " +
+                                   b.typeName() + ")");
+            Value diff = binaryOp('-', b, a);
+            if (!diff.ok()) return diff;
+            Value step = binaryOp('*', Value::scalar(u), diff);
+            if (!step.ok()) return step;
+            return binaryOp('+', a, step);
+        };
+        if (name == "lerp") return blend(arg(0), arg(1), s);
+        // keys(s, A, B, C, ...): s from 0 to 1 runs through the values in order
+        size_t n = args.size() - 1;
+        double pos = std::clamp(s, 0.0, 1.0) * static_cast<double>(n - 1);
+        size_t i = std::min(static_cast<size_t>(pos), n - 2);
+        return blend(arg(1 + i), arg(2 + i), pos - static_cast<double>(i));
     }
     if (name == "atan2" || name == "min" || name == "max") {
         if (!realArg(0, x) || !realArg(1, y)) return Value::fail(name + " needs two real numbers");
