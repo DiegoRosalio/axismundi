@@ -21,6 +21,7 @@ struct TopBarActions {
     bool togglePlay = false;   // play / pause the scene clock
     bool toggleReference = false;
     bool toggleExport = false;
+    bool toggleSidebar = false;
 };
 
 // Which toggles are currently on (drawn as selected)
@@ -38,6 +39,7 @@ struct TopBarState {
     bool playing = false;         // scene clock
     bool referenceVisible = false;
     bool exportVisible = false;
+    bool sidebarCollapsed = false;
 };
 
 // Full-width bar at the top: app name, mode tabs and action buttons.

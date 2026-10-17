@@ -76,8 +76,12 @@ void Tour::buildSteps() {
         // A typo shows the error live (not applied)
         const_cast<std::string&>(app.formulaEditor().text()) += " + q";
     }, 15);
-    step("03_add_menu_templates", [](App& app) {
+    step("02e_sidebar_collapsed", [](App& app) {
         app.formulaEditor().close();
+        app.setSideBarCollapsed(true);
+    }, 15);
+    step("03_add_menu_templates", [](App& app) {
+        app.setSideBarCollapsed(false);
         app.select("a");
         app.select("b", AppMode::Space3D, true);
         app.openAddMenu();

@@ -34,6 +34,7 @@ const Entry kPanels[] = {
     {"F1", "Tutorial"},
     {"F2", "Formula reference"},
     {"Ctrl+E", "Export to LaTeX"},
+    {"Ctrl+B", "Hide / show the side bar"},
     {"E", "Example gallery"},
     {"M", "Analysis panel"},
     {"K", "Calculation steps"},

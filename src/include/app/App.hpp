@@ -124,6 +124,7 @@ public:
     FormulaEditor& formulaEditor() { return m_formulaEditor; }
     // Open the big editor for a field of an object in the current space (tour, tests)
     void openFormulaEditor(const std::string& objectName, const std::string& key);
+    void setSideBarCollapsed(bool collapsed);
     // The LaTeX figure of the current space with the export panel's settings
     std::string exportLatexCode() const;
     bool addMenuOpen() const { return m_addMenu.isOpen(); }
@@ -218,6 +219,7 @@ private:
     void writeLatex(const std::string& path);
     FileDialog m_fileDialog;
     FormulaEditor m_formulaEditor;
+    bool m_sideBarHintShown = false;
     std::string m_currentFile;               // scene file of the last save / open
     std::string m_lastFolder;                // where the file dialog starts
     std::vector<std::string> m_recentFiles;  // most recent first

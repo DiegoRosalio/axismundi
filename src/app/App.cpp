@@ -376,6 +376,11 @@ void App::newScene() {
     toast("New scene (Ctrl+Z brings the previous one back)");
 }
 
+void App::setSideBarCollapsed(bool collapsed) {
+    if (collapsed) m_scenePanel.finishEditing(m_scene);  // a field being edited would be hidden
+    SideBar::setCollapsed(collapsed);
+}
+
 void App::openFormulaEditor(const std::string& objectName, const std::string& key) {
     SceneObject* o = m_scene.space(spaceKind()).find(objectName);
     if (!o || !o->field(key)) return;
@@ -528,6 +533,8 @@ void App::applyPreferences(const SceneData& prefs) {
     getBool(prefs, "ui.smooth_surfaces", m_uiSettings.smoothSurfaces);
     m_tutorialPanel.loadState(prefs);
     m_exportPanel.loadState(prefs);
+    bool sideCollapsed = false;
+    if (getBool(prefs, "ui.sidebar_collapsed", sideCollapsed)) SideBar::setCollapsed(sideCollapsed);
     for (auto* p : m_panels.panels()) p->loadState(prefs);
     getString(prefs, "files.folder", m_lastFolder);
     m_recentFiles.clear();
@@ -550,6 +557,7 @@ void App::savePreferences() {
     }
     m_tutorialPanel.saveState(prefs);
     m_exportPanel.saveState(prefs);
+    putBool(prefs, "ui.sidebar_collapsed", SideBar::collapsed());
     for (auto* p : m_panels.panels()) p->saveState(prefs);
     if (!m_lastFolder.empty()) prefs["files.folder"] = m_lastFolder;
     for (size_t i = 0; i < m_recentFiles.size(); i++) prefs["files.recent." + std::to_string(i)] = m_recentFiles[i];
@@ -701,6 +709,7 @@ void App::handleShortcuts(bool uiMode) {
             m_scene.redo();
         }
         if (IsKeyPressed(KEY_D)) duplicateSelection();
+        if (IsKeyPressed(KEY_B)) setSideBarCollapsed(!SideBar::collapsed());
         if (IsKeyPressed(KEY_E)) {
             m_exportWindow.toggle();
             if (m_exportWindow.visible()) m_panels.bringToFront(&m_exportWindow);
@@ -808,6 +817,11 @@ void App::pickInViewport() {
     if (hit != scene::kNoObject) {
         if (ctrl) sel.toggle(hit);
         else sel.set(hit);
+        // The inspector is hidden while the side bar is collapsed: say how to get it back (once)
+        if (SideBar::collapsed() && !m_sideBarHintShown) {
+            m_sideBarHintShown = true;
+            toast("Selected. Ctrl+B shows the inspector");
+        }
     } else if (!ctrl) {
         sel.clear();
     }
@@ -898,11 +912,20 @@ void App::drawUi(float deltaTime) {
     if (m_uiSettings.showHud) drawHud();
 
     // Side bar: objects and inspector of the current space, then the view settings
-    Rectangle area = m_sideBar.begin();
-    float y = m_scenePanel.draw(area.x, area.y, area.width, m_scene, spaceKind(), m_sceneView);
-    m_viewPanel.setCurrentFile(m_currentFile);
-    y = m_viewPanel.draw(area.x, y, area.width, m_mode);
-    m_sideBar.end(y);
+    if (SideBar::collapsed()) {
+        SideBar::StripActions strip = m_sideBar.drawCollapsed();
+        if (strip.expand) setSideBarCollapsed(false);
+        if (strip.add) {
+            closePopovers();
+            m_addMenu.open(strip.addButton);
+        }
+    } else {
+        Rectangle area = m_sideBar.begin();
+        float y = m_scenePanel.draw(area.x, area.y, area.width, m_scene, spaceKind(), m_sceneView);
+        m_viewPanel.setCurrentFile(m_currentFile);
+        y = m_viewPanel.draw(area.x, y, area.width, m_mode);
+        m_sideBar.end(y);
+    }
 
     ScenePanelRequests requests = m_scenePanel.takeRequests();
     if (requests.openAdd) {
@@ -953,6 +976,7 @@ void App::drawUi(float deltaTime) {
     state.playing = m_scene.timeline().playing;
     state.referenceVisible = m_referenceWindow.visible();
     state.exportVisible = m_exportWindow.visible();
+    state.sidebarCollapsed = SideBar::collapsed();
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
@@ -970,6 +994,7 @@ void App::drawUi(float deltaTime) {
     if (actions.toggleTime) toggleWindow(m_animationWindow);
     if (actions.toggleReference) toggleWindow(m_referenceWindow);
     if (actions.toggleExport) toggleWindow(m_exportWindow);
+    if (actions.toggleSidebar) setSideBarCollapsed(!SideBar::collapsed());
     if (actions.togglePlay) TimePanel::togglePlay(m_scene);
     if (actions.toggleSettings) {
         bool open = !m_settingsPopover.isOpen();
