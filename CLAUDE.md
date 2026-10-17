@@ -27,7 +27,10 @@ list, then Medium/Low priority, code quality, research, known issues). Done work
    - UI changes: `tools/dev/tour.sh 800x600`, `1600x900`, `1920x1080 l --theme light`, `2560x1440 x`,
      then look at the PNGs; add tour steps for new UI;
    - tutorial or `App::setMode`/scene changes: `tools/dev/lesson-walk.sh` (0 problems expected);
-   - LaTeX export changes: `tools/dev/latex.sh <shots>/latex` or `LATEX_OUT=dir make test` + latex.sh.
+   - LaTeX export changes: `tools/dev/latex.sh <shots>/latex` or `LATEX_OUT=dir make test` + latex.sh;
+   - input handling (clicks, typing, editors, dialogs): `tools/dev/input-test.sh` drives the real app with
+     xdotool under Xvfb and saves a PNG per step to `$DEV/input` (helpers in `tools/dev/input-lib.sh`,
+     which can also be sourced by hand to explore).
 4. **Keep the docs in step** with each feature: README, UI_GUIDE, QUICKSTART, this file, gallery/tutorial
    when user-facing, a formula-reference entry for new formula functions. Move finished TODO items to
    `FEATURES.md` (never delete open TODO items).
@@ -47,7 +50,7 @@ make fonts   # regenerate src/ui/generated/fonts.inc from assets/fonts
 
 - Compiler: `clang++ -Wall -Wextra -O2 -std=c++20`. Keep the build **warning-free**
   (multi-line string literals inside arrays need parentheses for -Wstring-concatenation).
-- `SRCS` globs every `src/**/*.cpp`; the test target builds `src/math/**`, `src/animation/*`,
+- `SRCS` globs every `src/**/*.cpp`; the test target builds `src/math/**`, `src/text/*`, `src/animation/*`,
   `src/scene/*`, `src/export/*`, `src/ui/SceneIO.cpp` and `tests/*`.
 - **raylib 5.5 is required**: the bundled raygui 5.1-dev calls `TextToFloat` (new in 5.5), and the UI
   uses `DrawRectangleRoundedLinesEx` and `ToggleBorderlessWindowed`. Alpine's `raylib-dev` is 5.0: too old.
@@ -69,7 +72,12 @@ The `tools/dev/` scripts automate the steps below (see Development process).
    (put the timeout inside xvfb-run, otherwise the app survives the wrapper). Then view the PNGs.
 4. Check 800×600, 1600×900, 1920×1080 (light) and 2560×1440 before committing UI work.
 
-Installed packages that make this possible: xvfb, xvfb-run, mesa-dri-gallium, mesa-dev, libxcursor-dev,
+Screenshots on demand: the running app saves `signal_NNN.png` in its working folder when it receives
+SIGUSR1 (used by `input-lib.sh`). Real-input notes: GLFW ignores xdotool's `--window` key events, so keys go
+through XTEST (`xdotool key` with the pointer inside the window); BusyBox `pgrep -x` doesn't match, use plain
+`pgrep linalg_viz`.
+
+Installed packages that make this possible: xdotool, xvfb, xvfb-run, mesa-dri-gallium, mesa-dev, libxcursor-dev,
 libxrandr-dev, libxinerama-dev, libxi-dev; for LaTeX export checks: texlive, texlive-pictures,
 texlive-latexextra, poppler-utils (installed by the user; I cannot use sudo). Frame captures must flush the render batch first
 (`rlDrawRenderBatchActive()` before `LoadImageFromScreen()`), or the last draw calls are missing.
@@ -90,6 +98,7 @@ src/
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
+  text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table)
   view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache,
                       black-and-white print preview (DrawOptions.print)
@@ -98,12 +107,14 @@ src/
   rendering/          Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
                       VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
                       CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
-  ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips), Theme,
-                      Layout, Icons, FloatingPanel + PanelManager
+  ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
+                      latch), TextEditor (wrapping multi-line editor), Theme, Layout, Icons,
+                      FloatingPanel + PanelManager
   ui/                 ScenePanel (objects list + inspector), AddMenu (types + templates from the
                       selection), Widgets, TopBar, SideBar, ViewPanel, InfoPanel (analysis of the
                       selection), TimePanel (scene clock), ReferencePanel (formula cheat sheet, F2),
-                      ExportPanel (LaTeX export, Ctrl+E), FileDialog (open/save .txt scenes, .tex figures), StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
+                      ExportPanel (LaTeX export, Ctrl+E), FormulaEditor (big
+                      formula editor with live result, Ctrl+Enter), FileDialog (open/save .txt scenes, .tex figures), StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
                       SettingsPopover, ColorPopover, HelpOverlay, SceneIO, Preferences, RayguiImpl.cpp
   ui/generated/       fonts.inc (embedded fonts, subset; codepoint list)
   include/<area>/     headers mirror the folders above
@@ -209,7 +220,18 @@ Saving/loading is automatic (fields and props are serialized generically).
 - **Input ownership**: widgets check `ui::hovered()`, which respects `GuiLock` (camera mode, overlays,
   panels not on top), the clip rectangle (scroll containers) and popovers. raygui is only used for
   text boxes (drawn transparent inside our rounded box) and the color picker.
-- **Text fields**: `ui::textField(rect, buf, size, id, activeId, invalid)`. Esc never quits
+- **Inspector and dialog fields** use `ui::textEditor` (TextEditor.hpp: our own editor, since raygui's box is
+  single-line): wraps by width, cursor/selection/clipboard, Enter = Commit, Ctrl+Enter = Expand, a click
+  outside = Commit. `selectAllOnFocus` for short fields (cells, names), cursor-at-click for formulas.
+  One `EditorState` is shared by all inline fields: only the active field may touch it. The inspector's
+  `fieldRow` sizes the field with `editorHeight(text, width, 4)` and adds the ⤢ button (FormulaEditor).
+- **Mouse buttons**: use `ui::mousePressed/mouseReleased`, never raylib's `IsMouseButtonPressed/Released`.
+  A GLFW mouse-button callback (installed by `ui::installClickLatch()` after InitWindow, chaining raylib's)
+  latches presses, so a touchpad tap that presses and releases within one frame is not lost. It needs the
+  GLFW header from raylib's source tree (`__has_include`); with a system raylib the latch is off.
+- **Side bar collapse**: `SideBar::collapsed()/setCollapsed()`; `width()` follows, so panels, picking and
+  the HUD adapt. Ctrl+B, the top bar button and the strip's chevron toggle it (`ui.sidebar_collapsed`).
+- **Text fields** (raygui, older panels): `ui::textField(rect, buf, size, id, activeId, invalid)`. Esc never quits
   (`SetExitKey(KEY_NULL)`): it cancels an edit, closes a popover (add menu, color, settings) or the help,
   or leaves camera mode, in that order.
 - **Section headers** uppercase their title; pass `keepCase = true` when it contains object names
@@ -253,6 +275,7 @@ a new step), then build, run the tour, grep `WALK`/`SOLVED` in stderr, and resto
 
 ## Not yet verified
 
-The tour exercises everything visually, but real mouse dragging, typing feel, viewport picking with a
-real mouse, fullscreen toggling and the preferences round trip (written on normal exit) have only been
-checked in code, not interactively. Plot frame rates on real GPU hardware have not been measured.
+The tour exercises everything visually, and `tools/dev/input-test.sh` checks clicks, taps, drags, typing,
+picking in the view, the file dialog and camera mode with real X11 events under Xvfb. Not checked: the feel
+on real hardware (a physical mouse, touchpad, keyboard layouts, HiDPI), fullscreen toggling and the
+preferences round trip (written on normal exit). Plot frame rates on real GPU hardware have not been measured.

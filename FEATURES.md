@@ -82,6 +82,18 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Top bar buttons for every panel (Time, Analysis, Formula reference, ...)
 - [x] Extract UI components into separate files
 
+## Real mouse and keyboard
+Tried with real X11 input (xdotool under Xvfb, `tools/dev/input-test.sh`) and fixed what was awkward:
+- [x] Long formulas wrap onto up to four lines in the inspector (own text editor: cursor, selection,
+      clipboard, Up/Down across lines, click to place the cursor, drag to select)
+- [x] Big formula editor (⤢ button or Ctrl+Enter) with the result or error computed live
+- [x] Collapsible side bar (Ctrl+B, top bar button, strip with expand and Add)
+- [x] Touchpad taps shorter than a frame are no longer lost (mouse presses are latched)
+- [x] Short fields (cells, names) and the Save dialog's suggested name select their text on focus, so typing
+      replaces it (typing 7 in a cell holding 1 gave 17)
+- [x] Enter in the big editor doesn't apply a formula with a syntax error
+- [x] Screenshots on SIGUSR1 for scripted input tests
+
 ## Files and defaults
 - [x] Implement save/load scene state
 - [x] Sensible defaults: new vectors start with length 1 (e.g. along an axis), and the app opens with an

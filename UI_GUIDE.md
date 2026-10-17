@@ -19,7 +19,9 @@
 - **Top bar**: the mode tabs, then fullscreen, screenshot, breakdown (Matrices only), calculation steps, gallery
   and tutorial, then theme, help and settings. Every button has a tooltip.
 - **Side bar**: inputs for the current mode plus the View section. Section headers collapse when clicked, and the
-  side bar scrolls with the mouse wheel.
+  side bar scrolls with the mouse wheel. **Ctrl+B** (or the side bar button left of the logo) collapses it to
+  a thin strip with an expand chevron and an Add button; clicking an object in the view while it's collapsed
+  selects it, and a hint says Ctrl+B shows the inspector. The state is remembered.
 - **Floating panels**: drag them by the title bar, collapse them with the chevron, close them with ×. Clicking
   a panel brings it to the front, and only the top panel under the mouse reacts to clicks. Positions are kept
   as a fraction of the free space, so they stay in place when the window is resized. Settings → "Reset panel
@@ -139,10 +141,17 @@ surface cells, 800 × 800 implicit cells), and the line says so when the cap app
 
 ## Text fields
 
-1. Click a field to edit it.
-2. Type a number or a formula.
+1. Click a field to edit it. Short fields (numbers, cells, names, ranges) select their text, so typing
+   replaces it; formula fields place the cursor where you click (drag to select).
+2. Type a number or a formula. Long formulas wrap onto up to four lines; ← → ↑ ↓, Home/End, Shift to select,
+   Ctrl+A, Ctrl+C / Ctrl+X / Ctrl+V work as usual.
 3. **Enter** or clicking elsewhere confirms, **Tab** / **Shift+Tab** confirms and moves on, **Esc** cancels.
 4. Each confirmed edit is one undo step.
+
+**Big formula editor**: the ⤢ button at the right of a formula field, or **Ctrl+Enter** while typing in it,
+opens a wide editor over the view with the text so far. Under it the result is computed live (`= (2, 0, 1)
+(vector)`) or the error is shown in red. **Enter** applies (not while the formula has a syntax error), **Esc**
+cancels, and the Formula reference (F2) is one click away.
 
 ## The 3D space
 
@@ -246,4 +255,5 @@ To use the figure, add to your preamble (the first comment of the code lists the
 | Theme / interface size | T / Ctrl+= Ctrl+− Ctrl+0 |
 | Help | H |
 | Formula reference / export to LaTeX | F2 / Ctrl+E |
+| Big formula editor / hide the side bar | ⤢ or Ctrl+Enter / Ctrl+B |
 | Save / save as / open / screenshot | Ctrl+S (F5) / Ctrl+Shift+S / Ctrl+O (F9) / F12 |

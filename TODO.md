@@ -5,19 +5,19 @@ Open work, roughly in the order it makes sense to do it. Everything already done
 
 ## Next up (in this order)
 
-1. Try the app with a real mouse and keyboard (dragging, typing, picking in the view, the file dialog)
-   and fix what feels awkward, before stacking new features. Edit for example the formula input in the right because it is difficult to insert a long formula (you cant see after the ...). The right panel should be minimizable
-2. View styles and better visibility of objects: design to refine first (see "Look and usability")
-3. Direct PDF export of LaTeX figures (see "LaTeX export follow-ups")
-4. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
-5. Quaternions: a new value kind in the expression engine
-6. CI: `make test` and the headless tour on every push
-7. Recording the Time panel to a PNG sequence or video
-8. Later: the remaining Advanced Math items, Windows/macOS builds, performance
+1. View styles and better visibility of objects: design to refine first (see "Look and usability")
+2. Direct PDF export of LaTeX figures (see "LaTeX export follow-ups")
+3. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
+4. Quaternions: a new value kind in the expression engine
+5. CI: `make test` and the headless tour on every push
+6. Recording the Time panel to a PNG sequence or video
+7. Later: the remaining Advanced Math items, Windows/macOS builds, performance
 
 ## Medium priority
 
 ### Look and usability
+- [ ] Try the feel on real hardware: a physical mouse and touchpad, other keyboard layouts (typing `^`, `[`
+      with dead keys), HiDPI screens. `tools/dev/input-test.sh` covers X11 events under Xvfb only
 - [ ] Better visibility of objects: make vectors, matrices, plots and labels easier to see and tell apart
       (to define: thickness, contrast, labels, highlight of the selection, show/hide controls)
 

@@ -73,6 +73,9 @@ and worked calculations.
   embedded fonts and real math symbols.
 - Dark and light themes (T), floating panels you can drag, collapse and close, fullscreen (F11),
   screenshots (F12).
+- Long formulas wrap onto several lines in the inspector; the ⤢ button next to a formula (or Ctrl+Enter while
+  typing) opens a big editor that shows the result or the error live. The side bar collapses to a thin strip
+  (Ctrl+B or the button left of the logo) to give the view the whole window.
 - Preferences in `~/.config/axismundi/settings.txt`. Scenes are saved and opened through a file dialog
   (folders, recent files, Save as); older scene files are converted automatically. The app starts with an
   empty scene; **Demo scene** loads a ready-made one.
@@ -160,6 +163,7 @@ window to exit.
 | F1 / E / K / B / M | Tutorial / gallery / calculation steps / breakdown / analysis |
 | P | Play / pause the scene clock (Time panel) |
 | F2 / Ctrl+E | Formula reference / export to LaTeX |
+| Ctrl+Enter / Ctrl+B | Big formula editor (while typing a formula) / hide or show the side bar |
 | H | Help with all shortcuts |
 | T | Dark / light theme |
 | Ctrl+= / Ctrl+− / Ctrl+0 | Bigger / smaller / default UI size |

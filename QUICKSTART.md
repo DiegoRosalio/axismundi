@@ -28,6 +28,8 @@ make run
   can add `a + b`, `cross(a, b)` or the projection of `a` on `b` in one click.
 - Fields are formulas: type `2a - b`, `normalize(a)`, `cos(theta)`, `rotz(theta)` … and the object follows
   its inputs. A red outline or a red badge in the list means a formula has a problem; hover it to see why.
+- Long formulas wrap in the field. For more room press **Ctrl+Enter** while typing (or click ⤢): a big
+  editor shows the result as you type. **Ctrl+B** hides the side bar when you want the whole view.
 - **Del** deletes, **Ctrl+D** duplicates, **Ctrl+Z / Ctrl+Y** undo and redo.
 
 ## Parameters
