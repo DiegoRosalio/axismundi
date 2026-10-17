@@ -30,6 +30,10 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Parameters as slider, animation (with start delay) or formula of time
 - [x] Scrubbing shows any moment (time-driven values are computed from the time)
 
+## Curves (differential geometry)
+- [x] Moving frame on a curve: T, N, B, curvature κ, torsion τ, osculating circle, curvature comb, at u0 (a formula)
+- [x] Template from a curve, Analysis panel, gallery (helix, ellipse, parabola), tutorial lesson, LaTeX export
+
 ## Integrals
 - [x] Volume under z = f(x, y): Riemann boxes (left/middle/right, n per side as a formula) next to the precise value
       and the error; boxes below the floor in another color

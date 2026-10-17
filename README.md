@@ -35,6 +35,8 @@ and worked calculations.
   - plots: `y = f(x)`, curves `(x(u), y(u), z(u))`, surfaces `z = f(x, y)` and implicit curves
     `f(x, y) = 0`, with heat maps. Detail is set **per unit** (e.g. 30 samples per unit), so a wider range
     stays just as smooth. Surfaces are shaded GPU meshes.
+  - curves: the moving (Frenet) frame T, N, B with curvature κ, torsion τ, the osculating circle and a curvature
+    comb, sliding along with a slider or the clock;
   - calculus: the volume under z = f(x, y) as Riemann boxes next to the exact double integral (boxes refine as a
     parameter grows), and the work ∫ F·dr of a vector field along a curve, colored where F helps or opposes;
   - quaternions: rotations in four numbers (`qaxis([0, 0, 1], pi/2)`), drawn as their axis and angle with the

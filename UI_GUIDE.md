@@ -83,6 +83,7 @@ Each space has its own list of objects. The side bar shows:
 | Matrix | 3D | Cells (3×3 / 4×4, presets that add up; Identity starts over) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
 | Function / Curve / Surface / Implicit | 3D | Expressions in x, y (u for curves) and t; ranges; Detail per unit; Heat map; Next example |
+| Moving frame on a curve | 3D | Curve x(u) y(u) z(u), u range, At u (a formula); Frame T/N/B, Osculating circle, Curvature comb, Curve; κ, τ, speed |
 | Volume under z = f(x, y) | 3D | f, x/y ranges, boxes per side (a formula), Left/Middle/Right rule, Boxes, Surface; boxes' sum, exact value, error |
 | Work ∫ F·dr | 3D | F(x, y, z), curve x(u) y(u) z(u), u range, Up to (0..1); work so far and over the whole path |
 | Quaternion | 3D | q = formula (e.g. `qaxis([0, 0, 1], pi/2)`); the four numbers, angle and axis, \|q\|; Axis and angle, Rotated basis, Acts on a vector; Next example |
@@ -145,6 +146,16 @@ The clock is saved with the scene. Undo never moves it.
 `0` stands for zero, so `lerp(0, v, s)` grows v from nothing. `keys(s, A, B, C, …)` runs through several values
 as s goes from 0 to 1. The Add menu builds these for the selection: **Morph from identity** (a matrix),
 **Grow from zero** (a vector or complex number) and **Blend** (two objects), each with a new slider `s`.
+
+### Moving frame on a curve
+Add → Calculus → **Moving frame on a curve** (or select a curve and use the template). At the point u = u0:
+- **T** (red) is the direction of motion, **N** (green) points towards the center of the turn, **B** = T × N (blue).
+- **κ** (curvature) = 1/radius of the **osculating circle**, the circle that hugs the curve best there (gray).
+  **τ** (torsion) measures how fast the curve leaves the plane it turns in: 0 for flat curves.
+- **At u** is a formula: a slider, or `mod(t, 4pi)` to ride along with the clock.
+- The **curvature comb** draws κ along the whole curve (long teeth where it bends most).
+- The value is the point r(u0), usable in other formulas. Gallery: helix, ellipse, parabola. Tutorial: "Curvature
+  and the moving frame". LaTeX export draws the curve, the frame and the circle.
 
 ### Integrals
 Add → Calculus.
