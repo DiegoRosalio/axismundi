@@ -6,6 +6,7 @@
 #include "math/Contour.hpp"
 #include "export/LatexExport.hpp"
 #include "export/PdfCompile.hpp"
+#include "math/VectorField.hpp"
 #include "text/LabelLayout.hpp"
 #include "text/TextLayout.hpp"
 #include <fstream>
@@ -16,6 +17,7 @@
 #include "math/expr/Expr.hpp"
 #include "scene/Scene.hpp"
 #include <map>
+#include <memory>
 #include "math/Breakdown.hpp"
 #include "math/Quaternion.hpp"
 #include "math/Matrix3D.hpp"
@@ -482,6 +484,65 @@ expr::Value evalText(const std::string& text, const expr::Resolver* r = nullptr)
     expr::Program p;
     if (!p.compile(text)) return expr::Value::fail(p.error());
     return p.eval(r);
+}
+
+void testVectorField() {
+    using namespace field;
+    auto program = [](const char* text) {
+        auto p = std::make_unique<expr::Program>();
+        CHECK(p->compile(text, expr::kVarZ));
+        return p;
+    };
+    Box box{{-4, -4, -2}, {4, 4, 2}};
+
+    // Arrows: grid centers, the longest fits 90% of a cell, zero vectors skipped
+    auto rot = program("[-y, x, 0]");
+    FieldFunction plane(*rot, nullptr, 0.0, true);
+    ArrowSet arrows = sampleArrows(plane, box, 8, 8, 1, false);
+    CHECK(arrows.arrows.size() == 64);
+    CHECK_NEAR(arrows.cell, 1.0, 1e-9);
+    double longest = 0;
+    for (const Arrow& a : arrows.arrows) longest = std::max(longest, static_cast<double>(a.vec.magnitude()));
+    CHECK_NEAR(longest, 0.9, 1e-5);
+    CHECK_NEAR(arrows.maxMagnitude, std::sqrt(3.5 * 3.5 * 2), 1e-5);
+    CHECK_NEAR(arrows.arrows[0].base.x, -3.5, 1e-6);
+    CHECK_NEAR(arrows.arrows[0].base.z, 0.0, 1e-9);
+    ArrowSet same = sampleArrows(plane, box, 8, 8, 1, true);
+    CHECK_NEAR(same.arrows[0].vec.magnitude(), same.arrows[10].vec.magnitude(), 1e-5);
+    auto zero = program("[x - x, 0, 0]");
+    CHECK(sampleArrows(FieldFunction(*zero, nullptr, 0, true), box, 4, 4, 1, false).arrows.empty());
+    // Volume: nx * ny * nz arrows; plane fields drop F's z component
+    auto up = program("[0, 0, 1 + z*z]");
+    CHECK(sampleArrows(FieldFunction(*up, nullptr, 0, false), box, 3, 3, 4, false).arrows.size() == 36);
+    CHECK(sampleArrows(FieldFunction(*up, nullptr, 0, true), box, 3, 3, 4, false).arrows.empty());
+
+    // Flow line of a rotation: a closed circle that keeps its radius, duration ≈ 2π
+    FlowLine circle = traceFlowLine(plane, {2, 0, 0}, box, 0.05, 2000);
+    CHECK(circle.closed);
+    double worst = 0;
+    for (const Vector3D& p : circle.points) worst = std::max(worst, std::fabs(p.magnitude() - 2.0));
+    CHECK(worst < 1e-3);
+    CHECK_NEAR(circle.duration(), 2 * 3.14159265358979, 0.05);
+    CHECK_NEAR(particleAt(circle, circle.duration() / 2).x, -2.0, 0.02);  // half a turn later
+
+    // Source: the line runs out of the box (both ends clipped at the edge or stopped at 0)
+    auto source = program("[x, y, 0]");
+    FieldFunction src(*source, nullptr, 0, true);
+    FlowLine out = traceFlowLine(src, {1, 0.5, 0}, box, 0.05, 2000);
+    CHECK(!out.closed);
+    CHECK(out.points.size() > 10);
+    CHECK_NEAR(std::max(std::fabs(out.points.back().x), std::fabs(out.points.back().y)), 4.0, 1e-3);
+    CHECK(out.points.front().magnitude() < 0.05);  // traced back to the source at the origin
+    for (size_t i = 1; i < out.times.size(); i++) CHECK(out.times[i] >= out.times[i - 1]);
+
+    // Seeds and particle times (periodic in the scene time, spread along the line)
+    CHECK(flowSeeds(box, true, 5).size() == 25);
+    CHECK(flowSeeds(box, false, 3).size() == 27);
+    double T = circle.duration();
+    CHECK_NEAR(particleTime(circle, 0, 3, 0.0, 1.0), 0.0, 1e-12);
+    CHECK_NEAR(particleTime(circle, 1, 3, 0.0, 1.0), T / 3, 1e-9);
+    CHECK_NEAR(particleTime(circle, 0, 3, T + 0.25, 1.0), 0.25, 1e-9);
+    CHECK_NEAR(particleTime(circle, 0, 3, 0.25, 2.0), 0.5, 1e-9);
 }
 
 void testFieldVariable() {
@@ -1398,6 +1459,7 @@ int main() {
         {"Contour", testContour},
         {"Text layout", testTextLayout},
         {"Field variable z", testFieldVariable},
+        {"Vector field", testVectorField},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},
         {"PDF compile", testPdfCompile},
