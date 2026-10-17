@@ -19,6 +19,7 @@
 #include "ui/Preferences.hpp"
 #include "ui/ReferencePanel.hpp"
 #include "ui/ExportPanel.hpp"
+#include "ui/FormulaEditor.hpp"
 #include "ui/ScenePanel.hpp"
 #include "ui/SettingsPopover.hpp"
 #include "ui/SideBar.hpp"
@@ -120,6 +121,9 @@ public:
     ScenePanel& scenePanel() { return m_scenePanel; }
     ReferencePanel& referencePanel() { return m_referencePanel; }
     ExportPanel& exportPanel() { return m_exportPanel; }
+    FormulaEditor& formulaEditor() { return m_formulaEditor; }
+    // Open the big editor for a field of an object in the current space (tour, tests)
+    void openFormulaEditor(const std::string& objectName, const std::string& key);
     // The LaTeX figure of the current space with the export panel's settings
     std::string exportLatexCode() const;
     bool addMenuOpen() const { return m_addMenu.isOpen(); }
@@ -213,6 +217,7 @@ private:
     void exportView(double& azimuth, double& elevation) const;  // from the camera
     void writeLatex(const std::string& path);
     FileDialog m_fileDialog;
+    FormulaEditor m_formulaEditor;
     std::string m_currentFile;               // scene file of the last save / open
     std::string m_lastFolder;                // where the file dialog starts
     std::vector<std::string> m_recentFiles;  // most recent first

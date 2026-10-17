@@ -376,6 +376,21 @@ void App::newScene() {
     toast("New scene (Ctrl+Z brings the previous one back)");
 }
 
+void App::openFormulaEditor(const std::string& objectName, const std::string& key) {
+    SceneObject* o = m_scene.space(spaceKind()).find(objectName);
+    if (!o || !o->field(key)) return;
+    scene::ObjectId oid = o->id();
+    SpaceKind kind = spaceKind();
+    scene::Scene* sc = &m_scene;
+    m_formulaEditor.open(kind, oid, key, o->field(key)->text, [sc, kind, oid, key](const std::string& text) {
+        SceneObject* obj = sc->space(kind).find(oid);
+        if (!obj) return false;
+        obj->setField(key, text);
+        sc->commit();
+        return true;
+    });
+}
+
 void App::exportView(double& azimuth, double& elevation) const {
     Vector3 p = m_camera.position(), t = m_camera.target();
     latex::viewFromDirection(worldToMath(Vector3{p.x - t.x, p.y - t.y, p.z - t.z}), azimuth, elevation);
@@ -583,7 +598,8 @@ void App::takeScreenshot() {
 }
 
 bool App::isEditing() const {
-    return m_scenePanel.isEditing() || m_referencePanel.isEditing() || m_fileDialog.isOpen();
+    return m_scenePanel.isEditing() || m_referencePanel.isEditing() || m_fileDialog.isOpen() ||
+           m_formulaEditor.isOpen();
 }
 
 void App::handleInput(float deltaTime) {
@@ -592,7 +608,10 @@ void App::handleInput(float deltaTime) {
     // Escape steps back one level: cancel an edit, close a popup or the help,
     // or leave camera mode (frees the mouse). It never quits the app.
     if (IsKeyPressed(KEY_ESCAPE)) {
-        if (m_fileDialog.isOpen()) {
+        if (m_formulaEditor.isOpen()) {
+            m_formulaEditor.close();
+            editing = false;
+        } else if (m_fileDialog.isOpen()) {
             m_fileDialog.close();
             editing = false;
         } else if (editing) {
@@ -748,7 +767,9 @@ void App::pickInViewport() {
     // Only clicks on the 3D view itself, not on panels or popovers
     if (mouse.x < SideBar::width() || mouse.y < TopBar::height()) return;
     if (m_panels.anyContains(mouse)) return;
-    if (m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen() || m_fileDialog.isOpen()) return;
+    if (m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen() || m_fileDialog.isOpen() ||
+        m_formulaEditor.isOpen())
+        return;
 
     const Camera3D& cam = m_camera.camera();
     SpaceKind kind = spaceKind();
@@ -869,7 +890,7 @@ float App::viewportRight() const {
 void App::drawUi(float deltaTime) {
     // An open popover owns the mouse over its area
     Vector2 mouse = GetMousePosition();
-    bool popoverOwnsMouse = m_fileDialog.isOpen() || m_settingsPopover.contains(mouse) ||
+    bool popoverOwnsMouse = m_fileDialog.isOpen() || m_formulaEditor.isOpen() || m_settingsPopover.contains(mouse) ||
                             m_colorPopover.contains(mouse) || m_addMenu.contains(mouse);
     bool wasLocked = GuiIsLocked();
     if (popoverOwnsMouse) GuiLock();
@@ -895,6 +916,11 @@ void App::drawUi(float deltaTime) {
     if (requests.loadDemo) {
         resetScene();
         toast("Demo scene loaded (Ctrl+Z goes back)");
+    }
+    if (requests.openFormula) {
+        closePopovers();
+        m_formulaEditor.open(spaceKind(), requests.formulaObject, requests.formulaKey, requests.formulaText,
+                             requests.formulaCommit);
     }
     if (requests.openReference) {
         m_referenceWindow.setVisible(true);
@@ -976,6 +1002,10 @@ void App::drawUi(float deltaTime) {
     }
 
     drawTutorialHighlight();
+    if (m_formulaEditor.draw(m_scene)) {
+        m_referenceWindow.setVisible(true);
+        m_panels.bringToFront(&m_referenceWindow);
+    }
     if (m_fileDialog.draw()) {
         if (m_fileDialog.kind() == FileDialog::Kind::Latex) writeLatex(m_fileDialog.path());
         else if (m_fileDialog.mode() == FileDialog::Mode::Save) writeScene(m_fileDialog.path());

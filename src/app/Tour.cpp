@@ -69,7 +69,15 @@ void Tour::buildSteps() {
                       {{"mode", "formula"}});
         app.select("w");
     });
+    step("02c_formula_editor", [](App& app) { app.openFormulaEditor("w", "value"); }, 15);
+    step("02d_formula_editor_error", [](App& app) {
+        app.formulaEditor().close();
+        app.openFormulaEditor("w", "value");
+        // A typo shows the error live (not applied)
+        const_cast<std::string&>(app.formulaEditor().text()) += " + q";
+    }, 15);
     step("03_add_menu_templates", [](App& app) {
+        app.formulaEditor().close();
         app.select("a");
         app.select("b", AppMode::Space3D, true);
         app.openAddMenu();
