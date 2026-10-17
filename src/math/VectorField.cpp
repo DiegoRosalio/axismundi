@@ -1,6 +1,7 @@
 #include "math/VectorField.hpp"
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <unordered_map>
 
 namespace linalg::field {
@@ -82,7 +83,8 @@ bool direction(const FieldFunction& f, const Vector3D& p, double sign, Vector3D&
 
 // One direction of a flow line: points after the seed (not including it) and their flow times
 void traceOneWay(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps, double sign,
-                 std::vector<Vector3D>& points, std::vector<double>& times, bool& closed) {
+                 std::vector<Vector3D>& points, std::vector<double>& times, bool& closed,
+                 const std::function<bool(const Vector3D&)>& stop) {
     Vector3D p = seed;
     double tau = 0.0;
     for (int n = 0; n < maxSteps; n++) {
@@ -114,6 +116,7 @@ void traceOneWay(const FieldFunction& f, const Vector3D& seed, const Box& box, d
         p = next;
         points.push_back(p);
         times.push_back(tau);
+        if (stop && stop(p)) return;  // e.g. too close to another flow line
         // Back at the start after going round: an orbit
         if (n > 8 && (p - seed).magnitude() < 0.6 * step) {
             closed = true;
@@ -124,17 +127,31 @@ void traceOneWay(const FieldFunction& f, const Vector3D& seed, const Box& box, d
 
 } // namespace
 
+namespace {
+
+FlowLine traceWithStop(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps,
+                       const std::function<bool(const Vector3D&)>& stop);
+
+} // namespace
+
 FlowLine traceFlowLine(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps) {
+    return traceWithStop(f, seed, box, step, maxSteps, nullptr);
+}
+
+namespace {
+
+FlowLine traceWithStop(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps,
+                       const std::function<bool(const Vector3D&)>& stop) {
     FlowLine line;
     Vector3D s = seed;
     if (f.plane()) s.z = 0.0f;
     std::vector<Vector3D> fwd, back;
     std::vector<double> fwdT, backT;
     bool closed = false;
-    traceOneWay(f, s, box, step, maxSteps, 1.0, fwd, fwdT, closed);
+    traceOneWay(f, s, box, step, maxSteps, 1.0, fwd, fwdT, closed, stop);
     if (!closed) {
         bool closedBack = false;
-        traceOneWay(f, s, box, step, maxSteps, -1.0, back, backT, closedBack);
+        traceOneWay(f, s, box, step, maxSteps, -1.0, back, backT, closedBack, stop);
     }
     // Upstream end first: the backward points reversed, then the seed, then forward
     double offset = backT.empty() ? 0.0 : backT.back();
@@ -160,6 +177,8 @@ FlowLine traceFlowLine(const FieldFunction& f, const Vector3D& seed, const Box& 
     if (line.points.size() < 2) line.points.clear(), line.times.clear();
     return line;
 }
+
+} // namespace
 
 namespace {
 
@@ -202,7 +221,10 @@ std::vector<FlowLine> traceFlowLines(const FieldFunction& f, const std::vector<V
         Vector3D seed = seed0;
         if (f.plane()) seed.z = 0.0f;
         if (separation > 0 && grid.near(seed, separation)) continue;
-        FlowLine line = traceFlowLine(f, seed, box, step, maxSteps);
+        // Stop tracing once the line runs into a kept one (it would be cut there anyway)
+        std::function<bool(const Vector3D&)> stop;
+        if (separation > 0) stop = [&](const Vector3D& p) { return grid.near(p, separation); };
+        FlowLine line = traceWithStop(f, seed, box, step, maxSteps, stop);
         if (line.points.size() < 2) continue;
         if (separation > 0) {
             // The seed's index: the point with the largest time not after the seed's (the seed is a point)
