@@ -16,6 +16,7 @@
 #include "ui/HelpOverlay.hpp"
 #include "ui/InfoPanel.hpp"
 #include "ui/Preferences.hpp"
+#include "ui/ReferencePanel.hpp"
 #include "ui/ScenePanel.hpp"
 #include "ui/SettingsPopover.hpp"
 #include "ui/SideBar.hpp"
@@ -115,6 +116,7 @@ public:
     BreakdownPanel& breakdownPanel() { return m_breakdownPanel; }
     TutorialPanel& tutorialPanel() { return m_tutorialPanel; }
     ScenePanel& scenePanel() { return m_scenePanel; }
+    ReferencePanel& referencePanel() { return m_referencePanel; }
     bool addMenuOpen() const { return m_addMenu.isOpen(); }
 
     void saveScene();
@@ -188,6 +190,9 @@ private:
     GalleryPanel m_galleryPanel;
     ui::FloatingPanel m_tutorialWindow;
     TutorialPanel m_tutorialPanel;
+    ui::FloatingPanel m_referenceWindow;
+    ReferencePanel m_referencePanel;
+    float m_referenceHeight = 0.0f;
     ui::PanelManager m_panels;
     float m_analysisHeight = 0.0f;
     float m_animationHeight = 0.0f;

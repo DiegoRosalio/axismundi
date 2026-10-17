@@ -189,7 +189,20 @@ void Tour::buildSteps() {
         if (auto* p = app.panel("analysis")) p->setVisible(true);
         if (auto* p = app.panel("gallery")) p->setVisible(true);
     });
+    step("21b_reference", [](App& app) {
+        if (auto* p = app.panel("gallery")) p->setVisible(false);
+        app.resetScene();
+        if (auto* p = app.panel("reference")) p->setVisible(true);
+        app.referencePanel().setTryText("rotz(pi/4)*[1, 0, 0]");
+    }, 20);
+    step("21c_reference_search", [](App& app) {
+        app.referencePanel().setSearch("matrix");
+        app.referencePanel().setTryText("M^-1 * 2");
+    }, 20);
     step("22_tutorial_list", [](App& app) {
+        app.referencePanel().setSearch("");
+        app.referencePanel().setTryText("");
+        if (auto* p = app.panel("reference")) p->setVisible(false);
         if (auto* p = app.panel("gallery")) p->setVisible(false);
         if (auto* p = app.panel("tutorial")) p->setVisible(true);
     });

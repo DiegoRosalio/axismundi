@@ -16,6 +16,7 @@ struct ScenePanelRequests {
     bool openColor = false;      // color swatch clicked for the selected object
     Rectangle colorAnchor = {0, 0, 0, 0};
     bool openTime = false;       // "Time panel" link in a parameter's inspector
+    bool openReference = false;  // formula reference button in the inspector header
     std::string message;         // e.g. a rejected rename
     bool messageIsError = false;
 };

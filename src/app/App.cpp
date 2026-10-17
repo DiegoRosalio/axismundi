@@ -52,7 +52,8 @@ App::App(const AppOptions& options)
       m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false),
       m_breakdownWindow("breakdown", "Transformation breakdown", 380.0f, {0.0f, 0.4f}, false),
       m_galleryWindow("gallery", "Example gallery", 700.0f, {0.5f, 0.2f}, false),
-      m_tutorialWindow("tutorial", "Tutorial", 400.0f, {0.0f, 0.0f}, false) {
+      m_tutorialWindow("tutorial", "Tutorial", 400.0f, {0.0f, 0.0f}, false),
+      m_referenceWindow("reference", "Formula reference", 620.0f, {0.45f, 0.1f}, false) {
     // Preferences (not during the tour, which must be reproducible)
     SceneData prefs;
     if (options.tourDir.empty()) loadPreferences(prefs);
@@ -77,6 +78,7 @@ App::App(const AppOptions& options)
     m_panels.add(&m_breakdownWindow);
     m_panels.add(&m_galleryWindow);
     m_panels.add(&m_tutorialWindow);
+    m_panels.add(&m_referenceWindow);
 
     applyPreferences(prefs);
     if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
@@ -498,7 +500,7 @@ void App::takeScreenshot() {
 }
 
 bool App::isEditing() const {
-    return m_scenePanel.isEditing();
+    return m_scenePanel.isEditing() || m_referencePanel.isEditing();
 }
 
 void App::handleInput(float deltaTime) {
@@ -509,6 +511,7 @@ void App::handleInput(float deltaTime) {
     if (IsKeyPressed(KEY_ESCAPE)) {
         if (editing) {
             m_scenePanel.cancelEditing();
+            m_referencePanel.cancelEditing();
             editing = false;
         } else if (m_addMenu.isOpen()) {
             m_addMenu.close();
@@ -566,6 +569,10 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_F12)) requestScreenshot(shift);
     if (IsKeyPressed(KEY_F5)) saveScene();
     if (IsKeyPressed(KEY_F9)) loadScene();
+    if (IsKeyPressed(KEY_F2)) {
+        m_referenceWindow.toggle();
+        if (m_referenceWindow.visible()) m_panels.bringToFront(&m_referenceWindow);
+    }
     if (IsKeyPressed(KEY_F1)) {
         m_tutorialWindow.toggle();
         if (m_tutorialWindow.visible()) m_panels.bringToFront(&m_tutorialWindow);
@@ -774,6 +781,10 @@ void App::drawUi(float deltaTime) {
         closePopovers();
         openColorPicker();
     }
+    if (requests.openReference) {
+        m_referenceWindow.setVisible(true);
+        m_panels.bringToFront(&m_referenceWindow);
+    }
     if (requests.openTime) {
         m_animationWindow.setVisible(true);
         m_panels.bringToFront(&m_animationWindow);
@@ -797,6 +808,7 @@ void App::drawUi(float deltaTime) {
     state.analysisVisible = m_analysisWindow.visible();
     state.timeVisible = m_animationWindow.visible();
     state.playing = m_scene.timeline().playing;
+    state.referenceVisible = m_referenceWindow.visible();
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
@@ -812,6 +824,7 @@ void App::drawUi(float deltaTime) {
     if (actions.toggleSteps) toggleWindow(m_stepsWindow);
     if (actions.toggleAnalysis) toggleWindow(m_analysisWindow);
     if (actions.toggleTime) toggleWindow(m_animationWindow);
+    if (actions.toggleReference) toggleWindow(m_referenceWindow);
     if (actions.togglePlay) TimePanel::togglePlay(m_scene);
     if (actions.toggleSettings) {
         bool open = !m_settingsPopover.isOpen();
@@ -884,6 +897,12 @@ void App::drawFloatingPanels() {
         if (p == &m_analysisWindow) {
             if (p->begin(m_analysisHeight, content)) {
                 m_analysisHeight = m_infoPanel.drawContent(content);
+                p->end();
+            }
+        } else if (p == &m_referenceWindow) {
+            if (p->begin(m_referenceHeight, content)) {
+                m_referenceHeight = m_referencePanel.drawContent(content, &m_scene.space(spaceKind()),
+                                                                 m_scene.timeline().time);
                 p->end();
             }
         } else if (p == &m_animationWindow) {

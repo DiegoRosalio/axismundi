@@ -32,6 +32,7 @@ const Entry kView[] = {
 
 const Entry kPanels[] = {
     {"F1", "Tutorial"},
+    {"F2", "Formula reference"},
     {"E", "Example gallery"},
     {"M", "Analysis panel"},
     {"K", "Calculation steps"},

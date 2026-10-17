@@ -1,4 +1,5 @@
 #include "math/expr/Expr.hpp"
+#include "math/expr/Reference.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -57,6 +58,16 @@ const FunctionInfo kFunctions[] = {
     // complex
     {"conj", 1, 1}, {"re", 1, 1}, {"im", 1, 1}, {"arg", 1, 1}, {"polar", 2, 2},
 };
+
+} // namespace
+
+std::vector<std::string> functionNames() {
+    std::vector<std::string> names;
+    for (const auto& f : kFunctions) names.push_back(f.name);
+    return names;
+}
+
+namespace {
 
 const FunctionInfo* findFunction(const std::string& name) {
     for (const auto& f : kFunctions)

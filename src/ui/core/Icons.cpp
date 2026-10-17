@@ -209,6 +209,9 @@ void drawIcon(Icon icon, Rectangle r, Color color) {
             c.seg(8.0f, 13.5f, 8.0f, 4.0f);
             c.seg(11.2f, 13.5f, 11.2f, 7.0f);
             break;
+        case Icon::Formula:  // a sigma: the formula reference
+            c.poly({{12.5f, 3.0f}, {3.5f, 3.0f}, {8.5f, 8.0f}, {3.5f, 13.0f}, {12.5f, 13.0f}});
+            break;
         case Icon::Grid:
             for (int i = 0; i < 4; i++) {
                 float t = 2.5f + i * 3.67f;

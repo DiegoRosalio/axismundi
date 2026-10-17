@@ -63,6 +63,10 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     if (rightButton(t.dark ? ui::Icon::Sun : ui::Icon::Moon, false)) actions.toggleTheme = true;
     ui::tooltip(last, t.dark ? "Switch to the light theme (T)" : "Switch to the dark theme (T)", "Theme");
     divider();
+    if (rightButton(ui::Icon::Formula, state.referenceVisible)) actions.toggleReference = true;
+    ui::anchor("topbar.reference", last);
+    ui::tooltip(last, "Cheat sheet of the formula language, with live examples and a box to try formulas (F2)",
+                "Formula reference");
     if (rightButton(ui::Icon::Book, state.tutorialVisible)) actions.toggleTutorial = true;
     ui::anchor("topbar.tutorial", last);
     ui::tooltip(last, "Guided lessons with small tasks that are checked as you work (F1)", "Tutorial");

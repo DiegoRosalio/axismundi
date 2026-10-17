@@ -61,7 +61,8 @@ src/
   math/               NO raylib: Vector3D, Matrix3D/4D, Decompositions (LU/QR/eigen3/svd3), Complex,
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper)
   math/expr/          NO raylib: typed expression engine — Value (number, complex, vector, 3x3/4x4
-                      matrix, error), Program (compile once, names used, eval with Resolver + x/y/t slots)
+                      matrix, error), Program (compile once, names used, eval with Resolver + x/y/t/u slots);
+                      Reference (the in-app formula cheat sheet as data: sections, entries, examples)
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
@@ -75,7 +76,7 @@ src/
                       Layout, Icons, FloatingPanel + PanelManager
   ui/                 ScenePanel (objects list + inspector), AddMenu (types + templates from the
                       selection), Widgets, TopBar, SideBar, ViewPanel, InfoPanel (analysis of the
-                      selection), TimePanel (scene clock), StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
+                      selection), TimePanel (scene clock), ReferencePanel (formula cheat sheet, F2), StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
                       SettingsPopover, ColorPopover, HelpOverlay, SceneIO, Preferences, RayguiImpl.cpp
   ui/generated/       fonts.inc (embedded fonts, subset; codepoint list)
   include/<area>/     headers mirror the folders above
@@ -118,6 +119,13 @@ docs/screenshots/     images for the docs, produced by --tour
   `PlotSpec::smooth` picks smooth surfaces (per-vertex color + slope shading) or faceted ones (flat cells,
   plain triangle list); it comes from the Settings preference `UiSettings::smoothSurfaces`
   (`ui.smooth_surfaces`) through `SceneView::setSmoothSurfaces`, and is part of the plot cache key.
+
+### Formula reference
+`math/expr/Reference.cpp` holds the cheat sheet shown by `ui/ReferencePanel` (F2). `testReference` checks that
+every example compiles and evaluates (unless it is marked `usesObjects`) and that every name in the
+function table (`functionNames()`) appears in some entry's syntax. **When adding a function or syntax,
+add an entry**, or the test fails. The panel's section chips (`kChips` in ReferencePanel.cpp) follow the
+section order.
 
 ### Adding a new object type (e.g. quaternion, vector field, tensor)
 1. Model in `src/scene/Types.{hpp,cpp}`: subclass `SceneObject`; in the constructor `addField(...)` and

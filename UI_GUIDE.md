@@ -79,7 +79,7 @@ Each space has its own list of objects. The side bar shows:
 | Product | complex | Two factors; rotation and scaling construction; length and angle breakdown |
 
 ### Formulas
-Every field is a formula. It can use other objects in the same space by name. Available:
+The **Formula reference** (F2) has all of this with live examples. Every field is a formula. It can use other objects in the same space by name. Available:
 - numbers, `+ - * / ^`, implicit multiplication (`2x`, `3(a + b)`);
 - vectors `[x, y, z]`, matrices `[[…], […], […]]` (3×3 or 4×4), `[u, v, w]` with vectors as columns;
 - components `v.x`, the constants `pi e i`;
@@ -167,6 +167,11 @@ reference. Each tab keeps its own camera.
 - **Example gallery** (E): filter by topic and click a card; it replaces the objects of that space.
 - **Calculation steps** (K): pick a topic (A·B, A×B, M·A, det M, M⁻¹, eigenvalues; or z₁·z₂, polar forms, Euler).
   It uses the selected matrix, vectors and complex numbers (or M, a, b, z1, z2), live.
+- **Formula reference** (F2, the Σ button in the top bar or in the inspector header): the formula language as
+  a cheat sheet. **Try a formula** evaluates anything you type against the objects of the current space (with
+  `t` = the scene time, `x` = 1, `y` = 2; matrices are shown in full). Below it, search or pick a section
+  (basics, names, time, vectors, matrices, complex numbers, functions, blending, errors). Every entry shows its
+  syntax, what it does and an example with its live result; click an example to copy it into the box.
 - **Tooltips**: hover almost anything. They can be turned off in Settings.
 
 ## View section

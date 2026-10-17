@@ -50,6 +50,8 @@ and worked calculations.
 - **Tutorial** (F1): 11 lessons with tasks that are checked as you work, including adding objects, formulas
   and parameters.
 - **Example gallery** (E): about 20 ready-made scenes.
+- **Formula reference** (F2, the Σ button): a searchable cheat sheet of the formula language, every function
+  with a live example, and a box to try any formula against your objects.
 - **Tooltips** everywhere.
 
 ### Interface

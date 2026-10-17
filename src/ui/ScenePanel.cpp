@@ -318,6 +318,10 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
 
     std::string title = obj ? std::string("Inspector · ") + obj->name() : std::string("Inspector");
     Rectangle headRow = col.row(26.0f);
+    Rectangle refButton = ui::takeRight(headRow, 26.0f, 0.0f);
+    if (ui::iconButton(refButton, ui::Icon::Formula)) m_requests.openReference = true;
+    ui::anchor("inspector.reference", refButton);
+    ui::tooltip(refButton, "Everything you can type in a formula, with examples (F2)", "Formula reference");
     ui::sectionHeader(headRow, title.c_str(), m_showInspector, nullptr, true);
     Rectangle inspectorArea = headRow;
     if (!m_showInspector) return col.y() + ui::px(6.0f);

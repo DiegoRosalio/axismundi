@@ -2,6 +2,7 @@
 // Build and run with: make test
 
 #include "animation/Playback.hpp"
+#include "math/expr/Reference.hpp"
 #include "math/Complex.hpp"
 #include "math/Decompositions.hpp"
 #include "math/Expression.hpp"
@@ -15,6 +16,7 @@
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
 
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -606,6 +608,59 @@ void testBlendFunctions() {
     CHECK(v.type == Type::Matrix);
 }
 
+void testReference() {
+    using namespace expr;
+    // Every example compiles; those that need no objects evaluate without errors
+    Slots slots;
+    slots.x = 1;
+    slots.y = 2;
+    slots.t = 0.5;
+    slots.u = 0.5;
+    slots.hasX = slots.hasY = slots.hasT = slots.hasU = true;
+    std::string documented;
+    int examples = 0;
+    for (const auto& section : reference()) {
+        CHECK(!section.title.empty() && !section.entries.empty());
+        for (const auto& e : section.entries) {
+            documented += " " + e.syntax + " ";
+            if (e.example.empty()) continue;
+            examples++;
+            Program p;
+            bool ok = p.compile(e.example, true);
+            if (!ok) fprintf(stderr, "  reference example does not compile: %s (%s)\n", e.example.c_str(), p.error().c_str());
+            CHECK(ok);
+            if (!ok || e.usesObjects) continue;
+            Value v = p.eval(nullptr, &slots);
+            if (!v.ok()) fprintf(stderr, "  reference example fails: %s -> %s\n", e.example.c_str(), v.error.c_str());
+            CHECK(v.ok());
+        }
+    }
+    CHECK(examples > 40);
+    // Every built-in function is documented somewhere
+    auto isWordChar = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
+    for (const auto& name : functionNames()) {
+        bool found = false;
+        for (size_t at = documented.find(name); at != std::string::npos && !found; at = documented.find(name, at + 1)) {
+            bool before = at > 0 && isWordChar(documented[at - 1]);
+            bool after = at + name.size() < documented.size() && isWordChar(documented[at + name.size()]);
+            found = !before && !after;
+        }
+        if (!found) fprintf(stderr, "  function not in the reference: %s\n", name.c_str());
+        CHECK(found);
+    }
+    // A few results the text promises
+    auto run = [&](const char* text) {
+        Program p;
+        p.compile(text, true);
+        return p.eval(nullptr, &slots);
+    };
+    CHECK_NEAR(run("2^3^2").re, 512.0, 1e-9);
+    CHECK_NEAR(run("-2^2").re, -4.0, 1e-12);
+    CHECK_NEAR(run("[1, 2, 3].y").re, 2.0, 1e-12);
+    CHECK_NEAR(run("atan2(1, -1)").re, 3 * 3.14159265358979 / 4, 1e-9);
+    CHECK_NEAR(run("keys(0.25, 0, 10, 0)").re, 5.0, 1e-9);
+}
+
 void testSceneTime() {
     using namespace scene;
     Scene sc;
@@ -994,6 +1049,7 @@ int main() {
         {"Playback", testPlayback},
         {"Blend functions", testBlendFunctions},
         {"Scene time", testSceneTime},
+        {"Reference", testReference},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},

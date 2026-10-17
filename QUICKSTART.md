@@ -58,6 +58,7 @@ floor grid larger.
 - **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form).
 - **B** Breakdown: the selected matrix as rotate → stretch → rotate, step by step.
 - **K** Calculation steps: worked calculations with your numbers.
+- **F2** Formula reference: everything you can type in a formula, with live examples and a box to try your own.
 - **P** plays or pauses the scene clock (Time panel).
 
 ## Make it yours
