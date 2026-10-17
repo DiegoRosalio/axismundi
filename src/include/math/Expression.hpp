@@ -1,6 +1,6 @@
 #pragma once
 
-#include <memory>
+#include "math/expr/Expr.hpp"
 #include <string>
 
 namespace linalg {
@@ -12,37 +12,29 @@ struct ExprVars {
     double t = 0.0;
 };
 
-// A parsed math expression, e.g. "sin(x) * exp(-y^2/2)".
-//
-// Supports + - * / ^ (right-associative), unary minus, parentheses,
-// implicit multiplication like "2x" or "3(x+1)", the variables x y t,
-// the constants pi and e, and the functions
-// sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil.
+// A scalar math expression in x, y and t, e.g. "sin(x) * exp(-y^2/2)".
+// Thin wrapper over the typed engine (math/expr) for plots and numeric fields:
+// other names are rejected at parse time, and non-real results evaluate to NaN.
+// Optionally a resolver supplies extra names (parameters) for evaluation.
 class Expression {
 public:
-    struct Node;
+    // Parse text. On failure returns false and error() describes the problem.
+    // With allowNames, names other than x/y/t are accepted (resolved at eval time).
+    bool parse(const std::string& text, bool allowNames = false);
 
-    Expression();
-    ~Expression();
-    Expression(Expression&&) noexcept;
-    Expression& operator=(Expression&&) noexcept;
-
-    // Parse text. On failure returns false and error() describes the problem;
-    // the previous expression is discarded either way.
-    bool parse(const std::string& text);
-
-    bool valid() const { return m_root != nullptr; }
+    bool valid() const { return m_valid; }
     const std::string& error() const { return m_error; }
-    const std::string& text() const { return m_text; }
+    const std::string& text() const { return m_program.text(); }
+    const expr::Program& program() const { return m_program; }
 
-    // Evaluate; returns NaN if the expression is invalid.
-    double eval(const ExprVars& vars) const;
+    // Evaluate; returns NaN if the expression is invalid or not a real number.
+    double eval(const ExprVars& vars, const expr::Resolver* resolver = nullptr) const;
     double eval(double x, double y = 0.0, double t = 0.0) const { return eval(ExprVars{x, y, t}); }
 
 private:
-    std::unique_ptr<Node> m_root;
+    expr::Program m_program;
     std::string m_error;
-    std::string m_text;
+    bool m_valid = false;
 };
 
 } // namespace linalg

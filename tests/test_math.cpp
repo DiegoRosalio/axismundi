@@ -6,6 +6,8 @@
 #include "math/Decompositions.hpp"
 #include "math/Expression.hpp"
 #include "math/Explain.hpp"
+#include "math/expr/Expr.hpp"
+#include <map>
 #include "math/Breakdown.hpp"
 #include "math/Quaternion.hpp"
 #include "math/Matrix3D.hpp"
@@ -433,6 +435,123 @@ void testBreakdown() {
     CHECK(squashed);
 }
 
+struct MapResolver : expr::Resolver {
+    std::map<std::string, expr::Value> values;
+    bool lookup(const std::string& name, expr::Value& out) const override {
+        auto it = values.find(name);
+        if (it == values.end()) return false;
+        out = it->second;
+        return true;
+    }
+};
+
+expr::Value evalText(const std::string& text, const expr::Resolver* r = nullptr) {
+    expr::Program p;
+    if (!p.compile(text)) return expr::Value::fail(p.error());
+    return p.eval(r);
+}
+
+void testExprEngine() {
+    using expr::Type;
+    using expr::Value;
+
+    // Numbers and complex numbers
+    CHECK_NEAR(evalText("2 + 3*4").re, 14.0, 1e-12);
+    Value z = evalText("(1 + 2i)(3 - i)");
+    CHECK(z.type == Type::Complex);
+    CHECK_NEAR(z.re, 5.0, 1e-12);
+    CHECK_NEAR(z.im, 5.0, 1e-12);
+    Value i2 = evalText("i^2");
+    CHECK_NEAR(i2.re, -1.0, 1e-12);
+    CHECK_NEAR(i2.im, 0.0, 1e-12);
+    Value euler = evalText("exp(i pi)");
+    CHECK_NEAR(euler.re, -1.0, 1e-9);
+    CHECK_NEAR(std::fabs(euler.im), 0.0, 1e-9);
+    CHECK_NEAR(evalText("abs(3 + 4i)").re, 5.0, 1e-12);
+    CHECK_NEAR(evalText("arg(i)").re, 3.14159265 / 2, 1e-6);
+    Value p = evalText("polar(2, pi/2)");
+    CHECK_NEAR(p.im, 2.0, 1e-9);
+
+    // Vectors
+    Value v = evalText("[1, 2, 3] + 2[0, 1, 0]");
+    CHECK(v.type == Type::Vector);
+    CHECK_NEAR(v.vector.y, 4.0f, 1e-6f);
+    CHECK(evalText("cross([1,0,0], [0,1,0])").vector.z == 1.0f);
+    CHECK_NEAR(evalText("dot([1,2,3], [4,5,6])").re, 32.0, 1e-9);
+    CHECK_NEAR(evalText("norm([3, 4, 0])").re, 5.0, 1e-6);
+    CHECK_NEAR(evalText("[1, 2, 3].y").re, 2.0, 1e-9);
+    CHECK(!evalText("[1,0,0] * [0,1,0]").ok());  // suggests dot / cross
+    CHECK(evalText("[1,0,0] * [0,1,0]").error.find("dot") != std::string::npos);
+
+    // Matrices
+    Value m = evalText("[[1, 2, 0], [0, 1, 0], [0, 0, 1]]");
+    CHECK(m.type == Type::Matrix && m.size == 3);
+    CHECK_NEAR(m.matrix.m[0][1], 2.0f, 1e-6f);
+    Value mv = evalText("[[0,-1,0],[1,0,0],[0,0,1]] * [1, 0, 0]");
+    CHECK_NEAR(mv.vector.y, 1.0f, 1e-6f);
+    CHECK_NEAR(evalText("det(scale(2))").re, 8.0, 1e-6);
+    CHECK_NEAR(evalText("tr(eye(4))").re, 4.0, 1e-9);
+    Value r = evalText("rotz(pi/2) * [1, 0, 0]");
+    CHECK_NEAR(r.vector.y, 1.0f, 1e-6f);
+    Value ra = evalText("rot([0, 0, 1], pi/2) * [1, 0, 0]");
+    CHECK_NEAR(ra.vector.y, 1.0f, 1e-6f);
+    Value cols = evalText("[[1,0,0],[0,1,0],[0,0,1]]");
+    CHECK(cols.ok());
+    Value fromColumns = evalText("[[0,1,0], [1,0,0], [0,0,1]]");
+    CHECK(fromColumns.ok());
+    Value colMatrix = evalText("[cross([1,0,0],[0,1,0]), [1,0,0], [0,1,0]]");  // columns
+    CHECK(colMatrix.type == Type::Matrix);
+    CHECK_NEAR(colMatrix.matrix.m[2][0], 1.0f, 1e-6f);
+    Value t = evalText("translate(1, 2, 3) * [0, 0, 0]");
+    CHECK_NEAR(t.vector.z, 3.0f, 1e-6f);
+    CHECK(!evalText("inv([[1,1,0],[1,1,0],[0,0,1]])").ok());
+    Value mi = evalText("scale(2)^-1 * [2, 4, 6]");
+    CHECK_NEAR(mi.vector.z, 3.0f, 1e-5f);
+    CHECK(!evalText("[[1,2],[3,4]]").ok());           // 2x2 not supported
+    CHECK(!evalText("[[1,2,3],[4,5,6]]").ok());       // not square
+
+    // Names, dependencies, slots
+    MapResolver res;
+    res.values["a"] = Value::vec(Vector3D(1, 0, 0));
+    res.values["b"] = Value::vec(Vector3D(0, 2, 0));
+    res.values["M"] = Value::mat3(Matrix3D::scale(3, 3));
+    res.values["theta"] = Value::scalar(3.14159265 / 2);
+    expr::Program prog;
+    CHECK(prog.compile("M*(a + b) + cross(a, b) * cos(theta)"));
+    CHECK(prog.names() == std::set<std::string>({"M", "a", "b", "theta"}));
+    Value pv = prog.eval(&res);
+    CHECK(pv.type == Type::Vector);
+    CHECK_NEAR(pv.vector.x, 3.0f, 1e-5f);
+    CHECK_NEAR(pv.vector.y, 6.0f, 1e-5f);
+    CHECK(evalText("a + q", &res).error.find("'q'") != std::string::npos);
+
+    expr::Program plot;
+    CHECK(plot.compile("x^2 + y*t + theta"));
+    CHECK(plot.usesX() && plot.usesY() && plot.usesT());
+    CHECK(plot.names() == std::set<std::string>({"theta"}));
+    expr::Slots slots;
+    slots.x = 2;
+    slots.y = 3;
+    slots.t = 1;
+    slots.hasX = slots.hasY = slots.hasT = true;
+    CHECK_NEAR(plot.eval(&res, &slots).re, 4 + 3 + 3.14159265 / 2, 1e-6);
+    CHECK(!plot.eval(&res).ok());  // x outside a plot
+
+    // Parse errors and names
+    expr::Program bad;
+    CHECK(!bad.compile("dot([1,0,0])"));   // wrong argument count
+    CHECK(!bad.compile("[1, 2"));
+    CHECK(!bad.compile("a.w"));
+    CHECK(expr::isValidName("z1"));
+    CHECK(expr::isValidName("M_2"));
+    CHECK(!expr::isValidName("sin"));
+    CHECK(!expr::isValidName("2a"));
+    CHECK(!expr::isValidName("x"));
+    CHECK(evalText("[1, 2, 3]").summary() == "(1, 2, 3)");
+    CHECK(evalText("1 - 2i").summary() == "1 − 2i");
+    CHECK(evalText("-i").summary() == "−i");
+}
+
 } // namespace
 
 int main() {
@@ -451,6 +570,7 @@ int main() {
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},
+        {"ExprEngine", testExprEngine},
     };
 
     for (const auto& t : tests) {
