@@ -28,6 +28,7 @@ struct Options {
     int curveSamples = 200;    // caps, so documents compile quickly
     int surfaceSamples = 30;
     int implicitSamples = 80;
+    int fieldArrows = 20;      // vector field arrows per axis (volume: a third)
 };
 
 struct Result {

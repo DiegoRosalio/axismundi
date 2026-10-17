@@ -232,6 +232,22 @@ std::vector<FlowLine> traceFlowLines(const FieldFunction& f, const std::vector<V
     return kept;
 }
 
+int seedsPerAxis(bool plane, int requested) {
+    return plane ? std::clamp(requested, 2, 16) : std::clamp(requested, 2, 4);
+}
+
+std::vector<FlowLine> fieldFlowLines(const FieldFunction& f, const Box& box, int seedsRequested) {
+    bool plane = f.plane();
+    int per = seedsPerAxis(plane, seedsRequested);
+    double span = std::max({static_cast<double>(box.max.x - box.min.x), static_cast<double>(box.max.y - box.min.y),
+                            plane ? 0.0 : static_cast<double>(box.max.z - box.min.z)});
+    double step = span / (plane ? 160.0 : 90.0);
+    int maxSteps = plane ? 600 : 300;
+    // Lines stay at least this far apart (about half the seed spacing in a plane)
+    double separation = span / (per * (plane ? 2.2 : 4.0));
+    return traceFlowLines(f, flowSeeds(box, plane, per), box, step, maxSteps, separation);
+}
+
 std::vector<Vector3D> flowSeeds(const Box& box, bool plane, int perAxis) {
     std::vector<Vector3D> seeds;
     perAxis = std::max(1, perAxis);

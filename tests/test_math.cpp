@@ -949,6 +949,38 @@ void testLatexExport() {
         return true;
     };
 
+    // Vector fields: quiver tables; a plane field is a 2D figure, a volume field a 3D one
+    {
+        Scene fsc;
+        fsc.clearAll();
+        auto* F = static_cast<VectorFieldObject*>(fsc.add(SpaceKind::Euclidean3D, "field", "F"));
+        F->setField("F", "[-y - x/4, x - y/4, 0]");
+        F->setProp("lines", true);
+        F->setProp("particles", true);
+        fsc.evaluate();
+        latex::Options fo;
+        fo.standalone = true;
+        latex::Result fr = latex::exportLatex(fsc.space(SpaceKind::Euclidean3D), fsc.selection(SpaceKind::Euclidean3D), fo);
+        CHECK(fr.exported == 1 && fr.flat);
+        CHECK(fr.code.find("quiver={u=\\thisrow{u}, v=\\thisrow{v}}") != std::string::npos);
+        CHECK(fr.code.find("table[row sep=crcr] {x y u v\\\\") != std::string::npos);
+        CHECK(fr.code.find("forget plot") != std::string::npos);  // flow lines
+        CHECK(fr.code.find("only marks") != std::string::npos);   // particles
+        CHECK(fr.code.find("axis equal image") != std::string::npos);
+        CHECK(noColors(fr.code));
+        save("field-plane", fr.code);
+        F->setProp("domain", "volume");
+        F->setField("F", "[-y, x, 0.4]");
+        F->setProp("particles", false);
+        fsc.evaluate();
+        fr = latex::exportLatex(fsc.space(SpaceKind::Euclidean3D), fsc.selection(SpaceKind::Euclidean3D), fo);
+        CHECK(!fr.flat);
+        CHECK(fr.code.find("\\addplot3[") != std::string::npos);
+        CHECK(fr.code.find("w=\\thisrow{w}") != std::string::npos);
+        CHECK(fr.code.find("only marks") == std::string::npos);
+        save("field-volume", fr.code);
+    }
+
     // Default 3D scene: vectors, matrix, eigenvectors -> 3D axis with arrows and labels
     Scene sc;
     sc.evaluate();

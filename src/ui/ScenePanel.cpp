@@ -1,4 +1,5 @@
 #include "ui/ScenePanel.hpp"
+#include "math/VectorField.hpp"
 #include "math/Decompositions.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/TextEditor.hpp"
@@ -765,12 +766,12 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
             Rectangle sv = ui::takeRight(sr, 40.0f, 8.0f);
             ui::textIn(sl, "Lines per axis", ui::FontRole::Body, t.text);
             float seeds = static_cast<float>(fo.seeds());
-            if (ui::slider(sr, seeds, 2.0f, fo.volume() ? 6.0f : 16.0f)) {
+            if (ui::slider(sr, seeds, 2.0f, fo.volume() ? 4.0f : 16.0f)) {
                 fo.setProp("seeds", std::round(static_cast<double>(seeds)));
                 m_sliderDirty = true;
             }
             char sb[16];
-            snprintf(sb, sizeof(sb), "%d", fo.seeds());
+            snprintf(sb, sizeof(sb), "%d", field::seedsPerAxis(!fo.volume(), fo.seeds()));
             ui::textIn(sv, sb, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
             ui::tooltip({sl.x, sr.y, sv.x + sv.width - sl.x, sr.height},
                         "How many flow lines start along each axis (evenly spaced).", "Lines per axis");

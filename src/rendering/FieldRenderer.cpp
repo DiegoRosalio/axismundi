@@ -13,10 +13,6 @@ Vector3 world(const Vector3D& p) { return mathToWorld(p); }
 
 } // namespace
 
-int FieldRenderer::seedsPerAxis(const FieldSpec& spec) {
-    return spec.plane ? std::clamp(spec.seeds, 2, 16) : std::clamp(spec.seeds, 2, 6);
-}
-
 bool FieldRenderer::rebuild(const FieldSpec& spec, const expr::Resolver* resolver) {
     m_spec = spec;
     m_meshes.release();
@@ -62,16 +58,9 @@ bool FieldRenderer::rebuild(const FieldSpec& spec, const expr::Resolver* resolve
 
     // Flow lines (also needed for particles)
     if (spec.lines || spec.particles) {
-        int per = seedsPerAxis(spec);
-        double span = std::max({static_cast<double>(spec.box.max.x - spec.box.min.x),
-                                static_cast<double>(spec.box.max.y - spec.box.min.y),
-                                spec.plane ? 0.0 : static_cast<double>(spec.box.max.z - spec.box.min.z)});
-        double step = span / (spec.plane ? 160.0 : 90.0);
-        int maxSteps = spec.plane ? 600 : 300;
-        // Lines stay at least this far apart (about half the seed spacing)
-        double separation = span / (per * (spec.plane ? 2.2 : 4.0));
-        m_lines = field::traceFlowLines(f, field::flowSeeds(spec.box, spec.plane, per), spec.box, step, maxSteps,
-                                        separation);
+        m_lines = field::fieldFlowLines(f, spec.box, spec.seeds);
+        double span = std::max(spec.box.max.x - spec.box.min.x, spec.box.max.y - spec.box.min.y);
+        double step = span / 160.0;  // arrowhead size along the lines
         if (spec.lines) {
             mesh::MeshData tubes;
             float r = 0.016f * spec.lineScale;

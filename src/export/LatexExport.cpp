@@ -2,6 +2,8 @@
 #include "math/Contour.hpp"
 #include "math/Decompositions.hpp"
 #include "math/Expression.hpp"
+#include "math/VectorField.hpp"
+#include "scene/Types.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -37,6 +39,7 @@ struct Figure {
     bool plots = false;   // functions/surfaces: no equal scaling
     bool legend = false;  // at least one legend entry
     bool surfaces = false;
+    bool fields3D = false;  // a volume vector field: equal unit lengths on all three axes
     std::vector<Point3> labelPoints;
 
     void extend(double x, double y, double z = 0.0) {
@@ -200,6 +203,72 @@ void legendEntry(Figure& f, const std::string& text, bool legend) {
     }
     f.body << "\\addlegendentry{$" << text << "$}\n";
     f.legend = true;
+}
+
+void exportField(Figure& f, const scene::VectorFieldObject& o, const Style& s, const scene::Space& space,
+                 const Options& opt) {
+    expr::Program program;
+    const scene::Field* formula = o.field("F");
+    if (!formula || !program.compile(formula->text, expr::kVarZ)) return;
+    bool plane = !o.volume();
+    field::FieldFunction fn(program, &space, o.time(), plane);
+    auto range = [&](const char* key, double fb) { return static_cast<float>(o.rangeValue(key, fb)); };
+    field::Box box{{range("xmin", -4), range("ymin", -4), plane ? 0.0f : range("zmin", -2)},
+                   {range("xmax", 4), range("ymax", 4), plane ? 0.0f : range("zmax", 2)}};
+    scene::VectorFieldObject::Counts c = o.counts();
+    // Fewer arrows than on screen, so the document compiles quickly
+    int cap = plane ? opt.fieldArrows : std::max(2, opt.fieldArrows / 3);
+    field::ArrowSet arrows =
+        field::sampleArrows(fn, box, std::min(c.nx, cap), std::min(c.ny, cap), std::min(c.nz, cap), o.sameLength());
+    std::string name = nameToLatex(o.name());
+
+    // Arrows: a PGFPlots quiver table (x y [z] u v [w]), scaled like on screen
+    bool three = !f.flat;
+    if (three) f.fields3D = true;
+    f.body << (three ? "\\addplot3[" : "\\addplot[") << s.gray << ", thin, -{Stealth[length=3pt, width=2.2pt]}, "
+           << "quiver={u=\\thisrow{u}, v=\\thisrow{v}" << (three ? ", w=\\thisrow{w}" : "") << "}]\n"
+           << "  table[row sep=crcr] {" << (three ? "x y z u v w" : "x y u v") << "\\\\\n";
+    for (const field::Arrow& a : arrows.arrows) {
+        f.body << "  " << num(a.base.x) << " " << num(a.base.y);
+        if (three) f.body << " " << num(a.base.z);
+        f.body << " " << num(a.vec.x) << " " << num(a.vec.y);
+        if (three) f.body << " " << num(a.vec.z);
+        f.body << "\\\\\n";
+        f.extend(a.base.x, a.base.y, three ? a.base.z : 0);
+        f.extend(a.base.x + a.vec.x, a.base.y + a.vec.y, three ? a.base.z + a.vec.z : 0);
+    }
+    f.body << "};\n";
+    legendEntry(f, "\\vec{" + name + "}", opt.legend);
+
+    // Flow lines, and particles where they are at the current time
+    if (!o.lines() && !o.particles()) return;
+    // A volume's lines are hard to read on paper: at most 3 per axis there
+    std::vector<field::FlowLine> lines = field::fieldFlowLines(fn, box, plane ? o.seeds() : std::min(o.seeds(), 3));
+    if (o.lines()) {
+        for (const field::FlowLine& line : lines) {
+            size_t stride = std::max<size_t>(1, line.points.size() / 120);
+            f.body << (three ? "\\addplot3[" : "\\addplot[") << plotStyle(s, "thin, forget plot") << "] coordinates {";
+            int k = 0;
+            for (size_t i = 0; i < line.points.size(); i += stride, k++) {
+                const Vector3D& p = line.points[i];
+                f.body << (k % 6 == 0 ? "\n  " : " ") << f.coord(p.x, p.y, p.z);
+            }
+            const Vector3D& last = line.points.back();
+            f.body << " " << f.coord(last.x, last.y, last.z) << "\n};\n";
+        }
+    }
+    if (o.particles()) {
+        f.body << (three ? "\\addplot3[" : "\\addplot[")
+               << "only marks, mark=*, mark size=0.9pt, black, forget plot] coordinates {";
+        int k = 0;
+        const int perLine = plane ? 3 : 2;
+        for (const field::FlowLine& line : lines)
+            for (int j = 0; j < perLine; j++, k++) {
+                Vector3D p = field::particleAt(line, field::particleTime(line, j, perLine, o.time(), o.speed()));
+                f.body << (k % 6 == 0 ? "\n  " : " ") << f.coord(p.x, p.y, p.z);
+            }
+        f.body << "\n};\n";
+    }
 }
 
 void exportPlot(Figure& f, const scene::PlotObject& p, const Style& s, const scene::Space& space,
@@ -450,6 +519,8 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             for (const auto* o : objects) {
                 const std::string& t = o->typeId();
                 if (t == "function" || t == "implicit") continue;
+                // Plane fields live on the floor (only F's x and y are used)
+                if (t == "field" && !static_cast<const scene::VectorFieldObject*>(o)->volume()) continue;
                 if (t == "vector") {
                     auto* v = static_cast<const scene::VectorObject*>(o);
                     if (isZ0(o->value().vector) && isZ0(v->tail())) continue;
@@ -485,6 +556,8 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             exportEigen(f, o, s);
         } else if (auto* p = dynamic_cast<const scene::PlotObject*>(&o)) {
             exportPlot(f, *p, s, space, opt);
+        } else if (auto* vf = dynamic_cast<const scene::VectorFieldObject*>(&o)) {
+            exportField(f, *vf, s, space, opt);
         } else {
             result.skipped.push_back(o.name() + " (not supported yet)");
             continue;
@@ -582,6 +655,8 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
     if (!flat) out << ", zmin=" << num(lo[2]) << ", zmax=" << num(hi[2]);
     out << ",\n";
     if (equal && flat) out << "  axis equal image,\n";
+    // 3D axes are otherwise stretched to fill the box (a flat field box would look tall)
+    if (!flat && f.fields3D) out << "  unit vector ratio=1 1 1,\n";
     out << "  unbounded coords=jump,\n"
            "  clip=false,\n";
     if (f.legend) out << "  legend style={draw=none, fill=none, font=\\footnotesize}, legend cell align=left,\n"

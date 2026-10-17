@@ -44,9 +44,6 @@ public:
     double maxMagnitude() const { return m_maxMagnitude; }
     const std::vector<field::FlowLine>& lines() const { return m_lines; }
 
-    // Flow line seeds per axis actually used (volume fields use fewer, for speed)
-    static int seedsPerAxis(const FieldSpec& spec);
-
 private:
     mesh::MeshSet m_meshes;
     std::vector<field::FlowLine> m_lines;  // math coordinates (for particles)

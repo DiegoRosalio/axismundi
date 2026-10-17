@@ -63,6 +63,11 @@ FlowLine traceFlowLine(const FieldFunction& f, const Vector3D& seed, const Box& 
 std::vector<FlowLine> traceFlowLines(const FieldFunction& f, const std::vector<Vector3D>& seeds, const Box& box,
                                      double step, int maxSteps, double separation);
 
+// The flow lines a field object shows: seeds per axis (plane 2..16, volume 2..4), step, length and
+// spacing chosen from the box, so the app and the LaTeX export draw the same lines
+int seedsPerAxis(bool plane, int requested);
+std::vector<FlowLine> fieldFlowLines(const FieldFunction& f, const Box& box, int seedsRequested);
+
 // Evenly spaced seeds: perAxis × perAxis on the floor (plane) or perAxis³ in the box
 std::vector<Vector3D> flowSeeds(const Box& box, bool plane, int perAxis);
 
