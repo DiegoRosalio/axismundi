@@ -697,6 +697,9 @@ void App::update(float deltaTime) {
     m_breakdownWasVisible = breakdown;
     if (breakdown) m_breakdownPanel.update(deltaTime);
 
+    // Lesson setup and task checks
+    if (m_tutorialWindow.visible()) m_tutorialPanel.update(*this);
+
     ViewSettings& view = m_viewPanel.settings();
     m_grid.setShowGrid(view.showGrid);
     m_grid.setShowAxes(view.showAxes);
