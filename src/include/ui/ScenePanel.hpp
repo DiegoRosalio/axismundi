@@ -18,6 +18,8 @@ struct ScenePanelRequests {
     bool openTime = false;       // "Time panel" link in a parameter's inspector
     bool openReference = false;  // formula reference button in the inspector header
     bool loadDemo = false;       // "Demo scene" in the empty objects list
+    bool toggleSolo = false;     // solo button: show only the selection
+    bool soloOff = false;        // "Show all" turned solo off
     // Open the big formula editor for an object field (the expand button or Ctrl+Enter)
     bool openFormula = false;
     scene::ObjectId formulaObject = scene::kNoObject;
@@ -45,6 +47,7 @@ public:
     void cancelEditing() { m_activeId = -1; }
 
     void setEasingOpen(bool open) { m_easingOpen = open; }
+    void setSolo(bool solo) { m_solo = solo; }  // show-only-the-selection state, for the list
 
 private:
     // One editable text: the object it belongs to and what committing does
@@ -83,6 +86,7 @@ private:
     int m_exampleIndex = 0;
     bool m_sliderDirty = false;  // a slider changed the scene; commit on release
     bool m_easingOpen = false;   // easing grid in the parameter inspector
+    bool m_solo = false;
 };
 
 } // namespace linalg

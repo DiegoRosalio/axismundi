@@ -157,12 +157,14 @@ private:
     void drawFloatingPanels();
     void drawToast(float deltaTime);
     void drawHud();
+    void drawSoloChip();
     void drawTutorialHighlight();
     void toggleTheme();
     void toggleFullscreen();
     void takeScreenshot();
     void pickInViewport();
     void deleteSelection();
+    void toggleSolo();  // show only the selection (O)
     void duplicateSelection();
     StepsInput stepsInput() const;
     view::DrawOptions drawOptions() const;

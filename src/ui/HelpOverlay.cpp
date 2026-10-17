@@ -24,6 +24,7 @@ const Entry kView[] = {
     {"1|2", "3D space / complex plane"},
     {"G", "Toggle grid"},
     {"L", "Toggle labels"},
+    {"O", "Show only the selection"},
     {"T", "Dark / light theme"},
     {"Ctrl+=|Ctrl+-", "Bigger / smaller UI"},
     {"F11", "Fullscreen"},
@@ -54,7 +55,7 @@ const Entry kEdit[] = {
     {"Esc", "Cancel the edit, close a popup"},
 };
 
-float drawColumn(const char* title, const Entry* entries, int count, float x, float y, float width) {
+float drawColumn(const char* title, const Entry* entries, int count, float x, float y, float width, float step) {
     const ui::Theme& t = ui::theme();
     ui::text(ui::upper(title).c_str(), x, y, ui::FontRole::Caption, t.accent);
     y += ui::px(26.0f);
@@ -73,7 +74,7 @@ float drawColumn(const char* title, const Entry* entries, int count, float x, fl
         }
         Rectangle label = {x + keyColumn, y, width - keyColumn, ui::px(24.0f)};
         ui::textIn(label, entries[i].action, ui::FontRole::Body, t.text);
-        y += ui::px(31.0f);
+        y += step;
     }
     return y;
 }
@@ -100,10 +101,15 @@ void HelpOverlay::draw() const {
 
     float colY = box.y + pad + ui::px(70.0f);
     float colW = (boxW - 3 * pad) / 2;
-    drawColumn("View and camera", kView, sizeof(kView) / sizeof(kView[0]), box.x + pad, colY, colW);
-    float y2 = drawColumn("Panels and tools", kPanels, sizeof(kPanels) / sizeof(kPanels[0]),
-                          box.x + 2 * pad + colW, colY, colW);
-    drawColumn("Editing", kEdit, sizeof(kEdit) / sizeof(kEdit[0]), box.x + 2 * pad + colW, y2 + ui::px(12.0f), colW);
+    // Rows tighten on small windows so the right column (two groups) ends above the footer
+    const int nView = sizeof(kView) / sizeof(kView[0]), nPanels = sizeof(kPanels) / sizeof(kPanels[0]),
+              nEdit = sizeof(kEdit) / sizeof(kEdit[0]);
+    float available = box.y + boxH - pad - ui::px(26.0f) - colY - 2 * ui::px(26.0f) - ui::px(12.0f);
+    float step = std::clamp(available / static_cast<float>(std::max(nView, nPanels + nEdit)), ui::px(25.0f),
+                            ui::px(31.0f));
+    drawColumn("View and camera", kView, nView, box.x + pad, colY, colW, step);
+    float y2 = drawColumn("Panels and tools", kPanels, nPanels, box.x + 2 * pad + colW, colY, colW, step);
+    drawColumn("Editing", kEdit, nEdit, box.x + 2 * pad + colW, y2 + ui::px(12.0f), colW, step);
 
     ui::textIn({box.x, box.y + boxH - pad, boxW - pad, ui::px(20.0f)}, "Press H or Esc to close",
                ui::FontRole::Small, t.textFaint, ui::Align::Right);

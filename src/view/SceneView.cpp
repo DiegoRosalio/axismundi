@@ -307,6 +307,12 @@ void SceneView::updatePlots(scene::Space& space) {
     }
 }
 
+bool SceneView::shown(const DrawOptions& options, const SceneObject& o) {
+    if (!o.visible) return false;
+    if (!options.solo || !options.selection || options.selection->empty()) return true;
+    return options.selection->contains(o.id());
+}
+
 bool SceneView::dimmed(const DrawOptions& options, const SceneObject& o) const {
     return m_dim && !isSelected(options, o);
 }
@@ -357,7 +363,7 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
 
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
-        if (!o.visible) continue;
+        if (!shown(options, o)) continue;
         bool selected = isSelected(options, o);
         const expr::Value& v = o.value();
         const std::string& type = o.typeId();
@@ -414,7 +420,7 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
 
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
-        if (!o.visible || !o.value().isNumber()) continue;
+        if (!shown(options, o) || !o.value().isNumber()) continue;
         bool selected = isSelected(options, o);
         const expr::Value& v = o.value();
         float re = static_cast<float>(v.re), im = static_cast<float>(v.im);
@@ -492,7 +498,7 @@ void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& optio
     const Color faintGray = {150, 150, 150, 255}, cubeGray = {185, 185, 185, 255};
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
-        if (!o.visible) continue;
+        if (!shown(options, o)) continue;
         int style = printStyleOf(o.id());
         Color c = grayOf(style);
         int dash = dashOf(style);
@@ -550,7 +556,7 @@ void SceneView::drawComplexPrint(scene::Space& space, const DrawOptions& options
     }
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
-        if (!o.visible || !o.value().isNumber()) continue;
+        if (!shown(options, o) || !o.value().isNumber()) continue;
         int style = printStyleOf(o.id());
         Color c = grayOf(style);
         const expr::Value& v = o.value();
@@ -598,7 +604,7 @@ void SceneView::drawLabelsPrint(scene::Space& space, const DrawOptions& options,
     }
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
-        if (!o.visible || !o.value().ok()) continue;
+        if (!shown(options, o) || !o.value().ok()) continue;
         int style = printStyleOf(o.id());
         Color c = style < 0 ? Color{170, 170, 170, 255} : grayOf(style);
         if (o.typeId() == "eigen") {
@@ -642,7 +648,7 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
 
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
-        if (!o.visible || !o.value().ok()) continue;
+        if (!shown(options, o) || !o.value().ok()) continue;
         const bool dim = dimmed(options, o);
         const Color ring = isSelected(options, o) ? ui::theme().accent : Color{0, 0, 0, 0};
         auto shade = [&](Color c) { return dim ? faded(c) : c; };

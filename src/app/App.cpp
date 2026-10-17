@@ -764,6 +764,7 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_H)) m_help.toggle();
     if (IsKeyPressed(KEY_G)) view.showGrid = !view.showGrid;
     if (IsKeyPressed(KEY_L)) view.showLabels = !view.showLabels;
+    if (IsKeyPressed(KEY_O)) toggleSolo();
     if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
     if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
     if (IsKeyPressed(KEY_B)) m_breakdownWindow.toggle();
@@ -785,6 +786,15 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_F)) applyMatrixPreset(Matrix3D::scale(-1.0f, 1.0f));
     // S moves the camera backwards in camera mode
     if (uiMode && IsKeyPressed(KEY_S)) applyMatrixPreset(Matrix3D::scale(2.0f, 2.0f));
+}
+
+void App::toggleSolo() {
+    ViewSettings& view = m_viewPanel.settings();
+    if (!view.soloSelection && m_scene.selection(spaceKind()).empty()) {
+        toast("Select objects first: O then shows only them", true);
+        return;
+    }
+    view.soloSelection = !view.soloSelection;
 }
 
 void App::deleteSelection() {
@@ -834,7 +844,7 @@ void App::pickInViewport() {
 
     for (const auto& obj : m_scene.space(kind).objects()) {
         const SceneObject& o = *obj;
-        if (!o.visible || !o.value().ok()) continue;
+        if (!view::SceneView::shown(options, o) || !o.value().ok()) continue;
         if (kind == SpaceKind::Euclidean3D) {
             if (o.typeId() == "vector") {
                 Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
@@ -923,6 +933,7 @@ view::DrawOptions App::drawOptions() const {
     o.printGrayShading = m_exportPanel.options().grayShading;
     // Not while a lesson or the breakdown highlights things itself
     o.dimUnselected = m_uiSettings.dimUnselected && !m_tutorialWindow.visible() && !breakdownActive();
+    o.solo = m_viewPanel.settings().soloSelection;
     const SceneObject* target = targetMatrix();
     if (target && m_mode == AppMode::Space3D) {
         if (breakdownActive()) {
@@ -969,6 +980,7 @@ void App::drawUi(float deltaTime) {
     if (popoverOwnsMouse) GuiLock();
 
     if (m_uiSettings.showHud) drawHud();
+    drawSoloChip();
 
     // Side bar: objects and inspector of the current space, then the view settings
     if (SideBar::collapsed()) {
@@ -980,6 +992,7 @@ void App::drawUi(float deltaTime) {
         }
     } else {
         Rectangle area = m_sideBar.begin();
+        m_scenePanel.setSolo(m_viewPanel.settings().soloSelection);
         float y = m_scenePanel.draw(area.x, area.y, area.width, m_scene, spaceKind(), m_sceneView);
         m_viewPanel.setCurrentFile(m_currentFile);
         y = m_viewPanel.draw(area.x, y, area.width, m_mode);
@@ -995,6 +1008,8 @@ void App::drawUi(float deltaTime) {
         closePopovers();
         openColorPicker();
     }
+    if (requests.toggleSolo) toggleSolo();
+    if (requests.soloOff) m_viewPanel.settings().soloSelection = false;
     if (requests.loadDemo) {
         resetScene();
         toast("Demo scene loaded (Ctrl+Z goes back)");
@@ -1234,6 +1249,20 @@ void App::drawHud() {
     DrawCircleV({tx + ui::px(3), box.y + ui::px(5) + lineH / 2}, ui::px(3.5f), ui ? t.accent : t.success);
     ui::textIn({tx + ui::px(12), box.y + ui::px(5), w, lineH}, modeText, ui::FontRole::Small, t.text);
     ui::textIn({tx, box.y + ui::px(5) + lineH, w, lineH}, camText, ui::FontRole::Small, t.textMuted);
+}
+
+// "Only the selection" chip at the top of the view while solo is on
+void App::drawSoloChip() {
+    const ViewSettings& view = m_viewPanel.settings();
+    if (!view.soloSelection || m_scene.selection(spaceKind()).empty()) return;
+    const ui::Theme& t = ui::theme();
+    const char* text = "Only the selection  ·  O shows everything";
+    float w = ui::textWidth(text, ui::FontRole::Small) + ui::px(34.0f);
+    Rectangle box = {viewportLeft() + ui::px(16.0f), TopBar::height() + ui::px(12.0f), w, ui::px(28.0f)};
+    ui::fillRounded(box, box.height / 2, t.labelBg);
+    ui::strokeRounded(box, box.height / 2, ui::px(1.0f), t.accent);
+    ui::drawIcon(ui::Icon::Solo, {box.x + ui::px(6.0f), box.y + ui::px(5.0f), ui::px(18.0f), ui::px(18.0f)}, t.accent);
+    ui::textIn({box.x + ui::px(26.0f), box.y, w, box.height}, text, ui::FontRole::Small, t.text);
 }
 
 void App::drawToast(float deltaTime) {

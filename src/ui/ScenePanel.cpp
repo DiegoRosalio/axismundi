@@ -279,8 +279,15 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
     Rectangle head = col.row(32.0f);
     Rectangle add = ui::takeRight(head, 74.0f, 6.0f);
     Rectangle redo = ui::takeRight(head, 30.0f, 2.0f);
-    Rectangle undo = ui::takeRight(head, 30.0f, 6.0f);
+    Rectangle undo = ui::takeRight(head, 30.0f, 2.0f);
+    Rectangle solo = ui::takeRight(head, 30.0f, 6.0f);
     ui::sectionHeader(head, "Objects", m_showObjects);
+    bool soloActive = m_solo && !sel.empty();
+    if (ui::iconButton(solo, ui::Icon::Solo, soloActive, !sel.empty() || m_solo)) m_requests.toggleSolo = true;
+    ui::tooltip(solo, m_solo ? "Showing only the selected objects. Click (or O) to show everything again."
+                             : "Show only the selected objects in the view (O). The others stay in the list.",
+                "Only the selection");
+    ui::anchor("objects.solo", solo);
     if (ui::iconButton(undo, ui::Icon::Undo, false, sc.canUndo())) {
         m_activeId = -1;
         sc.undo();
@@ -328,12 +335,13 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
 
         float dot = ui::px(9.0f);
         Color c = view::SceneView::colorOf(o);
-        if (!o.visible) c = Fade(c, 0.3f);
+        bool hiddenBySolo = soloActive && !selected;
+        if (!o.visible || hiddenBySolo) c = Fade(c, 0.3f);
         DrawCircleV({row.x + ui::px(12), row.y + row.height / 2}, dot / 2, c);
         float tx = row.x + ui::px(24);
         float nameW = std::min(ui::px(64.0f), ui::textWidth(o.name().c_str(), ui::FontRole::BodyStrong) + ui::px(2));
         ui::textIn({tx, row.y, nameW, row.height}, ui::ellipsize(o.name().c_str(), ui::FontRole::BodyStrong, ui::px(64)).c_str(),
-                   ui::FontRole::BodyStrong, o.visible ? t.text : t.textFaint);
+                   ui::FontRole::BodyStrong, o.visible && !hiddenBySolo ? t.text : t.textFaint);
         float sx = tx + nameW + ui::px(8);
         float sw = eye.x - sx - ui::px(6);
         bool hasError = !o.error().empty();
@@ -351,8 +359,27 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
         }
         ui::tooltip(eye, o.visible ? "Hide" : "Show");
         if (hasError) ui::tooltip(row, o.error().c_str(), o.name().c_str());
+        else if (hiddenBySolo) ui::tooltip(row, "Hidden in the view while only the selection is shown (O).");
     }
     ui::anchor("objects.list", listArea);
+
+    // Show all: undoes hiding (one undo step) and turns "only the selection" off
+    bool anyHidden = false;
+    for (const auto& obj : space.objects()) anyHidden = anyHidden || !obj->visible;
+    if (anyHidden || soloActive) {
+        col.space(2.0f);
+        Rectangle all = col.row(28.0f);
+        if (ui::button(all, "Show all", ui::ButtonKind::Secondary, true, ui::Icon::Eye)) {
+            if (anyHidden) {
+                for (const auto& obj : space.objects()) obj->visible = true;
+                sc.commit();
+            }
+            m_requests.soloOff = true;
+        }
+        ui::tooltip(all, "Show every object again (hidden ones and the ones left out by 'only the selection').",
+                    "Show all");
+        ui::anchor("objects.showall", all);
+    }
     col.space(8.0f);
     return col.y();
 }

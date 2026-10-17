@@ -25,6 +25,8 @@ struct DrawOptions {
     bool printGrayShading = false;
     // Fade the objects that are not selected (while something is selected)
     bool dimUnselected = false;
+    // Show only the selected objects (when the selection is not empty)
+    bool solo = false;
 };
 
 // Draws the objects of a space. 3D space: math coordinates with z up (see
@@ -41,6 +43,8 @@ public:
 
     // Theme palette color for an object (or its custom color)
     static Color colorOf(const scene::SceneObject& object);
+    // Whether an object is drawn: visible, and selected when solo is on
+    static bool shown(const DrawOptions& options, const scene::SceneObject& object);
     // Value a matrix object is drawn with (taking the override into account)
     static Matrix4D displayedMatrix(const scene::SceneObject& object, const DrawOptions& options);
 

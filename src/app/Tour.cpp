@@ -101,7 +101,11 @@ void Tour::buildSteps() {
         app.select("a");
         app.select("w", AppMode::Space3D, true);
     });
-    step("07_parameter_rotation", [](App& app) { runExample(app, "Animated rotation"); }, 50);
+    step("06b_solo_selection", [](App& app) { app.view().soloSelection = true; });
+    step("07_parameter_rotation", [](App& app) {
+        app.view().soloSelection = false;
+        runExample(app, "Animated rotation");
+    }, 50);
     step("07b_parameter_animate", [](App& app) {
         auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
         if (p) {

@@ -15,6 +15,7 @@ struct ViewSettings {
     float axisLength = 5.0f;
     float gridSize = 10.0f;  // the grid reaches from -gridSize to +gridSize
     view::StyleId style = view::StyleId::Colorful;  // how the 3D view is drawn (saved in the scene)
+    bool soloSelection = false;  // show only the selected objects (not saved)
 };
 
 // "View" group in the side bar: grid/axes/labels toggles, axis length,

@@ -209,6 +209,10 @@ void drawIcon(Icon icon, Rectangle r, Color color) {
             c.seg(8.0f, 13.5f, 8.0f, 4.0f);
             c.seg(11.2f, 13.5f, 11.2f, 7.0f);
             break;
+        case Icon::Solo:  // a target: show only the selection
+            c.ring(8, 8, 6.0f, 0.0f, 360.0f);
+            c.dot(8, 8, 2.4f);
+            break;
         case Icon::Sidebar:  // a window with a left column
             c.poly({{2.5f, 3.0f}, {13.5f, 3.0f}, {13.5f, 13.0f}, {2.5f, 13.0f}, {2.5f, 3.0f}});
             c.seg(6.5f, 3.0f, 6.5f, 13.0f);
