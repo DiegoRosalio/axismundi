@@ -69,7 +69,8 @@ public:
 
     bool is3D() const { return m_type == PlotType::Surface || m_type == PlotType::Parametric; }
 
-    void draw() const;
+    // `fade` < 1 draws the plot translucent (other objects while something is selected)
+    void draw(float fade = 1.0f) const;
     void drawAxes(float length) const;
     void drawLabels(const Camera3D& camera, float axisLength, bool showAxes) const;
 

@@ -17,6 +17,7 @@ struct Preferences {
 // Settings that the settings popover edits
 struct UiSettings {
     bool tooltips = true;
+    bool dimUnselected = true;  // fade the other objects while something is selected
     bool showHud = true;
     enum class Surfaces { StyleDefault, Smooth, Faceted };
     Surfaces surfaces = Surfaces::StyleDefault;  // smooth shading or flat cells; default: the view style's

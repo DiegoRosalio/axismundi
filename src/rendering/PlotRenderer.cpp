@@ -515,12 +515,20 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
     }
 }
 
-void PlotRenderer::draw() const {
+void PlotRenderer::draw(float fade) const {
     rlDrawRenderBatchActive();
     rlDisableBackfaceCulling();  // surfaces are visible from above and below
-    for (const Mesh& mesh : m_meshes) DrawMesh(mesh, plotMaterial(), MatrixIdentity());
+    Material& material = plotMaterial();
+    unsigned char alpha = static_cast<unsigned char>(255.0f * std::clamp(fade, 0.0f, 1.0f));
+    material.maps[MATERIAL_MAP_DIFFUSE].color = {255, 255, 255, alpha};
+    for (const Mesh& mesh : m_meshes) DrawMesh(mesh, material, MatrixIdentity());
+    material.maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
     rlEnableBackfaceCulling();
-    for (const auto& s : m_wireframe) DrawLine3D(s.a, s.b, s.color);
+    for (const auto& s : m_wireframe) {
+        Color c = s.color;
+        c.a = static_cast<unsigned char>(c.a * std::clamp(fade, 0.0f, 1.0f));
+        DrawLine3D(s.a, s.b, c);
+    }
 }
 
 void PlotRenderer::drawAxes(float length) const {

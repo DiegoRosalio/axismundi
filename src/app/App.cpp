@@ -532,6 +532,7 @@ void App::applyPreferences(const SceneData& prefs) {
     float zoom = 1.0f;
     if (getFloat(prefs, "ui.zoom", zoom)) ui::setZoom(zoom);
     getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
+    getBool(prefs, "ui.dim_unselected", m_uiSettings.dimUnselected);
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
     std::string surfaces, style;
     bool oldSmooth = true;
@@ -562,6 +563,7 @@ void App::savePreferences() {
     putFloat(prefs, "ui.zoom", ui::zoom());
     prefs["ui.theme"] = ui::themeKind() == ui::ThemeKind::Light ? "light" : "dark";
     putBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
+    putBool(prefs, "ui.dim_unselected", m_uiSettings.dimUnselected);
     putBool(prefs, "ui.hud", m_uiSettings.showHud);
     static const char* kSurfaces[3] = {"style", "smooth", "faceted"};
     prefs["ui.surfaces"] = kSurfaces[static_cast<int>(m_uiSettings.surfaces)];
@@ -919,6 +921,8 @@ view::DrawOptions App::drawOptions() const {
     o.print = view::activeStyle().print;
     o.printScope = m_exportPanel.options().scope;
     o.printGrayShading = m_exportPanel.options().grayShading;
+    // Not while a lesson or the breakdown highlights things itself
+    o.dimUnselected = m_uiSettings.dimUnselected && !m_tutorialWindow.visible() && !breakdownActive();
     const SceneObject* target = targetMatrix();
     if (target && m_mode == AppMode::Space3D) {
         if (breakdownActive()) {

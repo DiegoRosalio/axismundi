@@ -23,6 +23,8 @@ struct DrawOptions {
     bool print = false;
     latex::Scope printScope = latex::Scope::Visible;
     bool printGrayShading = false;
+    // Fade the objects that are not selected (while something is selected)
+    bool dimUnselected = false;
 };
 
 // Draws the objects of a space. 3D space: math coordinates with z up (see
@@ -72,6 +74,8 @@ private:
     bool m_printGray = false;
     int printStyleOf(scene::ObjectId id) const;
     bool m_smoothSurfaces = true;
+    bool m_dim = false;  // this frame: fade unselected objects
+    bool dimmed(const DrawOptions& options, const scene::SceneObject& object) const;
 };
 
 } // namespace linalg::view

@@ -66,6 +66,9 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     }
     col.space(6.0f);
 
+    Rectangle dimRow = col.row(30);
+    ui::toggleRow(dimRow, "Fade unselected objects", settings.dimUnselected);
+    ui::tooltip(dimRow, "While something is selected, the other objects fade toward the background.");
     ui::toggleRow(col.row(30), "Explanatory tooltips", settings.tooltips);
     ui::toggleRow(col.row(30), "Status overlay", settings.showHud);
     col.space(4.0f);

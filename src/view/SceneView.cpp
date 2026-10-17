@@ -28,12 +28,24 @@ Color withAlpha(Color c, unsigned char a) {
     return c;
 }
 
+// Faded toward the view's background (unselected objects while something is selected).
+// Blending the color, not the alpha, keeps the depth order right.
+Color faded(Color c) {
+    const Color bg = activeStyle().background;
+    const float k = 0.62f;
+    auto mix = [&](unsigned char a, unsigned char b) { return static_cast<unsigned char>(a + (b - a) * k); };
+    return {mix(c.r, bg.r), mix(c.g, bg.g), mix(c.b, bg.b), c.a};
+}
+
 // Arrow between two world points; selected arrows are thicker with a halo
 void arrow(Vector3 from, Vector3 to, Color color, bool selected) {
     float k = activeStyle().lineScale;
     float radius = (selected ? 0.034f : 0.022f) * k;
     float head = (selected ? 0.24f : 0.2f) * std::sqrt(k);
-    if (selected) DrawCylinderEx(from, to, 0.075f * k, 0.075f * k, 10, withAlpha(color, 55));
+    if (selected) {
+        DrawCylinderEx(from, to, 0.085f * k, 0.085f * k, 12, withAlpha(color, 75));
+        DrawSphere(to, 0.16f * std::sqrt(k), withAlpha(color, 60));
+    }
     VectorRenderer::drawArrow(toVec(from), toVec(to), color, radius, head);
 }
 
@@ -108,12 +120,14 @@ Color paletteColor(const std::vector<Color>& palette, int index) {
     return palette[static_cast<size_t>(index) % palette.size()];
 }
 
-void basis(const Matrix4D& m, float alpha, bool selected) {
+void basis(const Matrix4D& m, float alpha, bool selected, bool fade = false) {
     const ViewStyle& t = activeStyle();
     Vector3D origin = m.transform(Vector3D::zero());
     Vector3 o = mathToWorld(origin);
     Vector3D axes[3] = {m.transformDirection({1, 0, 0}), m.transformDirection({0, 1, 0}), m.transformDirection({0, 0, 1})};
     Color colors[3] = {t.basisX, t.basisY, t.basisZ};
+    if (fade)
+        for (Color& c : colors) c = faded(c);
     float radius = (selected ? 0.04f : 0.03f) * t.lineScale;
     for (int i = 0; i < 3; i++) {
         Vector3 tip = mathToWorld(origin + axes[i]);
@@ -237,6 +251,10 @@ void SceneView::updatePlots(scene::Space& space) {
     }
 }
 
+bool SceneView::dimmed(const DrawOptions& options, const SceneObject& o) const {
+    return m_dim && !isSelected(options, o);
+}
+
 int SceneView::printStyleOf(scene::ObjectId id) const {
     auto it = m_printStyle.find(id);
     return it == m_printStyle.end() ? -1 : it->second;
@@ -245,6 +263,7 @@ int SceneView::printStyleOf(scene::ObjectId id) const {
 void SceneView::draw3D(scene::Space& space, const DrawOptions& options) {
     m_print = options.print;
     m_printGray = options.printGrayShading;
+    m_dim = options.dimUnselected && !m_print && options.selection && !options.selection->empty();
     m_printStyle.clear();
     if (m_print && options.selection) {
         auto list = latex::exportedObjects(space, *options.selection, options.printScope);
@@ -289,12 +308,13 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
 
         if (type == "vector" && v.type == expr::Type::Vector) {
             Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
-            arrow(mathToWorld(tail), mathToWorld(tail + v.vector), colorOf(o), selected);
+            Color c = dimmed(options, o) ? faded(colorOf(o)) : colorOf(o);
+            arrow(mathToWorld(tail), mathToWorld(tail + v.vector), c, selected);
         } else if (type == "matrix" && v.type == expr::Type::Matrix) {
-            basis(displayedMatrix(o, options), 1.0f, selected);
+            basis(displayedMatrix(o, options), 1.0f, selected, dimmed(options, o));
         } else if (type == "eigen" && v.type == expr::Type::Matrix) {
             EigenResult e = eigen3(v.matrix3());
-            Color c = colorOf(o);
+            Color c = dimmed(options, o) ? faded(colorOf(o)) : colorOf(o);
             for (const auto& ev : e.values) {
                 if (!ev.isReal() || !ev.hasVector) continue;
                 dashed(mathToWorld(ev.vector * -len), mathToWorld(ev.vector * len), withAlpha(c, selected ? 255 : 180),
@@ -304,7 +324,8 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             }
         } else if (dynamic_cast<const scene::PlotObject*>(&o)) {
             auto it = m_plots.find(o.id());
-            if (it != m_plots.end() && it->second.renderer.error().empty()) it->second.renderer.draw();
+            if (it != m_plots.end() && it->second.renderer.error().empty())
+                it->second.renderer.draw(dimmed(options, o) ? 0.3f : 1.0f);
         }
     }
 }
@@ -342,7 +363,7 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
         const expr::Value& v = o.value();
         float re = static_cast<float>(v.re), im = static_cast<float>(v.im);
         Vector3 tip = {re, im, 0};
-        Color c = colorOf(o);
+        Color c = dimmed(options, o) ? faded(colorOf(o)) : colorOf(o);
 
         if (o.typeId() == "product") {
             const expr::Value& a = o.field("a")->value;
@@ -563,6 +584,9 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
     for (const auto& obj : space.objects()) {
         const SceneObject& o = *obj;
         if (!o.visible || !o.value().ok()) continue;
+        const bool dim = dimmed(options, o);
+        const Color ring = m_dim && isSelected(options, o) ? ui::theme().accent : Color{0, 0, 0, 0};
+        auto shade = [&](Color c) { return dim ? faded(c) : c; };
         char text[96];
         Vector3 at;
         if (o.typeId() == "eigen") {
@@ -570,7 +594,7 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
             for (const auto& ev : e.values) {
                 if (!ev.isReal() || !ev.hasVector) continue;
                 snprintf(text, sizeof(text), "λ = %.2f", ev.re);
-                drawWorldLabel(camera, mathToWorld(ev.vector * ev.re), text, colorOf(o), {8.0f, 14.0f}, t.labelBg, t.labelLarge);
+                drawWorldLabel(camera, mathToWorld(ev.vector * ev.re), text, shade(colorOf(o)), {8.0f, 14.0f}, t.labelBg, t.labelLarge, ring);
             }
             continue;
         }
@@ -581,7 +605,7 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
             snprintf(text, sizeof(text), "%s", o.name().c_str());
         }
         Color c = o.typeId() == "matrix" ? t.text : colorOf(o);
-        drawWorldLabel(camera, at, text, c, kOffset, t.labelBg, t.labelLarge);
+        drawWorldLabel(camera, at, text, shade(c), kOffset, t.labelBg, t.labelLarge, ring);
     }
 }
 
