@@ -1,6 +1,7 @@
 #include "edu/Tutorial.hpp"
 #include "app/App.hpp"
 #include <cmath>
+#include <set>
 
 namespace linalg {
 
@@ -10,31 +11,42 @@ constexpr float kPi = 3.14159265f;
 
 bool near(float a, float b, float tol = 0.02f) { return std::fabs(a - b) <= tol; }
 
-void freshMatrices(App& app) {
-    app.setMode(AppMode::LinearAlgebra);
+// The default picture in the 3D space, with M selected and the analysis open
+void fresh3D(App& app) {
+    app.setMode(AppMode::Space3D);
     app.stopAnimation();
-    app.setMatrix3(Matrix3D::identity());
-    app.setVectors(Vector3D(1, 0, 0), Vector3D(0, 1, 0));
+    app.resetScene();
+    app.select("M");
     if (auto* p = app.panel("analysis")) p->setVisible(true);
 }
 
 Vector3D column(const Matrix4D& m, int c) { return {m.m[0][c], m.m[1][c], m.m[2][c]}; }
 
-float det3(const App& app) {
-    const Matrix4D& m = app.matrix();
+float det(const App& app) {
+    Matrix4D m = app.matrix();
+    if (app.using4x4()) return m.determinant();
     Matrix3D l;
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++) l.m[i][j] = m.m[i][j];
-    return app.using4x4() ? m.determinant() : l.determinant();
+    return l.determinant();
+}
+
+// Names of the vectors the default scene starts with
+const std::set<std::string> kDefaultVectors = {"a", "b", "s", "c", "Ma", "Mb"};
+
+bool anyVector(App& app, bool (*test)(const scene::SceneObject&)) {
+    for (const auto& o : app.space(AppMode::Space3D).objects())
+        if (o->typeId() == "vector" && o->value().type == expr::Type::Vector && test(*o)) return true;
+    return false;
 }
 
 std::vector<Lesson> build() {
     std::vector<Lesson> list;
 
-    list.push_back({"Getting around", "Camera, panels and modes", {
+    list.push_back({"Getting around", "Camera, panels and spaces", {
         {"Welcome",
-         "axismundi turns linear algebra, complex numbers and functions into 3D pictures. Inputs live in the side "
-         "bar on the left; results and tools open as panels you can drag around.",
+         "axismundi turns linear algebra, complex numbers and functions into 3D pictures. The side bar lists "
+         "the objects in the scene and edits the selected one; tools open as panels you can drag around.",
          nullptr, nullptr, nullptr, nullptr, nullptr},
         {"Move the camera",
          "There are two input modes. In camera mode the mouse looks around and W A S D move you; in UI mode the "
@@ -42,9 +54,9 @@ std::vector<Lesson> build() {
          nullptr, "Press Tab, look around, then press Esc (or Tab) to get the cursor back.",
          [](App& app, const TutorialContext& ctx) { return ctx.cameraModeUsed && app.uiMode(); },
          "Tab toggles the mode. The dot in the bottom-left status turns green in camera mode.", nullptr},
-        {"Three modes",
-         "The tabs at the top switch between Matrices, Complex and Plots. The gallery has a ready-made example "
-         "for each idea.",
+        {"Two spaces",
+         "The tabs at the top switch between the 3D space (vectors, matrices, plots) and the complex plane. "
+         "The gallery has a ready-made example for each idea.",
          nullptr, "Open the example gallery.",
          [](App& app, const TutorialContext&) {
              auto* p = app.panel("gallery");
@@ -53,35 +65,76 @@ std::vector<Lesson> build() {
          "Click the grid icon in the top bar, or press E.", "topbar.gallery"},
     }});
 
-    list.push_back({"Vectors", "Sum, dot product and cross product", {
-        {"Arrows from the origin",
-         "A and B are drawn as arrows. A+B is the diagonal of the parallelogram they span, and A×B sticks out "
-         "perpendicular to both. Each label shows the vector's length.",
-         freshMatrices, nullptr, nullptr, nullptr, "vectors"},
+    list.push_back({"Objects", "Add, select and edit", {
+        {"The objects list",
+         "Everything you see is an object: the matrix M, the vectors a and b, and vectors computed from them "
+         "such as s = a + b. Click a row to select it; the inspector below shows its settings.",
+         fresh3D, nullptr, nullptr, nullptr, "objects.list"},
+        {"Add a vector",
+         "The Add button lists every kind of object, plus templates built from the selection.",
+         nullptr, "Add a new vector.",
+         [](App& app, const TutorialContext&) {
+             return anyVector(app, [](const scene::SceneObject& o) { return kDefaultVectors.count(o.name()) == 0; });
+         },
+         "Click Add (or press N) and choose Vector.", "objects.add"},
+        {"Edit it",
+         "The new vector is selected, so the inspector shows its components. Every field accepts numbers or "
+         "formulas such as sqrt(2).",
+         nullptr, "Make a vector that points straight up: (0, 0, 2).",
+         [](App& app, const TutorialContext&) {
+             return anyVector(app, [](const scene::SceneObject& o) {
+                 Vector3D v = o.value().vector;
+                 return near(v.x, 0) && near(v.y, 0) && near(v.z, 2);
+             });
+         },
+         "Set x = 0, y = 0, z = 2. In the 3D space z points up.", "inspector"},
+    }});
+
+    list.push_back({"Vectors and formulas", "Objects that follow other objects", {
+        {"Formulas link objects",
+         "s is defined by the formula a + b: change a or b and s follows. Any field can use other objects by "
+         "name.",
+         [](App& app) {
+             fresh3D(app);
+             app.select("s");
+         },
+         "Make a vector defined by the formula 2a - b.",
+         [](App& app, const TutorialContext&) {
+             Vector3D target = app.vectorA() * 2.0f - app.vectorB();
+             for (const auto& o : app.space(AppMode::Space3D).objects()) {
+                 auto* v = dynamic_cast<const scene::VectorObject*>(o.get());
+                 if (v && v->byFormula() && o->value().type == expr::Type::Vector &&
+                     (o->value().vector - target).magnitude() < 1e-3f && o->name() != "a" && o->name() != "b")
+                     return true;
+             }
+             return false;
+         },
+         "Add a vector, switch it to Formula and type 2a - b.", "objects.add"},
         {"The dot product",
-         "A · B multiplies matching components and adds them up. It is zero exactly when the vectors are "
-         "perpendicular. Watch the Analysis panel while you edit.",
-         freshMatrices, "Set B to (1, 1, 0).",
+         "a · b multiplies matching components and adds them up; it is zero exactly when the vectors are "
+         "perpendicular. Select a and b together (Ctrl+click) to see it in the Analysis panel.",
+         nullptr, "Set b to (1, 1, 0).",
          [](App& app, const TutorialContext&) {
              Vector3D b = app.vectorB();
              return near(b.x, 1) && near(b.y, 1) && near(b.z, 0);
          },
-         "Click the x field of B, type 1 and press Enter. A · B becomes 1 and the angle 45°.", "vector.b"},
+         "Select b, then type 1 in its x field. a · b becomes 1 and the angle 45°.", "objects.list"},
         {"Right-hand rule",
-         "A × B follows the right-hand rule: curl your fingers from A to B and your thumb points along A × B.",
-         nullptr, "Make A × B point straight down the z-axis (negative z).",
+         "c = cross(a, b) follows the right-hand rule: curl your fingers from a to b and your thumb points "
+         "along a × b.",
+         nullptr, "Make c point straight down the z-axis.",
          [](App& app, const TutorialContext&) {
              Vector3D c = app.vectorA().cross(app.vectorB());
              return c.magnitude() > 0.1f && c.normalized().z < -0.99f;
          },
-         "With A = (1, 0, 0), try B = (0, -1, 0).", "vector.b"},
+         "With a = (1, 0, 0), try b = (0, -1, 0).", "objects.list"},
     }});
 
     list.push_back({"Matrices move space", "Columns are where the axes go", {
         {"Columns are images",
          "A matrix moves every point of space. Its first column is where the x-axis arrow (1, 0, 0) lands, the "
          "second where the y-axis lands, the third where z lands. The bright arrows show the moved axes.",
-         freshMatrices, nullptr, nullptr, nullptr, "matrix.grid"},
+         fresh3D, nullptr, nullptr, nullptr, "matrix.grid"},
         {"Send x to y",
          "Change the first column and watch the orange arrow (the image of the x-axis) follow.",
          nullptr, "Make the first column (0, 1, 0).",
@@ -94,34 +147,35 @@ std::vector<Lesson> build() {
          "Rotations keep lengths and angles. Their columns are unit vectors at right angles to each other.",
          nullptr, "Apply the Rotate 45° preset.",
          [](App& app, const TutorialContext&) {
-             const Matrix4D& m = app.matrix();
-             return near(m.m[0][0], 0.7071f, 0.01f) && near(m.m[1][0], 0.7071f, 0.01f) && near(m.m[0][1], -0.7071f, 0.01f);
+             Matrix4D m = app.matrix();
+             return near(m.m[0][0], 0.7071f, 0.01f) && near(m.m[1][0], 0.7071f, 0.01f) &&
+                    near(m.m[0][1], -0.7071f, 0.01f);
          },
-         "Click Rotate 45° or press R. The first column is (cos 45°, sin 45°, 0).", "preset.rotate"},
+         "Click Rotate 45° in the inspector or press R.", "preset.rotate"},
     }});
 
     list.push_back({"The determinant", "How volumes change", {
         {"Squash it flat",
          "det M is the factor by which M scales volumes. When it is 0, space is squashed into a plane, a line or "
          "a point, and the matrix cannot be undone.",
-         freshMatrices, "Make det M = 0.",
-         [](App& app, const TutorialContext&) { return std::fabs(det3(app)) < 1e-3f; },
+         fresh3D, "Make det M = 0.",
+         [](App& app, const TutorialContext&) { return std::fabs(det(app)) < 1e-3f; },
          "Set every cell of the third column to 0, or make two columns equal.", "matrix.grid"},
         {"Flip it",
          "A negative determinant means M also mirrors space: a right hand becomes a left hand.",
-         freshMatrices, "Make det M negative.",
-         [](App& app, const TutorialContext&) { return det3(app) < -1e-3f; },
+         fresh3D, "Make det M negative.",
+         [](App& app, const TutorialContext&) { return det(app) < -1e-3f; },
          "The Reflect preset (F) does it, or put −1 in one diagonal cell.", "preset.reflect"},
     }});
 
     list.push_back({"Eigenvectors", "Directions a matrix only stretches", {
         {"Purple lines",
-         "Along an eigenvector v the matrix only stretches: M v = λ v. The purple dashed lines show these "
-         "directions and the dots sit at λv. This symmetric matrix has three, at right angles.",
+         "Along an eigenvector v the matrix only stretches: M v = λ v. The object E draws these directions as "
+         "dashed lines with dots at λv. This symmetric matrix has three, at right angles.",
          [](App& app) {
-             freshMatrices(app);
+             fresh3D(app);
              app.setMatrix3(Matrix3D({{{{2, 1, 0}}, {{1, 2, 0}}, {{0, 0, 3}}}}));
-             app.view().showEigenvectors = true;
+             app.select("M");
          },
          nullptr, nullptr, nullptr, "panel.analysis"},
         {"Find λ = 5",
@@ -135,13 +189,36 @@ std::vector<Lesson> build() {
          "Put 5 in a diagonal cell of a diagonal matrix.", "matrix.grid"},
     }});
 
+    list.push_back({"Parameters", "Sliders that drive formulas", {
+        {"A slider in a formula",
+         "theta is a parameter: a named number with a slider. Here M is defined by the formula rotz(theta), so "
+         "M, and everything that uses it, turns when theta changes.",
+         [](App& app) {
+             fresh3D(app);
+             app.addObject(AppMode::Space3D, "parameter", "theta", {}, {{"value", "0.5"}, {"min", "0"}, {"max", "6.2832"}});
+             if (auto* m = dynamic_cast<scene::MatrixObject*>(app.object("M"))) {
+                 m->setByFormula(true);
+                 m->setField("value", "rotz(theta)");
+                 app.scene().commit();
+             }
+             app.select("theta");
+         },
+         "Press Play on theta and watch the scene turn.",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
+             return p && (p->playing() || std::fabs(p->number() - 0.5) > 0.2);
+         },
+         "The play button is in theta's inspector. Dragging the slider works too.", "parameter.play"},
+    }});
+
     list.push_back({"Breaking a matrix down", "Rotate, stretch, rotate", {
         {"Watch the steps",
          "Every matrix can be done in three simple moves: a rotation, a stretch along the axes, and another "
          "rotation (the singular value decomposition).",
          [](App& app) {
-             freshMatrices(app);
+             fresh3D(app);
              app.setMatrix3(Matrix3D({{{{1, 0.8f, 0}}, {{0, 1, 0}}, {{0, 0, 1.4f}}}}));
+             app.select("M");
          },
          "Open the transformation breakdown and let it play to the end.",
          [](App& app, const TutorialContext&) {
@@ -155,73 +232,65 @@ std::vector<Lesson> build() {
 
     list.push_back({"Complex multiplication", "Rotate and scale", {
         {"Multiply by i",
-         "Complex numbers are points of the plane. Multiplying by z₂ turns z₁ by the angle of z₂ and stretches it "
-         "by the length of z₂.",
+         "Complex numbers are points of the plane. w = z1·z2 turns z1 by the angle of z2 and stretches it by the "
+         "length of z2.",
          [](App& app) {
              app.setMode(AppMode::Complex);
-             ComplexScene s;
-             s.z1 = Complex(2, 1);
-             s.z2 = Complex(1, 0);
-             s.showEuler = false;
-             app.setComplexScene(s);
+             app.resetScene();
+             if (auto* z = app.object("z2", AppMode::Complex)) z->setField("value", "1");
+             app.scene().commit();
+             app.select("z2", AppMode::Complex);
              app.resetCamera();
          },
-         "Set z₂ = i (real part 0, imaginary part 1).",
+         "Set z2 = i.",
          [](App& app, const TutorialContext&) {
-             Complex z = app.complexScene().z2;
+             Complex z = app.complexValue("z2");
              return near(z.re, 0) && near(z.im, 1);
          },
-         "z₁z₂ jumps a quarter turn counter-clockwise.", "complex.z2"},
+         "Type i in z2's value field. w jumps a quarter turn counter-clockwise.", "inspector"},
         {"Double it",
-         "The length of the product is the product of the lengths: |z₁z₂| = |z₁| |z₂|.",
-         nullptr, "Give z₂ length 2 (for example 2i or 2).",
-         [](App& app, const TutorialContext&) { return near(app.complexScene().z2.abs(), 2.0f); },
-         "Try z₂ = 0 + 2i: the product turns 90° and doubles.", "complex.z2"},
+         "The length of the product is the product of the lengths: |z1·z2| = |z1| |z2|.",
+         nullptr, "Give z2 length 2 (for example 2i or 2).",
+         [](App& app, const TutorialContext&) { return near(app.complexValue("z2").abs(), 2.0f); },
+         "Try z2 = 2i: the product turns 90° and doubles.", "inspector"},
     }});
 
     list.push_back({"Euler's formula", "e^(iθ) walks around the circle", {
         {"Half a turn",
-         "e^(iθ) = cos θ + i sin θ is the point at angle θ on the unit circle. Its shadows on the axes are cos θ "
+         "u = exp(i*theta) is the point at angle theta on the unit circle. Its shadows on the axes are cos θ "
          "and sin θ.",
          [](App& app) {
              app.setMode(AppMode::Complex);
-             ComplexScene s;
-             s.showProduct = false;
-             s.showEuler = true;
-             s.theta = 0.5f;
-             app.setComplexScene(s);
+             app.resetScene();
+             app.select("theta", AppMode::Complex);
              app.resetCamera();
          },
-         "Drag θ to π (about 3.14).",
-         [](App& app, const TutorialContext&) { return near(app.complexScene().theta, kPi, 0.03f); },
-         "At θ = π the point reaches −1: e^(iπ) = −1.", "complex.theta"},
+         "Drag theta to π (about 3.14).",
+         [](App& app, const TutorialContext&) {
+             return near(static_cast<float>(app.parameterValue("theta", AppMode::Complex)), kPi, 0.03f);
+         },
+         "At θ = π the point reaches −1: e^(iπ) = −1.", "parameter.slider"},
     }});
 
     list.push_back({"Plotting", "Functions, curves and surfaces", {
-        {"Your own function",
-         "Type any formula in x. Use ^ for powers, and functions like sin, exp and sqrt.",
-         [](App& app) {
-             app.setMode(AppMode::Plotting);
-             PlotSpec s;
-             s.type = PlotType::Function2D;
-             s.f = "sin(x)";
-             app.setPlotSpec(s);
-             app.resetCamera();
-         },
-         "Replace sin(x) with a function of your own and press Enter.",
+        {"Add a surface",
+         "Plots are objects too. A surface z = f(x, y) is a height above every point of the floor.",
+         fresh3D, "Add a surface.",
          [](App& app, const TutorialContext&) {
-             PlotSpec s = app.plotSpec();
-             return s.type == PlotType::Function2D && s.f != "sin(x)" && app.plot().error().empty();
+             for (const auto& o : app.space(AppMode::Space3D).objects())
+                 if (o->typeId() == "surface" && o->error().empty()) return true;
+             return false;
          },
-         "For example x^2/4 - 2 or 3sin(x)/x.", "plot.expr"},
-        {"A surface",
-         "With two inputs, z = f(x, y) is a height above every point of the floor.",
-         nullptr, "Switch to Surface and plot a hill, such as 4exp(-(x^2 + y^2)/5).",
+         "Add → Surface z = f(x, y).", "objects.add"},
+        {"Use a parameter",
+         "Formulas in plots can use parameters, so a slider can reshape a surface.",
+         nullptr, "Make a surface whose formula uses a parameter (add one, e.g. k, then use it).",
          [](App& app, const TutorialContext&) {
-             PlotSpec s = app.plotSpec();
-             return s.type == PlotType::Surface && s.f != "sin(sqrt(x^2 + y^2))" && app.plot().error().empty();
+             for (const auto& o : app.space(AppMode::Space3D).objects())
+                 if (o->typeId() == "surface" && o->error().empty() && !o->dependencies().empty()) return true;
+             return false;
          },
-         "Pick Surface in the plot type tabs, then edit the z = field.", "plot.type"},
+         "Add → Parameter, then set the surface to sin(k*x) or k*exp(-(x^2+y^2)/4).", "objects.add"},
     }});
     return list;
 }

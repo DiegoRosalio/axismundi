@@ -1,5 +1,6 @@
 #include "rendering/PlotRenderer.hpp"
 #include "rendering/Labels.hpp"
+#include "rendering/WorldMapping.hpp"
 #include "ui/core/Theme.hpp"
 #include <algorithm>
 #include <cmath>
@@ -17,9 +18,15 @@ bool usable(double v) {
     return std::isfinite(v) && std::fabs(v) <= kClip;
 }
 
-// Math coordinates (z up) to world coordinates (y up)
-Vector3 mathToWorld(float x, float y, float z) {
-    return {x, z, -y};
+// 2D plots sit a hair above the floor so they are not hidden by the grid
+constexpr float kLift = 0.004f;
+
+Color curveColor(const PlotSpec& s) { return s.color.a ? s.color : ui::theme().curve; }
+Color surfaceColor(const PlotSpec& s) {
+    if (!s.color.a) return ui::theme().surface;
+    Color c = s.color;
+    c.a = 230;
+    return c;
 }
 
 float normalize(float v, float lo, float hi) {
@@ -53,7 +60,8 @@ Color PlotRenderer::heatColor(float t) {
     return {225, 50, 40, 255};
 }
 
-bool PlotRenderer::rebuild(const PlotSpec& spec) {
+bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver) {
+    m_resolver = resolver;
     m_type = spec.type;
     m_curve.clear();
     m_wireframe.clear();
@@ -61,7 +69,7 @@ bool PlotRenderer::rebuild(const PlotSpec& spec) {
     m_error.clear();
 
     auto parse = [&](Expression& e, const std::string& text, const char* name) {
-        if (e.parse(text)) return true;
+        if (e.parse(text, resolver != nullptr)) return true;
         m_error = std::string(name) + ": " + e.error();
         return false;
     };
@@ -124,7 +132,7 @@ void PlotRenderer::buildFunction2D(const PlotSpec& spec, const Expression& f) {
 
     for (int i = 0; i <= n; i++) {
         float x = spec.xMin + (spec.xMax - spec.xMin) * i / n;
-        double y = f.eval(x);
+        double y = eval(f, x, 0, 0);
         ok[i] = usable(y);
         ys[i] = static_cast<float>(y);
         if (ok[i]) {
@@ -141,8 +149,8 @@ void PlotRenderer::buildFunction2D(const PlotSpec& spec, const Expression& f) {
         float x0 = spec.xMin + (spec.xMax - spec.xMin) * i / n;
         float x1 = spec.xMin + (spec.xMax - spec.xMin) * (i + 1) / n;
         Color c = spec.heatmap ? heatColor(normalize((ys[i] + ys[i + 1]) / 2, m_minValue, m_maxValue))
-                               : ui::theme().curve;
-        m_curve.push_back({{x0, ys[i], 0.0f}, {x1, ys[i + 1], 0.0f}, c});
+                               : curveColor(spec);
+        m_curve.push_back({mathToWorld(x0, ys[i], kLift), mathToWorld(x1, ys[i + 1], kLift), c});
     }
 }
 
@@ -156,7 +164,7 @@ void PlotRenderer::buildParametric(const PlotSpec& spec, const Expression& ex, c
 
     for (int i = 0; i <= n; i++) {
         double t = spec.tMin + (spec.tMax - spec.tMin) * i / n;
-        double x = ex.eval(0, 0, t), y = ey.eval(0, 0, t), z = ez.eval(0, 0, t);
+        double x = eval(ex, 0, 0, t), y = eval(ey, 0, 0, t), z = eval(ez, 0, 0, t);
         Sample& s = pts[i];
         s = {static_cast<float>(x), static_cast<float>(y), static_cast<float>(z),
              usable(x) && usable(y) && usable(z)};
@@ -171,7 +179,7 @@ void PlotRenderer::buildParametric(const PlotSpec& spec, const Expression& ex, c
         const Sample& b = pts[i + 1];
         if (!a.ok || !b.ok) continue;
         // Color by height (math z)
-        Color c = spec.heatmap ? heatColor(normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : ui::theme().curve;
+        Color c = spec.heatmap ? heatColor(normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : curveColor(spec);
         m_curve.push_back({mathToWorld(a.x, a.y, a.z), mathToWorld(b.x, b.y, b.z), c});
     }
 }
@@ -188,7 +196,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
     m_maxValue = -kClip;
     for (int j = 0; j <= n; j++) {
         for (int i = 0; i <= n; i++) {
-            double v = f.eval(xAt(i), yAt(j));
+            double v = eval(f, xAt(i), yAt(j), 0);
             ok[idx(i, j)] = usable(v);
             z[idx(i, j)] = static_cast<float>(v);
             if (usable(v)) {
@@ -208,7 +216,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
 
             Vector3 p00 = point(i, j), p10 = point(i + 1, j), p11 = point(i + 1, j + 1), p01 = point(i, j + 1);
             float avg = (z[idx(i, j)] + z[idx(i + 1, j)] + z[idx(i + 1, j + 1)] + z[idx(i, j + 1)]) / 4.0f;
-            Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : ui::theme().surface;
+            Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : surfaceColor(spec);
 
             // Both windings so the surface is visible from above and below
             m_triangles.push_back({p00, p10, p11, c});
@@ -235,7 +243,7 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
     double maxAbs = 0.0;
     for (int j = 0; j <= n; j++) {
         for (int i = 0; i <= n; i++) {
-            double val = f.eval(xAt(i), yAt(j));
+            double val = eval(f, xAt(i), yAt(j), 0);
             v[idx(i, j)] = val;
             if (std::isfinite(val)) maxAbs = std::max(maxAbs, std::fabs(val));
         }
@@ -254,8 +262,8 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
                 // Compress the range so values near zero still show contrast
                 float t = 0.5f + 0.5f * static_cast<float>(std::tanh(3.0 * c / maxAbs));
                 Color col = Fade(heatColor(t), 0.35f);
-                Vector3 a = {xAt(i), yAt(j), -0.01f}, b = {xAt(i1), yAt(j), -0.01f};
-                Vector3 d = {xAt(i1), yAt(j1), -0.01f}, e = {xAt(i), yAt(j1), -0.01f};
+                Vector3 a = mathToWorld(xAt(i), yAt(j), kLift / 2), b = mathToWorld(xAt(i1), yAt(j), kLift / 2);
+                Vector3 d = mathToWorld(xAt(i1), yAt(j1), kLift / 2), e = mathToWorld(xAt(i), yAt(j1), kLift / 2);
                 m_triangles.push_back({a, b, d, col});
                 m_triangles.push_back({a, d, e, col});
                 m_triangles.push_back({a, d, b, col});
@@ -287,7 +295,8 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
                 };
             };
             auto emit = [&](int e0, int e1) {
-                m_curve.push_back({edgePoint(e0), edgePoint(e1), ui::theme().curve});
+                Vector3 a = edgePoint(e0), b = edgePoint(e1);
+                m_curve.push_back({mathToWorld(a.x, a.y, kLift), mathToWorld(b.x, b.y, kLift), curveColor(spec)});
             };
 
             double center = (c[0] + c[1] + c[2] + c[3]) / 4.0;

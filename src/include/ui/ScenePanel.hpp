@@ -1,0 +1,70 @@
+#pragma once
+
+#include "scene/Scene.hpp"
+#include "view/SceneView.hpp"
+#include <raylib.h>
+#include <functional>
+#include <string>
+#include <vector>
+
+namespace linalg {
+
+// Requests the side bar raises for the app to handle
+struct ScenePanelRequests {
+    bool openAdd = false;        // "+ Add" clicked
+    Rectangle addAnchor = {0, 0, 0, 0};
+    bool openColor = false;      // color swatch clicked for the selected object
+    Rectangle colorAnchor = {0, 0, 0, 0};
+    std::string message;         // e.g. a rejected rename
+    bool messageIsError = false;
+};
+
+// Side bar for a space: the objects list (select, show/hide, undo/redo, add)
+// and the inspector of the selected object (name, color, its fields).
+// Fields are expressions; each finished edit is one undo step.
+class ScenePanel {
+public:
+    // Keyboard handling for fields (Tab moves to the next field)
+    void update(scene::Scene& scene);
+    // Draws at (x, y) with the given width (pixels); returns the bottom y
+    float draw(float x, float y, float width, scene::Scene& scene, scene::SpaceKind kind, const view::SceneView& view);
+
+    ScenePanelRequests takeRequests();
+
+    bool isEditing() const { return m_activeId >= 0; }
+    void finishEditing(scene::Scene& scene);
+    void cancelEditing() { m_activeId = -1; }
+
+private:
+    // One editable text: the object it belongs to and what committing does
+    struct Editable {
+        int id;
+        std::string text;
+        std::function<bool(const std::string&)> commit;  // returns false to reject
+    };
+
+    float drawObjects(float x, float y, float width, scene::Scene& scene, scene::SpaceKind kind);
+    float drawInspector(float x, float y, float width, scene::Scene& scene, scene::SpaceKind kind,
+                        const view::SceneView& view);
+
+    // Text field bound to a string; returns its height used (design units handled inside)
+    void editText(Rectangle r, int id, const std::string& current, bool invalid,
+                  std::function<bool(const std::string&)> commit);
+    // "label [field]" row for an object field, with the field's error underneath; returns the bottom y
+    float fieldRow(float x, float y, float width, scene::SceneObject& obj, const std::string& key, scene::Scene& scene,
+                   float labelWidth = 74.0f);
+    static int fieldId(const scene::SceneObject& obj, const std::string& key);
+
+    scene::SpaceKind m_kind = scene::SpaceKind::Euclidean3D;
+    int m_activeId = -1;
+    char m_buffer[256] = {};
+    std::vector<Editable> m_editables;      // drawn this frame, in order (for Tab)
+    std::vector<Editable> m_lastEditables;  // from the previous frame
+    ScenePanelRequests m_requests;
+    bool m_showObjects = true;
+    bool m_showInspector = true;
+    int m_exampleIndex = 0;
+    bool m_sliderDirty = false;  // a slider changed the scene; commit on release
+};
+
+} // namespace linalg

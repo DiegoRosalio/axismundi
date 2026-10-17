@@ -12,140 +12,156 @@ Tour::Tour(std::string outputDir) : m_dir(std::move(outputDir)) {
     buildSteps();
 }
 
+namespace {
+
+// Put the mouse on a named control from the last frame (see ui::anchor)
+void hover(const char* anchor) {
+    Rectangle r;
+    if (ui::findAnchor(anchor, r)) SetMousePosition(static_cast<int>(r.x + r.width / 2), static_cast<int>(r.y + r.height / 2));
+}
+
+void park() { SetMousePosition(GetScreenWidth() / 2, GetScreenHeight() / 2); }
+
+int exampleIndex(const char* title) {
+    const auto& list = examples();
+    for (size_t i = 0; i < list.size(); i++)
+        if (std::string(list[i].title) == title) return static_cast<int>(i);
+    return 0;
+}
+
+void runExample(App& app, const char* title) {
+    const Example& e = examples()[exampleIndex(title)];
+    e.apply(app);
+}
+
+} // namespace
+
 void Tour::buildSteps() {
     auto step = [this](const char* name, std::function<void(App&)> action, int frames = 12) {
         m_steps.push_back({name, std::move(action), frames});
     };
 
-    step("01_matrices_default", [](App& app) {
+    // --- 3D space and objects ---------------------------------------------------
+    step("01_space_default", [](App& app) {
         app.setUiMode(true);
-        app.setMode(AppMode::LinearAlgebra);
+        park();
+        app.setMode(AppMode::Space3D);
     });
-    step("02_matrices_rotate", [](App& app) { app.applyPreset(MatrixPreset::Rotate45Z); });
-    step("03_matrices_4x4", [](App& app) {
-        app.setMatrix4(Matrix4D::translation(1, 0.5f, 0) * Matrix4D::rotationY(0.6f) *
-                       Matrix4D::scale(1.5f, 1, 1));
+    step("02_vector_inspector", [](App& app) { app.select("a"); });
+    step("03_add_menu_templates", [](App& app) {
+        app.select("a");
+        app.select("b", AppMode::Space3D, true);
+        app.openAddMenu();
     });
-    step("04_matrices_animating", [](App& app) {
-        app.setMatrix3(Matrix3D({{{{1, 1, 0}}, {{0, 1, 0}}, {{0, 0, 2}}}}));
+    step("04_many_objects", [](App& app) {
+        app.closePopovers();
+        app.addObject(AppMode::Space3D, "vector", "p", {{"value", "dot(a, b + [1, 1, 0])/2 * normalize(a + b)"}},
+                      {{"mode", "formula"}});
+        app.addObject(AppMode::Space3D, "vector", "w", {{"x", "-1"}, {"y", "1.5"}, {"z", "2"}});
+        app.addObject(AppMode::Space3D, "vector", "n", {{"value", "cross(w, a)"}, {"tail", "w"}}, {{"mode", "formula"}});
+    });
+    step("05_expression_error", [](App& app) {
+        app.addObject(AppMode::Space3D, "vector", "q", {{"value", "a + missing"}}, {{"mode", "formula"}});
+    });
+    step("06_multi_select_analysis", [](App& app) {
+        if (auto* q = app.object("q")) app.space(AppMode::Space3D).remove(q->id());
+        app.select("a");
+        app.select("w", AppMode::Space3D, true);
+    });
+    step("07_parameter_rotation", [](App& app) { runExample(app, "Animated rotation"); }, 50);
+    step("08_matrix_formula_4x4", [](App& app) {
+        runExample(app, "Move and turn (4×4)");
+        app.select("M");
+    });
+    step("09_matrix_cells", [](App& app) {
+        app.resetScene();
+        app.select("M");
+        app.applyMatrixPreset(Matrix3D({{{{1, 1, 0}}, {{0, 1, 0}}, {{0, 0, 2}}}}));
         app.startAnimation(AnimationPreset::Morph);
-    }, 60);
-    step("05_complex", [](App& app) { app.setMode(AppMode::Complex); });
-    step("06_plot_surface", [](App& app) {
-        app.setMode(AppMode::Plotting);
-        PlotSpec s;
-        s.type = PlotType::Surface;
-        s.f = "sin(sqrt(x^2 + y^2))";
-        s.xMin = s.yMin = -6;
-        s.xMax = s.yMax = 6;
-        s.resolution = 50;
-        app.setPlotSpec(s);
+    }, 50);
+    step("10_projection_example", [](App& app) {
+        app.stopAnimation();
+        runExample(app, "Projection of a vector");
     });
-    step("07_plot_implicit", [](App& app) {
-        PlotSpec s;
-        s.type = PlotType::Implicit;
-        s.f = "(x^2 + y^2)^2 - 8(x^2 - y^2)";
-        app.setPlotSpec(s);
-        app.resetCamera();
+
+    // --- Complex plane ------------------------------------------------------------
+    step("11_complex_default", [](App& app) {
+        app.setMode(AppMode::Complex);
+        app.select("z1", AppMode::Complex);
     });
-    step("08_plot_parametric", [](App& app) {
-        PlotSpec s;
-        s.type = PlotType::Parametric;
-        s.px = "sin(t) + 2sin(2t)";
-        s.py = "cos(t) - 2cos(2t)";
-        s.pz = "-sin(3t)";
-        s.tMin = 0;
-        s.tMax = 6.2832f;
-        app.setPlotSpec(s);
+    step("12_complex_roots", [](App& app) { runExample(app, "Powers of a root of unity"); });
+    step("13_complex_product", [](App& app) {
+        runExample(app, "Rotate and scale");
+        app.select("w", AppMode::Complex);
     });
-    step("09_help", [](App& app) {
-        app.setMode(AppMode::LinearAlgebra);
+
+    // --- Plots ----------------------------------------------------------------------
+    step("14_plot_ripple_slider", [](App& app) { runExample(app, "Ripple with a slider"); });
+    step("15_plot_implicit", [](App& app) { runExample(app, "Lemniscate"); });
+    step("16_plot_curve", [](App& app) {
+        runExample(app, "Trefoil knot");
+        app.select("f");
+    });
+
+    // --- Tools ----------------------------------------------------------------------
+    step("17_help", [](App& app) {
+        app.resetScene();
+        app.setMode(AppMode::Space3D);
         app.showHelp(true);
     });
-    step("10_toast", [](App& app) {
+    step("18_tooltip_preset", [](App& app) {
         app.showHelp(false);
-        app.toast("Scene saved to scene.txt");
-    }, 6);
-    step("10b_tooltip_preset", [](App& app) {
-        app.setMatrix3(Matrix3D::identity());
-        app.stopAnimation();
-        SetMousePosition(static_cast<int>(ui::px(250)), static_cast<int>(ui::px(487)));
-    }, 45);
-    step("10c_tooltip_analysis", [](App&) {
-        SetMousePosition(GetScreenWidth() - static_cast<int>(ui::px(280)), static_cast<int>(ui::px(330)));
-    }, 45);
-    step("10d_steps_det", [](App& app) {
-        SetMousePosition(GetScreenWidth() / 2, GetScreenHeight() / 2);
+        app.select("M");
+    }, 4);
+    step("18b_tooltip_preset", [](App&) { hover("preset.rotate"); }, 45);
+    step("19_steps_det", [](App& app) {
+        park();
         app.setMatrix3(Matrix3D({{{{2, 1, 0}}, {{1, 3, 1}}, {{0, 1, 4}}}}));
+        app.select("M");
         if (auto* p = app.panel("steps")) p->setVisible(true);
         if (auto* p = app.panel("analysis")) p->setVisible(false);
     });
-    step("10e_breakdown", [](App& app) {
+    step("20_breakdown", [](App& app) {
         if (auto* p = app.panel("steps")) p->setVisible(false);
         app.setMatrix3(Matrix3D({{{{1, 0.8f, 0}}, {{0, 1, 0}}, {{0, 0, 1.4f}}}}));
         if (auto* p = app.panel("breakdown")) p->setVisible(true);
     }, 150);
-    step("10f_gallery", [](App& app) {
+    step("21_gallery", [](App& app) {
         if (auto* p = app.panel("breakdown")) p->setVisible(false);
+        if (auto* p = app.panel("analysis")) p->setVisible(true);
         if (auto* p = app.panel("gallery")) p->setVisible(true);
     });
-    step("10g_gallery_example", [](App& app) {
+    step("22_tutorial_list", [](App& app) {
         if (auto* p = app.panel("gallery")) p->setVisible(false);
-        examples()[3].apply(app);  // projection
-        app.toast(std::string("Example: ") + examples()[3].title);
-    });
-    step("10h_tutorial_list", [](App& app) {
         if (auto* p = app.panel("tutorial")) p->setVisible(true);
     });
-    step("10i_tutorial_step", [](App& app) {
-        app.tutorialPanel().startLesson(2);  // matrices: columns are images
-    }, 10);
-    step("10j_tutorial_task", [](App& app) {
-        // Advance to the "send x to y" step by recreating the panel state
-        app.tutorialPanel().startLesson(2);
+    step("23_tutorial_objects", [](App& app) {
+        app.tutorialPanel().startLesson(1);
         app.tutorialPanel().goToStep(1);
     }, 20);
-    step("10k_tutorial_done", [](App& app) {
-        Matrix3D m = Matrix3D::identity();
-        m.m[0][0] = 0;
-        m.m[1][0] = 1;
-        app.setMatrix3(m);
-    }, 20);
-    step("11_settings", [](App& app) {
+    step("24_tutorial_parameters", [](App& app) { app.tutorialPanel().startLesson(6); }, 20);
+    step("25_settings", [](App& app) {
         if (auto* p = app.panel("tutorial")) p->setVisible(false);
-        if (auto* p = app.panel("breakdown")) p->setVisible(false);
-        if (auto* p = app.panel("steps")) p->setVisible(false);
-        if (auto* p = app.panel("analysis")) p->setVisible(true);
-        SetMousePosition(GetScreenWidth() / 2, GetScreenHeight() / 2);
+        app.resetScene();
         app.showSettings(true);
     });
-    step("11b_color_picker", [](App& app) {
+    step("26_color_picker", [](App& app) {
         app.showSettings(false);
-        app.openColorPicker(kVecA);
-    });
-    step("12_panels_moved", [](App& app) {
+        app.select("a");
+    }, 4);
+    step("26b_color_picker", [](App& app) { app.openColorPicker(); });
+    step("27_light_space", [](App& app) {
         app.closePopovers();
-        SceneData layout;
-        putFloat(layout, "panel.analysis.x", 0.0f);
-        putFloat(layout, "panel.analysis.y", 0.15f);
-        putBool(layout, "panel.animation.collapsed", true);
-        putFloat(layout, "panel.animation.x", 1.0f);
-        if (auto* p = app.panel("analysis")) p->loadState(layout);
-        if (auto* p = app.panel("animation")) p->loadState(layout);
-    });
-    step("13_light_complex", [](App& app) {
         app.setTheme(false);
+        runExample(app, "Animated rotation");
+    }, 30);
+    step("28_light_complex", [](App& app) {
         app.setMode(AppMode::Complex);
-        if (auto* p = app.panel("steps")) p->setVisible(true);
+        app.resetScene();
+        app.select("u", AppMode::Complex);
     });
-    step("14_light_plot", [](App& app) {
-        if (auto* p = app.panel("steps")) p->setVisible(false);
-        app.setMode(AppMode::Plotting);
-        PlotSpec s;
-        s.type = PlotType::Function2D;
-        s.f = "x^3/10 - x";
-        app.setPlotSpec(s);
-    });
+    step("29_light_plot", [](App& app) { runExample(app, "Saddle"); });
+    step("30_toast", [](App& app) { app.toast("Scene saved to scene.txt"); }, 6);
 }
 
 bool Tour::advance(App& app) {

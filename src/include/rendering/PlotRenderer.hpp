@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/Expression.hpp"
+#include "math/expr/Expr.hpp"
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -25,17 +26,18 @@ struct PlotSpec {
     float tMin = 0.0f, tMax = 12.566f;
     int resolution = 60;
     bool heatmap = true;
+    Color color = {0, 0, 0, 0};    // without heat map (alpha 0: theme color)
 };
 
 // Builds plot geometry from a PlotSpec and draws it.
 //
-// Coordinates: 2D plots (y = f(x), implicit) lie in the vertical world XY
-// plane. 3D plots use the usual math convention with z up, mapped to world
-// space as (x, y, z) -> (x, z, -y), which keeps the axes right-handed.
+// Coordinates follow the 3D space convention (z up, see WorldMapping.hpp):
+// 2D plots (y = f(x), implicit curves) lie on the floor, the xy-plane.
 class PlotRenderer {
 public:
     // Re-evaluate the spec. Returns false and sets error() if it is invalid.
-    bool rebuild(const PlotSpec& spec);
+    // `resolver` supplies other names used in the expressions (parameters).
+    bool rebuild(const PlotSpec& spec, const expr::Resolver* resolver = nullptr);
     const std::string& error() const { return m_error; }
 
     // Range of plotted values (y, z or f) used for the heat map
@@ -61,6 +63,10 @@ private:
         Color color;
     };
 
+    const expr::Resolver* m_resolver = nullptr;
+    double eval(const Expression& e, double x, double y, double t) const {
+        return e.eval(ExprVars{x, y, t}, m_resolver);
+    }
     void buildFunction2D(const PlotSpec& spec, const Expression& f);
     void buildParametric(const PlotSpec& spec, const Expression& x, const Expression& y, const Expression& z);
     void buildSurface(const PlotSpec& spec, const Expression& f);

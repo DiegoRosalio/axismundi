@@ -1,4 +1,5 @@
 #include "ui/InfoPanel.hpp"
+#include "math/expr/Value.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
@@ -47,15 +48,30 @@ void InfoPanel::addMatrix(Section& s, const char* name, const float* values, int
     }
 }
 
-void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, const Vector3D& b) {
-    // Rebuild sections in a fixed order, keeping their expanded state
+void InfoPanel::update(const scene::Space& space, const scene::Selection& selection) {
+    // Gather what is selected, in selection order
+    std::vector<const scene::SceneObject*> picked;
+    for (scene::ObjectId id : selection.ids)
+        if (const scene::SceneObject* o = space.find(id)) picked.push_back(o);
+
+    const scene::SceneObject* matrixObj = nullptr;
+    std::vector<const scene::SceneObject*> vectors, numbers;
+    for (const auto* o : picked) {
+        if (!o->value().ok()) continue;
+        if (o->value().type == expr::Type::Matrix) {
+            matrixObj = o;  // the most recently selected matrix wins
+        } else if (o->value().type == expr::Type::Vector && vectors.size() < 2) vectors.push_back(o);
+        else if (o->value().isNumber() && o->typeId() != "parameter" && numbers.size() < 2) numbers.push_back(o);
+    }
+
+    // Rebuild sections, keeping their expanded state by key
     std::vector<Section> previous = std::move(m_sections);
     m_sections.clear();
-    auto section = [&](const std::string& title, bool def) -> Section& {
+    auto section = [&](const std::string& key, const std::string& title, bool def) -> Section& {
         bool expanded = def;
         for (const auto& p : previous)
-            if (p.title == title) expanded = p.expanded;
-        m_sections.push_back({title, expanded, {}});
+            if (p.key == key) expanded = p.expanded;
+        m_sections.push_back({key, title, expanded, {}});
         return m_sections.back();
     };
     auto body = [](Section& s, const std::string& text, Tone tone = Tone::Normal, const char* tip = nullptr) {
@@ -65,46 +81,97 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     auto note = [](Section& s, const std::string& text) {
         s.lines.push_back({text, Tone::Muted, ui::FontRole::Small});
     };
+    m_eigen = EigenResult{};
+    m_hasMatrix = false;
+
+    if (!matrixObj && vectors.empty() && numbers.empty()) {
+        Section& s = section("empty", "Nothing to analyse", true);
+        note(s, "Select a matrix, one or two vectors, or complex numbers (Ctrl+click for several).");
+        return;
+    }
 
     // --- Vectors -----------------------------------------------------------
-    {
-        Section& s = section("Vectors", true);
-        s.tip = "Products and angles of the input vectors A and B.";
+    if (vectors.size() == 1) {
+        const std::string& n = vectors[0]->name();
+        Vector3D a = vectors[0]->value().vector;
+        Section& s = section("vector", "Vector " + n, true);
+        s.tip = "Length and direction of the selected vector. Select a second one for products and angles.";
+        body(s, n + " = " + vecStr(a));
+        tipped(s, fmt("|%s| = %.3f", n.c_str(), a.magnitude()), "Length of a vector: |a| = √(a·a).");
+        if (a.magnitude() > 1e-6f) {
+            tipped(s, "unit vector = " + vecStr(a.normalized()), "Same direction, length 1: a / |a|.");
+        }
+    } else if (vectors.size() == 2) {
+        const std::string& na = vectors[0]->name();
+        const std::string& nb = vectors[1]->name();
+        Vector3D a = vectors[0]->value().vector, b = vectors[1]->value().vector;
+        const char* A = na.c_str();
+        const char* B = nb.c_str();
+        Section& s = section("vectors", "Vectors " + na + ", " + nb, true);
+        s.tip = "Products and angles of the two selected vectors.";
         float dot = a.dot(b);
         float la = a.magnitude(), lb = b.magnitude();
         Vector3D cross = a.cross(b);
-        tipped(s, fmt("A · B = %.3f", clean(dot)),
-               "Dot product: A·B = |A||B| cos θ = AxBx + AyBy + AzBz. Zero means A and B are perpendicular.");
-        tipped(s, fmt("|A| = %.3f     |B| = %.3f", la, lb), "Length of a vector: |A| = √(A·A).");
+        tipped(s, fmt("%s · %s = %.3f", A, B, clean(dot)),
+               "Dot product: a·b = |a||b| cos θ = axbx + ayby + azbz. Zero means a and b are perpendicular.");
+        tipped(s, fmt("|%s| = %.3f     |%s| = %.3f", A, la, B, lb), "Length of a vector: |a| = √(a·a).");
         if (la > 1e-6f && lb > 1e-6f) {
             float c = std::clamp(dot / (la * lb), -1.0f, 1.0f);
-            tipped(s, fmt("angle(A, B) = %.1f°", std::acos(c) * RAD2DEG),
-                   "θ = arccos(A·B / (|A||B|)), the angle between the two arrows.");
-            if (std::fabs(dot) < 1e-5f) note(s, "A and B are perpendicular");
+            tipped(s, fmt("angle(%s, %s) = %.1f°", A, B, std::acos(c) * RAD2DEG),
+                   "θ = arccos(a·b / (|a||b|)), the angle between the two arrows.");
+            if (std::fabs(dot) < 1e-5f) note(s, na + " and " + nb + " are perpendicular");
         }
-        tipped(s, "A × B = " + vecStr(cross),
-               "Cross product: perpendicular to both A and B (right-hand rule). Its length is the area of the "
-               "parallelogram A and B span.");
-        note(s, fmt("|A × B| = %.3f, the area of the parallelogram", cross.magnitude()));
+        tipped(s, na + " × " + nb + " = " + vecStr(cross),
+               "Cross product: perpendicular to both (right-hand rule). Its length is the area of the "
+               "parallelogram they span.");
+        note(s, fmt("|%s × %s| = %.3f, the area of the parallelogram", A, B, cross.magnitude()));
     }
 
+    // --- Complex numbers ---------------------------------------------------
+    for (size_t k = 0; k < numbers.size(); k++) {
+        const scene::SceneObject* z = numbers[k];
+        const expr::Value& v = z->value();
+        Section& s = section("complex." + std::to_string(k), z->name(), true);
+        s.tip = "Rectangular and polar form of the selected complex number.";
+        body(s, z->name() + " = " + v.summary());
+        tipped(s, fmt("|%s| = %.3f", z->name().c_str(), std::hypot(v.re, v.im)), "Length: √(re² + im²).");
+        tipped(s, fmt("arg %s = %.1f°", z->name().c_str(), clean(static_cast<float>(std::atan2(v.im, v.re) * RAD2DEG))),
+               "Angle from the positive real axis.");
+        body(s, "conj = " + expr::Value::complex(v.re, -v.im).summary(), Tone::Muted);
+    }
+    if (numbers.size() == 2) {
+        const expr::Value& a = numbers[0]->value();
+        const expr::Value& b = numbers[1]->value();
+        Section& s = section("complex.pair", numbers[0]->name() + " and " + numbers[1]->name(), true);
+        double pr = a.re * b.re - a.im * b.im, pi = a.re * b.im + a.im * b.re;
+        double d = b.re * b.re + b.im * b.im;
+        body(s, "product = " + expr::Value::complex(pr, pi).summary());
+        if (d > 1e-12) body(s, "quotient = " + expr::Value::complex((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d).summary());
+        note(s, "Multiplying multiplies lengths and adds angles.");
+    }
+
+    if (!matrixObj) return;
+
     // --- Matrix properties -------------------------------------------------
-    Matrix3D linear;
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++) linear.m[i][j] = matrix.m[i][j];
+    const std::string mname = matrixObj->name();
+    const char* M = mname.c_str();
+    Matrix4D matrix = matrixObj->value().matrix4();
+    bool is4x4 = matrixObj->value().size == 4;
+    Matrix3D linear = matrixObj->value().matrix3();
+    m_hasMatrix = true;
 
     {
-        Section& s = section("Matrix", true);
-        s.tip = "Properties of the transformation M.";
+        Section& s = section("matrix", "Matrix " + mname, true);
+        s.tip = "Properties of the selected transformation.";
         float det = is4x4 ? matrix.determinant() : linear.determinant();
         float trace = is4x4 ? matrix.trace() : linear.trace();
-        tipped(s, fmt("det M = %.4f", clean(det)),
-               "The determinant is how much M scales volumes. Negative: orientation flips (a mirror). Zero: "
-               "space is squashed into a plane, line or point, and M cannot be undone.");
-        if (std::fabs(det) < 1e-6f) note(s, "Space is squashed flat: M is singular");
+        tipped(s, fmt("det %s = %.4f", M, clean(det)),
+               "The determinant is how much the matrix scales volumes. Negative: orientation flips (a mirror). "
+               "Zero: space is squashed into a plane, line or point, and it cannot be undone.");
+        if (std::fabs(det) < 1e-6f) note(s, "Space is squashed flat: the matrix is singular");
         else if (det < 0.0f) note(s, fmt("Orientation flips; volumes scale by %.3f", std::fabs(det)));
         else note(s, fmt("Volumes scale by %.3f", det));
-        tipped(s, fmt("tr M = %.4f", clean(trace)),
+        tipped(s, fmt("tr %s = %.4f", M, clean(trace)),
                "Trace: the sum of the diagonal entries. It always equals the sum of the eigenvalues.");
 
         int n = is4x4 ? 4 : 3;
@@ -122,43 +189,44 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
                 for (int j = 0; j < 3; j++) vals[i * 3 + j] = inv->m[i][j];
         }
         if (invertible) {
-            addMatrix(s, "M⁻¹", vals, n);
-            s.lines[s.lines.size() - n - 1].tip = "The inverse undoes M: M⁻¹M = I. It exists exactly when det M ≠ 0.";
+            addMatrix(s, (mname + "⁻¹").c_str(), vals, n);
+            s.lines[s.lines.size() - n - 1].tip = "The inverse undoes the matrix: M⁻¹M = I. It exists exactly when det ≠ 0.";
+        } else {
+            body(s, mname + "⁻¹ does not exist (det = 0)", Tone::Danger);
         }
-        else body(s, "M⁻¹ does not exist (det = 0)", Tone::Danger);
     }
 
     // --- Eigen -------------------------------------------------------------
     m_eigen = eigen3(linear);
     {
-        Section& s = section("Eigenvalues", true);
-        s.tip = "Roots of det(M − λI) = 0 and the directions M only stretches.";
+        Section& s = section("eigen", "Eigenvalues of " + mname, true);
+        s.tip = "Roots of det(M − λI) = 0 and the directions the matrix only stretches.";
         if (is4x4) note(s, "Of the upper-left 3×3 (linear) part");
         int index = 1;
         bool anyComplex = false, anyMissing = false;
         for (const auto& ev : m_eigen.values) {
             if (ev.isReal()) {
                 tipped(s, fmt("λ%s = %.3f", subscript(index), clean(ev.re)),
-                       "Eigenvalue: M v = λ v. Along its eigenvector v, M only stretches by λ (negative λ "
+                       "Eigenvalue: M v = λ v. Along its eigenvector v, the matrix only stretches by λ (negative λ "
                        "also flips).");
                 if (ev.hasVector) {
                     s.lines.push_back({fmt("v%s = ", subscript(index)) + vecStr(ev.vector), Tone::Eigen,
                                        ui::FontRole::Body,
-                                       "Eigenvector (unit length), drawn as a dashed purple line through the "
-                                       "origin. The dot marks λv, where M sends it."});
+                                       "Eigenvector (unit length). Add an Eigenvectors object to see these "
+                                       "directions in the scene."});
                 } else {
                     anyMissing = true;
                 }
             } else {
                 tipped(s, fmt("λ%s = %.3f %c %.3fi", subscript(index), clean(ev.re), ev.im < 0 ? '-' : '+',
                               std::fabs(ev.im)),
-                       "Complex eigenvalues come in conjugate pairs: M rotates a plane by arg λ and scales "
-                       "it by |λ|, so no real direction stays fixed there.");
+                       "Complex eigenvalues come in conjugate pairs: the matrix rotates a plane by arg λ and "
+                       "scales it by |λ|, so no real direction stays fixed there.");
                 anyComplex = true;
             }
             index++;
         }
-        if (anyComplex) note(s, "A complex pair means M rotates a plane");
+        if (anyComplex) note(s, "A complex pair means the matrix rotates a plane");
         if (anyMissing) note(s, "Defective: fewer eigenvectors than eigenvalues");
     }
 
@@ -169,7 +237,7 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
     };
     float vals[9];
     {
-        Section& s = section("LU  ·  PA = LU", false);
+        Section& s = section("lu", "LU  ·  PA = LU", false);
         s.tip = "Gaussian elimination as factors: P swaps rows, L (lower triangular) records the elimination "
                 "steps, U (upper triangular) is the result.";
         if (is4x4) note(s, "Of the 3×3 linear part");
@@ -180,7 +248,7 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
         if (lu.singular) note(s, "A zero pivot: the matrix is singular");
     }
     {
-        Section& s = section("QR  ·  A = QR", false);
+        Section& s = section("qr", "QR  ·  A = QR", false);
         s.tip = "Gram–Schmidt as factors: Q has orthonormal columns (a rotation, maybe with a mirror) and R is "
                 "upper triangular.";
         if (is4x4) note(s, "Of the 3×3 linear part");
@@ -189,7 +257,7 @@ void InfoPanel::update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, co
         toArray(qr.R, vals); addMatrix(s, "R", vals, 3);
     }
     {
-        Section& s = section("SVD  ·  A = UΣV^T", false);
+        Section& s = section("svd", "SVD  ·  A = UΣV^T", false);
         s.tip = "Every matrix is a rotation (V^T), then stretches along the axes by the singular values σ (Σ), "
                 "then another rotation (U).";
         if (is4x4) note(s, "Of the 3×3 linear part");
@@ -209,7 +277,7 @@ float InfoPanel::drawContent(Rectangle area) {
 
     for (auto& s : m_sections) {
         Rectangle headerRect = {x, y, w, ui::px(28.0f)};
-        ui::sectionHeader(headerRect, s.title.c_str(), s.expanded);
+        ui::sectionHeader(headerRect, s.title.c_str(), s.expanded, nullptr, true);
         if (s.tip) ui::tooltip(headerRect, s.tip, s.title.c_str());
         y += headerRect.height + ui::px(2.0f);
 

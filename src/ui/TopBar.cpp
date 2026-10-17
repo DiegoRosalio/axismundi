@@ -30,15 +30,14 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     ui::textIn(name, "axismundi", ui::FontRole::Title, t.text);
 
     // Mode tabs
-    Rectangle tabs = ui::takeLeft(bar, 330.0f, 16.0f);
+    Rectangle tabs = ui::takeLeft(bar, 280.0f, 16.0f);
     tabs.y = (h - ui::px(34.0f)) / 2;
     tabs.height = ui::px(34.0f);
     ui::anchor("topbar.modes", tabs);
     int active = static_cast<int>(mode);
-    if (ui::segmented(tabs, {"Matrices", "Complex", "Plots"}, active,
-                      {"Vectors, matrices and transformations (key 1)",
-                       "The complex plane and Euler's formula (key 2)",
-                       "Graphs of functions, curves and surfaces (key 3)"})) {
+    if (ui::segmented(tabs, {"3D space", "Complex plane"}, active,
+                      {"Vectors, matrices, plots and parameters in 3D, z pointing up (key 1)",
+                       "Complex numbers, products and Euler's formula (key 2)"})) {
         mode = static_cast<AppMode>(active);
     }
 

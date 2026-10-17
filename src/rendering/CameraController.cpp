@@ -8,21 +8,18 @@ CameraController::CameraController()
     m_camera.up = Vector3{0.0f, 1.0f, 0.0f};
     m_camera.fovy = 60.0f;
     m_camera.projection = CAMERA_PERSPECTIVE;
-    reset(AppMode::LinearAlgebra);
+    reset(AppMode::Space3D);
 }
 
-void CameraController::reset(AppMode mode, bool flat2D) {
+void CameraController::reset(AppMode mode) {
     switch (mode) {
-        case AppMode::LinearAlgebra:
-            setView({5.0f, 3.0f, 5.0f}, {0.0f, 0.0f, 0.0f});
+        case AppMode::Space3D:
+            // Looking at the origin from the front-right, a little above (z is up)
+            setView({6.5f, 5.0f, 7.5f}, {0.0f, 0.5f, 0.0f});
             break;
         case AppMode::Complex:
-            // Face the Argand plane (world XY) straight on
+            // Face the complex plane (world XY) straight on
             setView({0.5f, 0.5f, 7.0f}, {0.5f, 0.5f, 0.0f});
-            break;
-        case AppMode::Plotting:
-            if (flat2D) setView({0.0f, 0.0f, 13.0f}, {0.0f, 0.0f, 0.0f});
-            else setView({7.0f, 6.0f, 9.0f}, {0.0f, 0.0f, 0.0f});
             break;
     }
 }

@@ -1,7 +1,8 @@
 #include "app/App.hpp"
 #include "app/Tour.hpp"
 #include "edu/Examples.hpp"
-#include "rendering/Labels.hpp"
+#include "math/Decompositions.hpp"
+#include "rendering/WorldMapping.hpp"
 #include "ui/SceneIO.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
@@ -10,6 +11,7 @@
 
 #include <raylib.h>
 #include <raygui.h>
+#include <raymath.h>
 #include <rlgl.h>
 #include <algorithm>
 #include <cmath>
@@ -17,25 +19,30 @@
 
 namespace linalg {
 
+using scene::SceneObject;
+using scene::SpaceKind;
+
 namespace {
 
 const char* kSceneFile = "scene.txt";
 
-bool isIdentity(const Matrix4D& m) {
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            if (m.m[i][j] != (i == j ? 1.0f : 0.0f)) return false;
-    return true;
+// Distance from point p to segment ab (screen space)
+float distanceToSegment(Vector2 p, Vector2 a, Vector2 b) {
+    Vector2 ab = Vector2Subtract(b, a);
+    float len2 = Vector2LengthSqr(ab);
+    float t = len2 > 1e-6f ? std::clamp(Vector2DotProduct(Vector2Subtract(p, a), ab) / len2, 0.0f, 1.0f) : 0.0f;
+    return Vector2Distance(p, Vector2Add(a, Vector2Scale(ab, t)));
 }
 
-void drawAxisLabels(const Camera3D& camera, float length) {
-    const ui::Theme& t = ui::theme();
-    drawWorldLabel(camera, {length, 0, 0}, "x", t.axisX);
-    drawWorldLabel(camera, {0, length, 0}, "y", t.axisY);
-    drawWorldLabel(camera, {0, 0, length}, "z", t.axisZ);
+bool inFront(const Camera3D& cam, Vector3 p) {
+    return Vector3DotProduct(Vector3Subtract(cam.target, cam.position), Vector3Subtract(p, cam.position)) > 0.0f;
 }
 
 } // namespace
+
+SpaceKind App::kindOf(AppMode mode) {
+    return mode == AppMode::Space3D ? SpaceKind::Euclidean3D : SpaceKind::Complex;
+}
 
 App::App(const AppOptions& options)
     : m_options(options), m_grid(10, 1.0f),
@@ -95,12 +102,111 @@ void App::setMode(AppMode mode) {
     m_mode = mode;
 }
 
+SceneObject* App::object(const std::string& name, AppMode mode) {
+    return space(mode).find(name);
+}
+
+SceneObject* App::addObject(AppMode mode, const std::string& typeId, const std::string& name,
+                            const std::map<std::string, std::string>& fields,
+                            const std::map<std::string, std::string>& props) {
+    AddChoice c;
+    c.typeId = typeId;
+    c.name = name;
+    c.fields = fields;
+    c.props = props;
+    return applyAddChoice(m_scene, kindOf(mode), c);
+}
+
+void App::select(const std::string& name, AppMode mode, bool add) {
+    SceneObject* o = object(name, mode);
+    if (!o) return;
+    if (add) m_scene.selection(kindOf(mode)).toggle(o->id());
+    else m_scene.selection(kindOf(mode)).set(o->id());
+}
+
+void App::clearSpace(AppMode mode) {
+    m_scenePanel.cancelEditing();
+    m_scene.space(kindOf(mode)).clear();
+    m_scene.selection(kindOf(mode)).clear();
+    m_scene.commit();
+}
+
+void App::resetScene() {
+    m_scenePanel.cancelEditing();
+    m_scene.resetToDefault();
+}
+
+void App::setMatrix3(const Matrix3D& m) {
+    auto* obj = dynamic_cast<scene::MatrixObject*>(object("M"));
+    if (!obj) obj = static_cast<scene::MatrixObject*>(addObject(AppMode::Space3D, "matrix", "M"));
+    obj->setByFormula(false);
+    obj->setSize(3);
+    obj->visible = true;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) {
+            char buf[32];
+            formatNumber(buf, sizeof(buf), m.m[i][j]);
+            obj->setField(scene::MatrixObject::cellKey(i, j), buf);
+        }
+    m_scene.commit();
+}
+
+void App::setMatrix4(const Matrix4D& m) {
+    auto* obj = dynamic_cast<scene::MatrixObject*>(object("M"));
+    if (!obj) obj = static_cast<scene::MatrixObject*>(addObject(AppMode::Space3D, "matrix", "M"));
+    obj->setByFormula(false);
+    obj->setSize(4);
+    obj->visible = true;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++) {
+            char buf[32];
+            formatNumber(buf, sizeof(buf), m.m[i][j]);
+            obj->setField(scene::MatrixObject::cellKey(i, j), buf);
+        }
+    m_scene.commit();
+}
+
+void App::setVectors(const Vector3D& a, const Vector3D& b) {
+    const char* names[2] = {"a", "b"};
+    const Vector3D values[2] = {a, b};
+    for (int k = 0; k < 2; k++) {
+        auto* v = dynamic_cast<scene::VectorObject*>(object(names[k]));
+        if (!v) v = static_cast<scene::VectorObject*>(addObject(AppMode::Space3D, "vector", names[k]));
+        v->setByFormula(false);
+        char buf[32];
+        formatNumber(buf, sizeof(buf), values[k].x);
+        v->setField("x", buf);
+        formatNumber(buf, sizeof(buf), values[k].y);
+        v->setField("y", buf);
+        formatNumber(buf, sizeof(buf), values[k].z);
+        v->setField("z", buf);
+    }
+    m_scene.commit();
+}
+
+void App::applyMatrixPreset(const Matrix3D& m) {
+    auto* obj = dynamic_cast<scene::MatrixObject*>(const_cast<SceneObject*>(targetMatrix()));
+    if (!obj) {
+        setMatrix3(m);
+        return;
+    }
+    obj->setByFormula(false);
+    obj->setSize(3);
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) {
+            char buf[32];
+            formatNumber(buf, sizeof(buf), m.m[i][j]);
+            obj->setField(scene::MatrixObject::cellKey(i, j), buf);
+        }
+    m_scene.commit();
+}
+
 void App::resetCamera() {
-    m_camera.reset(m_mode, m_mode == AppMode::Plotting && !m_plotRenderer.is3D());
+    m_camera.reset(m_mode);
 }
 
 bool App::breakdownActive() const {
-    return m_mode == AppMode::LinearAlgebra && m_breakdownWindow.visible();
+    return m_mode == AppMode::Space3D && m_breakdownWindow.visible() && targetMatrix() != nullptr;
 }
 
 bool App::uiMode() const {
@@ -121,25 +227,32 @@ void App::showSettings(bool show) {
     else m_settingsPopover.close();
 }
 
-void App::openColorPicker(int slot) {
-    Rectangle anchor = {SideBar::width() + ui::px(16), TopBar::height(), ui::px(24), ui::px(4)};
-    m_colorPopover.open(slot, anchor, std::string("Color of ") + vectorSlotName(slot),
-                        m_viewPanel.settings().colorFor(slot));
+void App::openAddMenu() {
+    Rectangle anchor;
+    if (!ui::findAnchor("objects.add", anchor)) anchor = {SideBar::width() - ui::px(90), TopBar::height(), ui::px(74), ui::px(32)};
+    m_addMenu.open(anchor);
+}
+
+void App::openColorPicker() {
+    SceneObject* o = m_scene.space(spaceKind()).find(m_scene.selection(spaceKind()).primary());
+    if (!o) return;
+    Rectangle anchor;
+    if (!ui::findAnchor("inspector.name", anchor)) anchor = {SideBar::width() - ui::px(40), TopBar::height(), ui::px(24), ui::px(24)};
+    m_colorPopover.open(static_cast<int>(o->id()), anchor, "Color of " + o->name(), view::SceneView::colorOf(*o));
 }
 
 void App::closePopovers() {
     m_settingsPopover.close();
     m_colorPopover.close();
+    m_addMenu.close();
 }
 
 void App::setTheme(bool dark) {
     ui::setTheme(dark ? ui::ThemeKind::Dark : ui::ThemeKind::Light);
-    m_plotPanel.markChanged();
 }
 
 void App::toggleTheme() {
     ui::toggleTheme();
-    m_plotPanel.markChanged();  // plot colors are baked into its geometry
 }
 
 void App::toggleFullscreen() {
@@ -162,8 +275,58 @@ void App::requestScreenshot(bool sceneOnly) {
     m_screenshotRequest = sceneOnly ? 2 : 1;
 }
 
+// --- Read-only state -----------------------------------------------------------
+
+const SceneObject* App::targetMatrix() const {
+    const scene::Space& sp = m_scene.space(SpaceKind::Euclidean3D);
+    const auto& sel = const_cast<scene::Scene&>(m_scene).selection(SpaceKind::Euclidean3D);
+    for (auto it = sel.ids.rbegin(); it != sel.ids.rend(); ++it) {
+        const SceneObject* o = sp.find(*it);
+        if (o && o->typeId() == "matrix" && o->value().type == expr::Type::Matrix) return o;
+    }
+    for (const auto& o : sp.objects())
+        if (o->typeId() == "matrix" && o->visible && o->value().type == expr::Type::Matrix) return o.get();
+    return nullptr;
+}
+
+Matrix4D App::matrix() const {
+    const SceneObject* m = targetMatrix();
+    return m ? m->value().matrix4() : Matrix4D::identity();
+}
+
+bool App::using4x4() const {
+    const SceneObject* m = targetMatrix();
+    return m && m->value().size == 4;
+}
+
+Vector3D App::vectorValue(const std::string& name) const {
+    const SceneObject* o = m_scene.space(SpaceKind::Euclidean3D).find(name);
+    if (o && o->value().type == expr::Type::Vector) return o->value().vector;
+    return Vector3D::zero();
+}
+
+Complex App::complexValue(const std::string& name) const {
+    const SceneObject* o = m_scene.space(SpaceKind::Complex).find(name);
+    if (o && o->value().isNumber()) return Complex(static_cast<float>(o->value().re), static_cast<float>(o->value().im));
+    return Complex(0, 0);
+}
+
+double App::parameterValue(const std::string& name, AppMode mode) const {
+    const SceneObject* o = m_scene.space(kindOf(mode)).find(name);
+    if (o && o->value().isRealNumber()) return o->value().re;
+    return 0.0;
+}
+
+EigenResult App::eigen() const {
+    const SceneObject* m = targetMatrix();
+    return m ? eigen3(m->value().matrix3()) : EigenResult{};
+}
+
+// --- Scenes ----------------------------------------------------------------------
+
 void App::saveScene() {
     SceneData data;
+    m_scene.save(data);
     putInt(data, "mode", static_cast<int>(m_mode));
     Vector3 p = m_camera.position(), t = m_camera.target();
     putFloat(data, "camera.px", p.x);
@@ -172,9 +335,6 @@ void App::saveScene() {
     putFloat(data, "camera.tx", t.x);
     putFloat(data, "camera.ty", t.y);
     putFloat(data, "camera.tz", t.z);
-    m_inputPanel.saveState(data);
-    m_complexPanel.saveState(data);
-    m_plotPanel.saveState(data);
     AnimationPanel::saveState(m_animator, data);
     m_viewPanel.saveState(data);
 
@@ -186,10 +346,11 @@ void App::saveScene() {
 void App::loadScene() {
     SceneData data;
     std::string error;
-    if (!loadSceneFile(kSceneFile, data, error)) {
+    if (!loadSceneFile(kSceneFile, data, error) || !m_scene.load(data, error)) {
         toast("Load failed: " + error, true);
         return;
     }
+    m_scenePanel.cancelEditing();
     int m = static_cast<int>(m_mode);
     if (getInt(data, "mode", m) && m >= 0 && m < kAppModeCount) {
         m_mode = static_cast<AppMode>(m);
@@ -203,9 +364,6 @@ void App::loadScene() {
     getFloat(data, "camera.ty", t.y);
     getFloat(data, "camera.tz", t.z);
     m_camera.setView(p, t);
-    m_inputPanel.loadState(data);
-    m_complexPanel.loadState(data);
-    m_plotPanel.loadState(data);
     AnimationPanel::loadState(m_animator, data);
     m_viewPanel.loadState(data);
     toast(std::string("Scene loaded from ") + kSceneFile);
@@ -228,7 +386,6 @@ void App::applyPreferences(const SceneData& prefs) {
     if (getFloat(prefs, "ui.zoom", zoom)) ui::setZoom(zoom);
     getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
-    m_viewPanel.loadColors(prefs);
     m_tutorialPanel.loadState(prefs);
     for (auto* p : m_panels.panels()) p->loadState(prefs);
 }
@@ -243,7 +400,6 @@ void App::savePreferences() {
         putInt(prefs, "window.width", GetScreenWidth());
         putInt(prefs, "window.height", GetScreenHeight());
     }
-    m_viewPanel.saveColors(prefs);
     m_tutorialPanel.saveState(prefs);
     for (auto* p : m_panels.panels()) p->saveState(prefs);
     std::string error;
@@ -291,7 +447,7 @@ void App::takeScreenshot() {
 }
 
 bool App::isEditing() const {
-    return m_inputPanel.isEditing() || m_complexPanel.isEditing() || m_plotPanel.isEditing();
+    return m_scenePanel.isEditing();
 }
 
 void App::handleInput(float deltaTime) {
@@ -301,10 +457,10 @@ void App::handleInput(float deltaTime) {
     // or leave camera mode (frees the mouse). It never quits the app.
     if (IsKeyPressed(KEY_ESCAPE)) {
         if (editing) {
-            m_inputPanel.cancelEditing();
-            m_complexPanel.cancelEditing();
-            m_plotPanel.cancelEditing();
+            m_scenePanel.cancelEditing();
             editing = false;
+        } else if (m_addMenu.isOpen()) {
+            m_addMenu.close();
         } else if (m_colorPopover.isOpen()) {
             m_colorPopover.close();
         } else if (m_settingsPopover.isOpen()) {
@@ -325,18 +481,22 @@ void App::handleInput(float deltaTime) {
     if (ui && !m_help.visible()) GuiUnlock();
     else GuiLock();
 
-    m_inputPanel.update();
-    m_complexPanel.update(deltaTime);
-    m_plotPanel.update();
+    m_scenePanel.update(m_scene);
 
     if (!editing) handleShortcuts(ui);
+    if (ui && !m_help.visible()) pickInViewport();
 
     if (m_mode != m_lastMode) {
-        // A field in the panel being hidden would otherwise stay "active"
-        m_inputPanel.finishEditing();
-        m_complexPanel.finishEditing();
-        m_plotPanel.finishEditing();
-        resetCamera();
+        // A field in the hidden space would otherwise stay "active"
+        m_scenePanel.finishEditing(m_scene);
+        closePopovers();
+        // Remember the camera of the space we leave
+        int from = static_cast<int>(m_lastMode), to = static_cast<int>(m_mode);
+        m_savedPosition[from] = m_camera.position();
+        m_savedTarget[from] = m_camera.target();
+        m_hasSavedView[from] = true;
+        if (m_hasSavedView[to]) m_camera.setView(m_savedPosition[to], m_savedTarget[to]);
+        else m_camera.reset(m_mode);
         m_lastMode = m_mode;
     }
 
@@ -353,6 +513,28 @@ void App::handleShortcuts(bool uiMode) {
     if (ctrl && IsKeyPressed(KEY_ZERO)) ui::setZoom(1.0f);
     if (IsKeyPressed(KEY_F11)) toggleFullscreen();
     if (IsKeyPressed(KEY_F12)) requestScreenshot(shift);
+    if (IsKeyPressed(KEY_F5)) saveScene();
+    if (IsKeyPressed(KEY_F9)) loadScene();
+    if (IsKeyPressed(KEY_F1)) {
+        m_tutorialWindow.toggle();
+        if (m_tutorialWindow.visible()) m_panels.bringToFront(&m_tutorialWindow);
+    }
+
+    if (ctrl) {
+        // Ctrl is "move down" in camera mode, so these are UI-mode only
+        if (!uiMode) return;
+        if (IsKeyPressed(KEY_Z)) {
+            m_scenePanel.cancelEditing();
+            m_scene.undo();
+        }
+        if (IsKeyPressed(KEY_Y)) {
+            m_scenePanel.cancelEditing();
+            m_scene.redo();
+        }
+        if (IsKeyPressed(KEY_D)) duplicateSelection();
+        return;
+    }
+
     if (IsKeyPressed(KEY_T)) toggleTheme();
     if (IsKeyPressed(KEY_H)) m_help.toggle();
     if (IsKeyPressed(KEY_G)) view.showGrid = !view.showGrid;
@@ -360,56 +542,116 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
     if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
     if (IsKeyPressed(KEY_B)) m_breakdownWindow.toggle();
-    if (IsKeyPressed(KEY_F1)) {
-        m_tutorialWindow.toggle();
-        if (m_tutorialWindow.visible()) m_panels.bringToFront(&m_tutorialWindow);
-    }
+    if (IsKeyPressed(KEY_C)) resetCamera();
+    if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::Space3D;
+    if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
     if (IsKeyPressed(KEY_E)) {
         m_galleryWindow.toggle();
         if (m_galleryWindow.visible()) m_panels.bringToFront(&m_galleryWindow);
     }
-    if (IsKeyPressed(KEY_C)) resetCamera();
-    if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::LinearAlgebra;
-    if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
-    if (IsKeyPressed(KEY_THREE)) m_mode = AppMode::Plotting;
-    if (IsKeyPressed(KEY_F5)) saveScene();
-    if (IsKeyPressed(KEY_F9)) loadScene();
+    if (uiMode && (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_INSERT))) openAddMenu();
+    if (uiMode && IsKeyPressed(KEY_DELETE)) deleteSelection();
 
-    if (m_mode != AppMode::LinearAlgebra) return;
-
-    if (ctrl) {
-        // Ctrl is "move down" in camera mode, so undo/redo is UI-mode only
-        if (uiMode && IsKeyPressed(KEY_Z)) m_inputPanel.undo();
-        if (uiMode && IsKeyPressed(KEY_Y)) m_inputPanel.redo();
-        return;
-    }
-    if (IsKeyPressed(KEY_I)) m_inputPanel.applyPreset(MatrixPreset::Identity);
-    if (IsKeyPressed(KEY_R)) m_inputPanel.applyPreset(MatrixPreset::Rotate45Z);
-    if (IsKeyPressed(KEY_X)) m_inputPanel.applyPreset(MatrixPreset::ShearX);
-    if (IsKeyPressed(KEY_F)) m_inputPanel.applyPreset(MatrixPreset::ReflectX);
+    if (m_mode != AppMode::Space3D) return;
+    if (IsKeyPressed(KEY_I)) applyMatrixPreset(Matrix3D::identity());
+    if (IsKeyPressed(KEY_R)) applyMatrixPreset(Matrix3D::rotation(3.14159265f / 4));
+    if (IsKeyPressed(KEY_X)) applyMatrixPreset(Matrix3D::shear(0.5f, 0.0f));
+    if (IsKeyPressed(KEY_F)) applyMatrixPreset(Matrix3D::scale(-1.0f, 1.0f));
     if (IsKeyPressed(KEY_P)) {
         if (m_animator.active()) m_animator.togglePlay();
         else m_animator.start(AnimationPreset::Morph);
     }
     // S moves the camera backwards in camera mode
-    if (uiMode && IsKeyPressed(KEY_S)) m_inputPanel.applyPreset(MatrixPreset::Scale2);
+    if (uiMode && IsKeyPressed(KEY_S)) applyMatrixPreset(Matrix3D::scale(2.0f, 2.0f));
+}
+
+void App::deleteSelection() {
+    SpaceKind kind = spaceKind();
+    auto ids = m_scene.selection(kind).ids;
+    if (ids.empty()) return;
+    m_scenePanel.cancelEditing();
+    for (auto id : ids) m_scene.space(kind).remove(id);
+    m_scene.selection(kind).clear();
+    m_scene.commit();
+}
+
+void App::duplicateSelection() {
+    SpaceKind kind = spaceKind();
+    scene::ObjectId id = m_scene.selection(kind).primary();
+    if (id == scene::kNoObject) return;
+    m_scenePanel.cancelEditing();
+    if (SceneObject* copy = m_scene.space(kind).duplicate(id)) {
+        m_scene.selection(kind).set(copy->id());
+        m_scene.commit();
+    }
+}
+
+void App::pickInViewport() {
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || isEditing()) return;
+    Vector2 mouse = GetMousePosition();
+    // Only clicks on the 3D view itself, not on panels or popovers
+    if (mouse.x < SideBar::width() || mouse.y < TopBar::height()) return;
+    if (m_panels.anyContains(mouse)) return;
+    if (m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen()) return;
+
+    const Camera3D& cam = m_camera.camera();
+    SpaceKind kind = spaceKind();
+    view::DrawOptions options = drawOptions();
+    float best = ui::px(12.0f);
+    scene::ObjectId hit = scene::kNoObject;
+    auto consider = [&](Vector3 a, Vector3 b, scene::ObjectId id) {
+        if (!inFront(cam, a) || !inFront(cam, b)) return;
+        float d = distanceToSegment(mouse, GetWorldToScreen(a, cam), GetWorldToScreen(b, cam));
+        if (d < best) {
+            best = d;
+            hit = id;
+        }
+    };
+
+    for (const auto& obj : m_scene.space(kind).objects()) {
+        const SceneObject& o = *obj;
+        if (!o.visible || !o.value().ok()) continue;
+        if (kind == SpaceKind::Euclidean3D) {
+            if (o.typeId() == "vector") {
+                Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
+                consider(mathToWorld(tail), mathToWorld(tail + o.value().vector), o.id());
+            } else if (o.typeId() == "matrix") {
+                Matrix4D m = view::SceneView::displayedMatrix(o, options);
+                Vector3D origin = m.transform(Vector3D::zero());
+                for (Vector3D e : {Vector3D(1, 0, 0), Vector3D(0, 1, 0), Vector3D(0, 0, 1)})
+                    consider(mathToWorld(origin), mathToWorld(origin + m.transformDirection(e)), o.id());
+            }
+        } else if (o.value().isNumber() && o.typeId() != "parameter") {
+            consider({0, 0, 0}, {static_cast<float>(o.value().re), static_cast<float>(o.value().im), 0}, o.id());
+        }
+    }
+
+    bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    scene::Selection& sel = m_scene.selection(kind);
+    if (hit != scene::kNoObject) {
+        if (ctrl) sel.toggle(hit);
+        else sel.set(hit);
+    } else if (!ctrl) {
+        sel.clear();
+    }
 }
 
 void App::update(float deltaTime) {
-    ViewSettings& view = m_viewPanel.settings();
-
-    if (m_inputPanel.matrixChanged() || m_inputPanel.vectorsChanged()) {
-        m_matrix = m_inputPanel.getActiveMatrix4D();
-        m_vecA = m_inputPanel.getVectorA();
-        m_vecB = m_inputPanel.getVectorB();
-        m_animator.setMorphTarget(m_matrix);
-        m_infoPanel.update(m_matrix, m_inputPanel.isUsing4x4(), m_vecA, m_vecB);
+    // Playing parameters move on; then everything is re-evaluated
+    for (int k = 0; k < scene::kSpaceCount; k++) {
+        for (const auto& o : m_scene.space(static_cast<SpaceKind>(k)).objects()) {
+            if (auto* p = dynamic_cast<scene::ParameterObject*>(o.get())) p->advance(deltaTime);
+        }
     }
-    m_inputPanel.resetChangedFlags();
+    m_scene.evaluate();
 
-    // The breakdown and the animator both replace the matrix shown in the
-    // scene; opening the breakdown stops any animation
-    m_breakdownPanel.setMatrix(m_matrix);
+    // Analysis follows the selection of the current space
+    m_infoPanel.update(m_scene.space(spaceKind()), m_scene.selection(spaceKind()));
+
+    // Animation and breakdown act on the target matrix
+    Matrix4D target = matrix();
+    m_animator.setMorphTarget(target);
+    m_breakdownPanel.setMatrix(target);
     bool breakdown = breakdownActive();
     if (breakdown && !m_breakdownWasVisible) {
         m_animator.stop();
@@ -417,39 +659,9 @@ void App::update(float deltaTime) {
     }
     m_breakdownWasVisible = breakdown;
     if (breakdown) m_breakdownPanel.update(deltaTime);
-
     m_animator.update(deltaTime);
-    if (breakdown) m_shown = m_breakdownPanel.current();
-    else m_shown = m_animator.active() ? m_animator.current() : m_matrix;
-    m_transformViz.setTransform4D(m_shown);
 
-    m_vectorRenderer.clearVectors();
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA, view.colorFor(kVecA), "A"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecB, view.colorFor(kVecB), "B"));
-    m_vectorRenderer.addVector(VectorObject(Vector3D::zero(), m_vecA + m_vecB, view.colorFor(kVecSum), "A+B"));
-    m_vectorRenderer.addVector(
-        VectorObject(Vector3D::zero(), m_vecA.cross(m_vecB), view.colorFor(kVecCross), "A×B"));
-    if (view.showTransformedVectors && !isIdentity(m_shown)) {
-        Vector3D origin = m_shown.transform(Vector3D::zero());
-        m_vectorRenderer.addVector(
-            VectorObject(origin, m_shown.transform(m_vecA) - origin, view.colorFor(kVecMA), "MA"));
-        m_vectorRenderer.addVector(
-            VectorObject(origin, m_shown.transform(m_vecB) - origin, view.colorFor(kVecMB), "MB"));
-    }
-    m_inputPanel.setVectorColors(view.colorFor(kVecA), view.colorFor(kVecB));
-
-    if (m_plotPanel.changed()) {
-        m_plotRenderer.rebuild(m_plotPanel.spec());
-        m_plotPanel.clearChanged();
-        // Switching between 2D and 3D plots needs a different viewpoint
-        if (m_plotRenderer.is3D() != m_plotWas3D) {
-            m_plotWas3D = m_plotRenderer.is3D();
-            if (m_mode == AppMode::Plotting) resetCamera();
-        }
-    }
-
-    if (m_tutorialWindow.visible()) m_tutorialPanel.update(*this);
-
+    ViewSettings& view = m_viewPanel.settings();
     m_grid.setShowGrid(view.showGrid);
     m_grid.setShowAxes(view.showAxes);
 }
@@ -458,60 +670,36 @@ void App::update(float deltaTime) {
 // Drawing
 // ---------------------------------------------------------------------------
 
-void App::drawScene() {
-    const ViewSettings& view = m_viewPanel.settings();
-    BeginMode3D(m_camera.camera());
-    switch (m_mode) {
-        case AppMode::LinearAlgebra:
-            m_grid.draw();
-            m_grid.drawAxes(view.axisLength);
-            if (breakdownActive()) {
-                // Faded bases for the steps already done
-                int done = std::min(m_breakdownPanel.completedSteps(),
-                                    static_cast<int>(m_breakdownPanel.breakdown().steps.size()));
-                for (int k = 1; k <= done; k++) {
-                    if (k == static_cast<int>(m_breakdownPanel.breakdown().steps.size())) break;
-                    m_transformViz.drawGhost(m_breakdownPanel.breakdown().after(k), 0.22f);
-                }
-            }
-            m_transformViz.draw();
-            m_vectorRenderer.draw();
-            if (view.showEigenvectors) {
-                TransformVisualizer::drawEigenvectors(m_infoPanel.eigen(), view.axisLength);
-            }
-            break;
-        case AppMode::Complex:
-            m_grid.drawPlaneXY();
-            m_argand.draw(m_complexPanel.scene(), view.axisLength, view.showAxes);
-            break;
-        case AppMode::Plotting:
-            if (m_plotRenderer.is3D()) m_grid.draw();
-            else m_grid.drawPlaneXY();
-            if (view.showAxes) m_plotRenderer.drawAxes(view.axisLength);
-            m_plotRenderer.draw();
-            break;
+view::DrawOptions App::drawOptions() const {
+    view::DrawOptions o;
+    o.view = &const_cast<ViewPanel&>(m_viewPanel).settings();
+    o.selection = &const_cast<scene::Scene&>(m_scene).selection(spaceKind());
+    const SceneObject* target = targetMatrix();
+    if (target && m_mode == AppMode::Space3D) {
+        if (breakdownActive()) {
+            o.overrideMatrix = target->id();
+            o.overrideValue = m_breakdownPanel.current();
+            int steps = static_cast<int>(m_breakdownPanel.breakdown().steps.size());
+            int done = std::min(m_breakdownPanel.completedSteps(), steps);
+            for (int k = 1; k <= done && k < steps; k++) o.ghosts.push_back(m_breakdownPanel.breakdown().after(k));
+        } else if (m_animator.active()) {
+            o.overrideMatrix = target->id();
+            o.overrideValue = m_animator.current();
+        }
     }
+    return o;
+}
+
+void App::drawScene() {
+    BeginMode3D(m_camera.camera());
+    if (m_mode == AppMode::Space3D) m_grid.draw();
+    else m_grid.drawPlaneXY();
+    m_sceneView.draw3D(m_scene.space(spaceKind()), drawOptions());
     EndMode3D();
 }
 
 void App::drawSceneLabels() {
-    const ViewSettings& view = m_viewPanel.settings();
-    if (!view.showLabels) return;
-    const Camera3D& cam = m_camera.camera();
-
-    switch (m_mode) {
-        case AppMode::LinearAlgebra:
-            if (view.showAxes) drawAxisLabels(cam, view.axisLength);
-            m_vectorRenderer.drawLabels(cam);
-            if (view.showEigenvectors) TransformVisualizer::drawEigenLabels(cam, m_infoPanel.eigen());
-            break;
-        case AppMode::Complex:
-            m_argand.drawLabels(cam, m_complexPanel.scene(), view.axisLength, view.showAxes);
-            break;
-        case AppMode::Plotting:
-            m_plotRenderer.drawLabels(cam, view.axisLength, view.showAxes);
-            break;
-    }
+    m_sceneView.drawLabels(m_scene.space(spaceKind()), drawOptions(), m_camera.camera());
 }
 
 float App::viewportLeft() const {
@@ -525,39 +713,31 @@ float App::viewportRight() const {
 void App::drawUi(float deltaTime) {
     // An open popover owns the mouse over its area
     Vector2 mouse = GetMousePosition();
-    bool popoverOwnsMouse = m_settingsPopover.contains(mouse) || m_colorPopover.contains(mouse);
+    bool popoverOwnsMouse = m_settingsPopover.contains(mouse) || m_colorPopover.contains(mouse) || m_addMenu.contains(mouse);
     bool wasLocked = GuiIsLocked();
     if (popoverOwnsMouse) GuiLock();
 
     if (m_uiSettings.showHud) drawHud();
 
-    // Side bar
+    // Side bar: objects and inspector of the current space, then the view settings
     Rectangle area = m_sideBar.begin();
-    float y = area.y;
-    switch (m_mode) {
-        case AppMode::LinearAlgebra:
-            y = m_inputPanel.draw(area.x, y, area.width);
-            break;
-        case AppMode::Complex:
-            y = m_complexPanel.draw(area.x, y, area.width);
-            break;
-        case AppMode::Plotting:
-            y = m_plotPanel.draw(area.x, y, area.width, m_plotRenderer);
-            break;
-    }
+    float y = m_scenePanel.draw(area.x, area.y, area.width, m_scene, spaceKind(), m_sceneView);
     y = m_viewPanel.draw(area.x, y, area.width, m_mode);
     m_sideBar.end(y);
 
+    ScenePanelRequests requests = m_scenePanel.takeRequests();
+    if (requests.openAdd) {
+        closePopovers();
+        m_addMenu.open(requests.addAnchor);
+    }
+    if (requests.openColor) {
+        closePopovers();
+        openColorPicker();
+    }
+    if (!requests.message.empty()) toast(requests.message, requests.messageIsError);
     if (m_viewPanel.takeResetCameraRequest()) resetCamera();
     if (m_viewPanel.takeSaveRequest()) saveScene();
     if (m_viewPanel.takeLoadRequest()) loadScene();
-    Rectangle swatch;
-    int slot = m_viewPanel.takeColorRequest(swatch);
-    if (slot >= 0) {
-        m_settingsPopover.close();
-        m_colorPopover.open(slot, swatch, std::string("Color of ") + vectorSlotName(slot),
-                            m_viewPanel.settings().colorFor(slot));
-    }
 
     drawFloatingPanels();
 
@@ -569,37 +749,29 @@ void App::drawUi(float deltaTime) {
     state.breakdownVisible = m_breakdownWindow.visible();
     state.galleryVisible = m_galleryWindow.visible();
     state.tutorialVisible = m_tutorialWindow.visible();
-    state.matricesMode = (m_mode == AppMode::LinearAlgebra);
+    state.matricesMode = (m_mode == AppMode::Space3D);
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
     if (actions.toggleFullscreen) toggleFullscreen();
     if (actions.screenshot) requestScreenshot(false);
-    if (actions.toggleTutorial) {
-        m_tutorialWindow.toggle();
-        if (m_tutorialWindow.visible()) m_panels.bringToFront(&m_tutorialWindow);
-    }
-    if (actions.toggleGallery) {
-        m_galleryWindow.toggle();
-        if (m_galleryWindow.visible()) m_panels.bringToFront(&m_galleryWindow);
-    }
-    if (actions.toggleBreakdown) {
-        m_breakdownWindow.toggle();
-        if (m_breakdownWindow.visible()) m_panels.bringToFront(&m_breakdownWindow);
-    }
-    if (actions.toggleSteps) {
-        m_stepsWindow.toggle();
-        if (m_stepsWindow.visible()) m_panels.bringToFront(&m_stepsWindow);
-    }
+    auto toggleWindow = [this](ui::FloatingPanel& w) {
+        w.toggle();
+        if (w.visible()) m_panels.bringToFront(&w);
+    };
+    if (actions.toggleTutorial) toggleWindow(m_tutorialWindow);
+    if (actions.toggleGallery) toggleWindow(m_galleryWindow);
+    if (actions.toggleBreakdown) toggleWindow(m_breakdownWindow);
+    if (actions.toggleSteps) toggleWindow(m_stepsWindow);
     if (actions.toggleSettings) {
-        m_colorPopover.close();
-        showSettings(!m_settingsPopover.isOpen());
+        bool open = !m_settingsPopover.isOpen();
+        closePopovers();
+        showSettings(open);
     }
 
     if (popoverOwnsMouse && !wasLocked) GuiUnlock();
 
     SettingsActions settingsActions = m_settingsPopover.draw(m_uiSettings);
-    if (settingsActions.themeChanged) m_plotPanel.markChanged();
     if (settingsActions.resetLayout) {
         m_panels.resetLayout();
         toast("Panel layout reset");
@@ -607,10 +779,18 @@ void App::drawUi(float deltaTime) {
 
     ColorPopover::Result color = m_colorPopover.draw();
     if (color.changed || color.reset) {
-        ViewSettings& view = m_viewPanel.settings();
-        int s = m_colorPopover.slot();
-        view.customColor[s] = color.changed && !color.reset;
-        if (view.customColor[s]) view.vectorColor[s] = color.color;
+        SceneObject* o = m_scene.space(spaceKind()).find(static_cast<scene::ObjectId>(m_colorPopover.slot()));
+        if (o) {
+            o->customColor = color.changed && !color.reset;
+            if (o->customColor) o->color = {color.color.r, color.color.g, color.color.b, 255};
+            o->touch();
+            m_scene.commit();
+        }
+    }
+
+    AddChoice choice;
+    if (m_addMenu.draw(m_scene, spaceKind(), choice)) {
+        if (SceneObject* o = applyAddChoice(m_scene, spaceKind(), choice)) toast("Added " + o->name());
     }
 
     drawTutorialHighlight();
@@ -619,24 +799,51 @@ void App::drawUi(float deltaTime) {
     ui::drawTooltip(m_uiSettings.tooltips && !m_help.visible());
 }
 
+StepsInput App::stepsInput() const {
+    StepsInput in;
+    in.mode = m_mode;
+    in.matrix = matrix();
+    in.is4x4 = using4x4();
+    // Vectors: the selected ones, else a and b
+    std::vector<Vector3D> vectors;
+    const scene::Space& sp = m_scene.space(SpaceKind::Euclidean3D);
+    for (auto id : const_cast<scene::Scene&>(m_scene).selection(SpaceKind::Euclidean3D).ids) {
+        const SceneObject* o = sp.find(id);
+        if (o && o->value().type == expr::Type::Vector) vectors.push_back(o->value().vector);
+    }
+    in.a = vectors.size() > 0 ? vectors[0] : vectorA();
+    in.b = vectors.size() > 1 ? vectors[1] : vectorB();
+    // Complex numbers: the selected ones, else z1 and z2
+    std::vector<Complex> numbers;
+    const scene::Space& cp = m_scene.space(SpaceKind::Complex);
+    for (auto id : const_cast<scene::Scene&>(m_scene).selection(SpaceKind::Complex).ids) {
+        const SceneObject* o = cp.find(id);
+        if (o && o->value().isNumber() && o->typeId() != "parameter")
+            numbers.push_back(Complex(static_cast<float>(o->value().re), static_cast<float>(o->value().im)));
+    }
+    in.z1 = numbers.size() > 0 ? numbers[0] : complexValue("z1");
+    in.z2 = numbers.size() > 1 ? numbers[1] : complexValue("z2");
+    in.theta = static_cast<float>(parameterValue("theta", AppMode::Complex));
+    return in;
+}
+
 void App::drawFloatingPanels() {
-    bool matrices = (m_mode == AppMode::LinearAlgebra);
+    bool space3d = (m_mode == AppMode::Space3D);
     for (ui::FloatingPanel* p : m_panels.panels()) {
         Rectangle content;
         if (p == &m_analysisWindow) {
-            if (!matrices) continue;
             if (p->begin(m_analysisHeight, content)) {
                 m_analysisHeight = m_infoPanel.drawContent(content);
                 p->end();
             }
         } else if (p == &m_animationWindow) {
-            if (!matrices) continue;
+            if (!space3d) continue;
             if (p->begin(m_animationHeight, content)) {
-                m_animationHeight = m_animationPanel.drawContent(content, m_animator, m_matrix);
+                m_animationHeight = m_animationPanel.drawContent(content, m_animator, matrix());
                 p->end();
             }
         } else if (p == &m_breakdownWindow) {
-            if (!matrices) continue;
+            if (!space3d) continue;
             if (p->begin(m_breakdownHeight, content)) {
                 m_breakdownHeight = m_breakdownPanel.drawContent(content);
                 p->end();
@@ -653,6 +860,7 @@ void App::drawFloatingPanels() {
                 p->end();
                 if (chosen >= 0) {
                     const Example& e = examples()[chosen];
+                    m_scenePanel.cancelEditing();
                     e.apply(*this);
                     m_galleryWindow.setVisible(false);
                     toast(std::string("Example: ") + e.title);
@@ -660,8 +868,7 @@ void App::drawFloatingPanels() {
             }
         } else if (p == &m_stepsWindow) {
             if (p->begin(m_stepsHeight, content)) {
-                StepsInput input{m_mode, m_matrix, m_inputPanel.isUsing4x4(), m_vecA, m_vecB, m_complexPanel.scene()};
-                m_stepsHeight = m_stepsPanel.drawContent(content, input);
+                m_stepsHeight = m_stepsPanel.drawContent(content, stepsInput());
                 p->end();
             }
         }
@@ -690,7 +897,7 @@ void App::drawHud() {
     float x = viewportLeft() + ui::px(16.0f);
     float bottom = static_cast<float>(GetScreenHeight()) - ui::px(14.0f);
 
-    const char* modeText = ui ? "UI mode  ·  Tab: camera mode  ·  H: help"
+    const char* modeText = ui ? "UI mode  ·  click objects to select  ·  Tab: camera  ·  H: help"
                               : "Camera mode  ·  WASD move, mouse look  ·  Esc or Tab: free the mouse";
     Vector3 p = m_camera.position();
     const char* camText = TextFormat("Camera (%.2f, %.2f, %.2f)  ·  %d FPS", p.x, p.y, p.z, GetFPS());

@@ -3,6 +3,7 @@
 #include "math/Decompositions.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
+#include "scene/Scene.hpp"
 #include "ui/core/Ui.hpp"
 #include <raylib.h>
 #include <string>
@@ -17,15 +18,16 @@ class InfoPanel {
 public:
     InfoPanel();
 
-    // Recompute everything (call when the inputs change)
-    void update(const Matrix4D& matrix, bool is4x4, const Vector3D& a, const Vector3D& b);
+    // Recompute from the selected objects of a space
+    void update(const scene::Space& space, const scene::Selection& selection);
 
     // Draw the sections into `area` (its y already includes scrolling).
     // Returns the content height in pixels.
     float drawContent(Rectangle area);
 
-    // Eigen-decomposition of the linear (3x3) part, for drawing eigenvectors
+    // Eigen-decomposition of the selected matrix (valid when hasMatrix())
     const EigenResult& eigen() const { return m_eigen; }
+    bool hasMatrix() const { return m_hasMatrix; }
 
 private:
     enum class Tone { Normal, Muted, Eigen, Danger };
@@ -36,6 +38,7 @@ private:
         const char* tip = nullptr;
     };
     struct Section {
+        std::string key;    // stable id (titles include object names)
         std::string title;
         bool expanded;
         std::vector<Line> lines;
@@ -46,6 +49,7 @@ private:
 
     std::vector<Section> m_sections;
     EigenResult m_eigen;
+    bool m_hasMatrix = false;
 };
 
 } // namespace linalg

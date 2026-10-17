@@ -1,26 +1,23 @@
 #pragma once
 
 #include "animation/Animator.hpp"
+#include "math/Complex.hpp"
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
-#include "rendering/ArgandRenderer.hpp"
 #include "rendering/CameraController.hpp"
 #include "rendering/Grid.hpp"
-#include "rendering/PlotRenderer.hpp"
-#include "rendering/TransformVisualizer.hpp"
-#include "rendering/VectorRenderer.hpp"
+#include "scene/Scene.hpp"
+#include "ui/AddMenu.hpp"
 #include "ui/AnimationPanel.hpp"
 #include "ui/AppMode.hpp"
 #include "ui/BreakdownPanel.hpp"
 #include "ui/ColorPopover.hpp"
-#include "ui/ComplexPanel.hpp"
 #include "ui/GalleryPanel.hpp"
 #include "ui/HelpOverlay.hpp"
 #include "ui/InfoPanel.hpp"
-#include "ui/InputPanel.hpp"
-#include "ui/PlotPanel.hpp"
 #include "ui/Preferences.hpp"
+#include "ui/ScenePanel.hpp"
 #include "ui/SettingsPopover.hpp"
 #include "ui/SideBar.hpp"
 #include "ui/StepsPanel.hpp"
@@ -28,7 +25,9 @@
 #include "ui/TutorialPanel.hpp"
 #include "ui/ViewPanel.hpp"
 #include "ui/core/FloatingPanel.hpp"
+#include "view/SceneView.hpp"
 
+#include <map>
 #include <memory>
 #include <string>
 
@@ -53,15 +52,31 @@ public:
 
     void run();
 
-    // --- Scene control ------------------------------------------------------
+    // --- Spaces and objects -----------------------------------------------------
     AppMode mode() const { return m_mode; }
     void setMode(AppMode mode);
-    void setMatrix3(const Matrix3D& m) { m_inputPanel.setMatrix3(m); }
-    void setMatrix4(const Matrix4D& m) { m_inputPanel.setMatrix4(m); }
-    void setVectors(const Vector3D& a, const Vector3D& b) { m_inputPanel.setVectors(a, b); }
-    void applyPreset(MatrixPreset preset) { m_inputPanel.applyPreset(preset); }
-    void setComplexScene(const ComplexScene& scene) { m_complexPanel.setScene(scene); }
-    void setPlotSpec(const PlotSpec& spec) { m_plotPanel.setSpec(spec); }
+    scene::Scene& scene() { return m_scene; }
+    scene::SpaceKind spaceKind() const { return kindOf(m_mode); }
+    scene::Space& space(AppMode mode) { return m_scene.space(kindOf(mode)); }
+    static scene::SpaceKind kindOf(AppMode mode);
+
+    // Find an object by name in a space (nullptr if missing)
+    scene::SceneObject* object(const std::string& name, AppMode mode = AppMode::Space3D);
+    // Add an object with preset fields and properties; it becomes selected. One undo step.
+    scene::SceneObject* addObject(AppMode mode, const std::string& typeId, const std::string& name,
+                                  const std::map<std::string, std::string>& fields = {},
+                                  const std::map<std::string, std::string>& props = {});
+    void select(const std::string& name, AppMode mode = AppMode::Space3D, bool add = false);
+    void clearSpace(AppMode mode);
+    void resetScene();  // both spaces back to the default objects
+
+    // Shortcuts kept for examples and tutorials: they edit the objects M, a and b
+    void setMatrix3(const Matrix3D& m);
+    void setMatrix4(const Matrix4D& m);
+    void setVectors(const Vector3D& a, const Vector3D& b);
+    void applyMatrixPreset(const Matrix3D& m);  // to the selected matrix (or M)
+
+    // --- View --------------------------------------------------------------------
     void setCameraView(Vector3 position, Vector3 target) { m_camera.setView(position, target); }
     void resetCamera();
     void startAnimation(AnimationPreset preset) { m_animator.start(preset); }
@@ -69,7 +84,8 @@ public:
     void setUiMode(bool ui);  // true: cursor visible, panels active
     void showHelp(bool show);
     void showSettings(bool show);
-    void openColorPicker(int slot);  // VectorSlot, anchored at the top of the viewport
+    void openAddMenu();
+    void openColorPicker();  // for the selected object
     void closePopovers();
     void setTheme(bool dark);
     void toast(const std::string& message, bool error = false);
@@ -78,20 +94,24 @@ public:
     ui::FloatingPanel* panel(const std::string& id);
 
     // --- Read-only state (tutorial checks) ----------------------------------
-    const Matrix4D& matrix() const { return m_matrix; }
-    const Vector3D& vectorA() const { return m_vecA; }
-    const Vector3D& vectorB() const { return m_vecB; }
-    bool using4x4() const { return m_inputPanel.isUsing4x4(); }
-    const ComplexScene& complexScene() const { return m_complexPanel.scene(); }
-    PlotSpec plotSpec() const { return m_plotPanel.spec(); }
-    const PlotRenderer& plot() const { return m_plotRenderer; }
+    // The matrix the animation, breakdown and steps use: the selected matrix, else the first one
+    const scene::SceneObject* targetMatrix() const;
+    Matrix4D matrix() const;
+    bool using4x4() const;
+    Vector3D vectorValue(const std::string& name) const;
+    Vector3D vectorA() const { return vectorValue("a"); }
+    Vector3D vectorB() const { return vectorValue("b"); }
+    Complex complexValue(const std::string& name) const;
+    double parameterValue(const std::string& name, AppMode mode) const;
+    EigenResult eigen() const;
     const Animator& animator() const { return m_animator; }
-    const EigenResult& eigen() const { return m_infoPanel.eigen(); }
     ViewSettings& view() { return m_viewPanel.settings(); }
+    const view::SceneView& sceneView() const { return m_sceneView; }
     bool uiMode() const;
     bool breakdownActive() const;
     BreakdownPanel& breakdownPanel() { return m_breakdownPanel; }
     TutorialPanel& tutorialPanel() { return m_tutorialPanel; }
+    bool addMenuOpen() const { return m_addMenu.isOpen(); }
 
     void saveScene();
     void loadScene();
@@ -119,30 +139,31 @@ private:
     void toggleTheme();
     void toggleFullscreen();
     void takeScreenshot();
+    void pickInViewport();
+    void deleteSelection();
+    void duplicateSelection();
+    StepsInput stepsInput() const;
+    view::DrawOptions drawOptions() const;
 
     void loadPreferences(SceneData& prefs);
     void applyPreferences(const SceneData& prefs);
     void savePreferences();
 
-    // Space between the side bar and any panel docked on the right (pixels)
     float viewportLeft() const;
     float viewportRight() const;
 
     AppOptions m_options;
 
+    scene::Scene m_scene;
+    view::SceneView m_sceneView;
     CameraController m_camera;
     Grid m_grid;
-    VectorRenderer m_vectorRenderer;
-    TransformVisualizer m_transformViz;
-    InputPanel m_inputPanel;
-    ComplexPanel m_complexPanel;
-    ArgandRenderer m_argand;
-    PlotPanel m_plotPanel;
-    PlotRenderer m_plotRenderer;
     Animator m_animator;
     AnimationPanel m_animationPanel;
     InfoPanel m_infoPanel;
     ViewPanel m_viewPanel;
+    ScenePanel m_scenePanel;
+    AddMenu m_addMenu;
     SideBar m_sideBar;
     TopBar m_topBar;
     HelpOverlay m_help;
@@ -163,25 +184,23 @@ private:
     GalleryPanel m_galleryPanel;
     ui::FloatingPanel m_tutorialWindow;
     TutorialPanel m_tutorialPanel;
-    float m_tutorialHeight = 0.0f;
-    float m_galleryHeight = 0.0f;
-    float m_breakdownHeight = 0.0f;
-    bool m_breakdownWasVisible = false;
-    float m_stepsHeight = 0.0f;
     ui::PanelManager m_panels;
     float m_analysisHeight = 0.0f;
     float m_animationHeight = 0.0f;
+    float m_stepsHeight = 0.0f;
+    float m_breakdownHeight = 0.0f;
+    float m_galleryHeight = 0.0f;
+    float m_tutorialHeight = 0.0f;
+    bool m_breakdownWasVisible = false;
 
-    AppMode m_mode = AppMode::LinearAlgebra;
-    AppMode m_lastMode = AppMode::LinearAlgebra;
-
-    // Committed inputs, refreshed when the input panel reports a change
-    Matrix4D m_matrix = Matrix4D::identity();
-    Vector3D m_vecA, m_vecB;
-    Matrix4D m_shown = Matrix4D::identity();  // what the scene displays (may be animated)
+    AppMode m_mode = AppMode::Space3D;
+    AppMode m_lastMode = AppMode::Space3D;
+    // Camera per space, so switching tabs keeps each viewpoint
+    Vector3 m_savedPosition[kAppModeCount] = {};
+    Vector3 m_savedTarget[kAppModeCount] = {};
+    bool m_hasSavedView[kAppModeCount] = {};
 
     int m_screenshotRequest = 0;  // 0 none, 1 full window, 2 scene only
-    bool m_plotWas3D = true;
 };
 
 } // namespace linalg

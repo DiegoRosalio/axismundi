@@ -21,12 +21,11 @@ const Entry kView[] = {
     {"Space|Ctrl", "Up / down (camera mode)"},
     {"Shift", "Move faster"},
     {"C", "Reset camera"},
-    {"1|2|3", "Matrices / Complex / Plots"},
+    {"1|2", "3D space / complex plane"},
     {"G", "Toggle grid"},
     {"L", "Toggle labels"},
     {"T", "Dark / light theme"},
     {"Ctrl+=|Ctrl+-", "Bigger / smaller UI"},
-    {"Ctrl+0", "Default UI size"},
     {"F11", "Fullscreen"},
     {"H", "Toggle this help"},
 };
@@ -42,11 +41,13 @@ const Entry kPanels[] = {
 };
 
 const Entry kEdit[] = {
-    {"I|R|S|X|F", "Presets (S in UI mode)"},
+    {"N", "Add an object"},
+    {"Del|Ctrl+D", "Delete / duplicate the selection"},
+    {"I|R|S|X|F", "Matrix presets (S in UI mode)"},
     {"Ctrl+Z|Ctrl+Y", "Undo / redo (UI mode)"},
     {"P", "Play / pause animation"},
-    {"Enter", "Confirm a field"},
-    {"Tab", "Confirm and go to the next field"},
+    {"Click", "Select (Ctrl+click: add to selection)"},
+    {"Enter|Tab", "Confirm a field / go to the next"},
     {"Esc", "Cancel the edit, close a popup"},
 };
 
@@ -85,7 +86,7 @@ void HelpOverlay::draw() const {
     DrawRectangle(0, 0, static_cast<int>(w), static_cast<int>(h), t.overlay);
 
     float boxW = std::min(ui::px(900.0f), w - ui::px(32.0f));
-    float boxH = std::min(ui::px(640.0f), h - ui::px(32.0f));
+    float boxH = std::min(ui::px(700.0f), h - ui::px(32.0f));
     Rectangle box = {(w - boxW) / 2, (h - boxH) / 2, boxW, boxH};
     ui::card(box);
 

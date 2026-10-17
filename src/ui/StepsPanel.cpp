@@ -35,7 +35,7 @@ float StepsPanel::drawContent(Rectangle area, const StepsInput& in) {
     float y = area.y + ui::px(12.0f);
 
     Explanation e;
-    if (in.mode == AppMode::LinearAlgebra) {
+    if (in.mode == AppMode::Space3D) {
         static const char* topics[] = {"A · B", "A × B", "M · A", "det M", "M⁻¹", "Eigenvalues"};
         y += chips({x, y, w, 0}, topics, 6, m_matrixTopic) + ui::px(14.0f);
         Matrix3D linear;
@@ -55,17 +55,13 @@ float StepsPanel::drawContent(Rectangle area, const StepsInput& in) {
         static const char* topics[] = {"z₁ · z₂", "Polar z₁", "Polar z₂", "Euler"};
         y += chips({x, y, w, 0}, topics, 4, m_complexTopic) + ui::px(14.0f);
         switch (m_complexTopic) {
-            case 0: e = explainComplexProduct(in.complex.z1, in.complex.z2); break;
-            case 1: e = explainPolar(in.complex.z1, "z₁"); break;
-            case 2: e = explainPolar(in.complex.z2, "z₂"); break;
-            default: e = explainEuler(in.complex.theta); break;
+            case 0: e = explainComplexProduct(in.z1, in.z2); break;
+            case 1: e = explainPolar(in.z1, "z₁"); break;
+            case 2: e = explainPolar(in.z2, "z₂"); break;
+            default: e = explainEuler(in.theta); break;
         }
     } else {
-        float h = ui::textWrapped({x, y, w, 0},
-                                  "Worked calculations are available in the Matrices and Complex modes. "
-                                  "Switch with the tabs at the top or the keys 1 and 2.",
-                                  ui::FontRole::Body, t.textMuted);
-        return y + h + ui::px(12.0f) - area.y;
+        return y - area.y;
     }
 
     bool first = true;

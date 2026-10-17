@@ -239,7 +239,7 @@ bool slider(Rectangle r, float& value, float minValue, float maxValue) {
     return changed;
 }
 
-bool sectionHeader(Rectangle r, const char* title, bool& expanded, const char* rightText) {
+bool sectionHeader(Rectangle r, const char* title, bool& expanded, const char* rightText, bool keepCase) {
     const Theme& t = theme();
     bool hover = false, down = false;
     bool toggled = false;
@@ -251,7 +251,7 @@ bool sectionHeader(Rectangle r, const char* title, bool& expanded, const char* r
     float iconSize = px(12.0f);
     drawIcon(expanded ? Icon::ChevronDown : Icon::ChevronRight,
              {r.x, r.y + (r.height - iconSize) / 2, iconSize, iconSize}, ink);
-    std::string caps = upper(title);
+    std::string caps = keepCase ? std::string(title) : upper(title);
     textIn({r.x + iconSize + px(6.0f), r.y, r.width, r.height}, caps.c_str(), FontRole::Caption, ink, Align::Left);
     if (rightText) textIn(r, rightText, FontRole::Small, t.textFaint, Align::Right);
     return toggled;

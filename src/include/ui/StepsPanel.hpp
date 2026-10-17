@@ -1,7 +1,7 @@
 #pragma once
 
 #include "math/Explain.hpp"
-#include "rendering/ArgandRenderer.hpp"
+#include "math/Complex.hpp"
 #include "ui/AppMode.hpp"
 #include <raylib.h>
 
@@ -13,7 +13,8 @@ struct StepsInput {
     Matrix4D matrix;
     bool is4x4;
     Vector3D a, b;
-    ComplexScene complex;
+    Complex z1, z2;
+    float theta;
 };
 
 // Content of the "Calculation steps" panel: a topic picker and the worked

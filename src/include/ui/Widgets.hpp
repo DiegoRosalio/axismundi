@@ -43,7 +43,9 @@ bool toggleRow(Rectangle r, const char* label, bool& value, const char* hint = n
 bool slider(Rectangle r, float& value, float minValue, float maxValue);
 
 // Collapsible section header. Returns true when toggled.
-bool sectionHeader(Rectangle r, const char* title, bool& expanded, const char* rightText = nullptr);
+// keepCase: show the title as written (for titles that contain object names)
+bool sectionHeader(Rectangle r, const char* title, bool& expanded, const char* rightText = nullptr,
+                   bool keepCase = false);
 
 // Text box (raygui underneath) sharing an "active field" id with its siblings.
 // Clicking activates it; Enter or clicking elsewhere finishes. Returns true on
