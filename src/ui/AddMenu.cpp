@@ -28,11 +28,18 @@ AddChoice matrixFormula(const std::string& name, const std::string& formula) {
     return c;
 }
 
+AddChoice quaternionFormula(const std::string& formula) {
+    AddChoice c;
+    c.typeId = "quaternion";
+    c.fields["value"] = formula;
+    return c;
+}
+
 // lerp-based morph driven by a new slider s (0..1)
 AddChoice morph(const std::string& typeId, const std::string& formula) {
     AddChoice c;
     c.typeId = typeId;
-    if (typeId != "complex") c.props["mode"] = "formula";
+    if (typeId != "complex" && typeId != "quaternion") c.props["mode"] = "formula";
     c.fields["value"] = formula;
     c.helperParameter = "s";
     return c;
@@ -43,12 +50,13 @@ AddChoice morph(const std::string& typeId, const std::string& formula) {
 std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& sc, scene::SpaceKind kind) {
     std::vector<std::pair<std::string, AddChoice>> out;
     scene::Space& space = sc.space(kind);
-    std::vector<const SceneObject*> vectors, matrices, numbers;
+    std::vector<const SceneObject*> vectors, matrices, numbers, quats;
     for (scene::ObjectId id : sc.selection(kind).ids) {
         const SceneObject* o = space.find(id);
         if (!o) continue;
         if (o->typeId() == "vector") vectors.push_back(o);
         else if (o->typeId() == "matrix") matrices.push_back(o);
+        else if (o->typeId() == "quaternion") quats.push_back(o);
         else if (o->typeId() == "complex" || o->typeId() == "product") numbers.push_back(o);
     }
 
@@ -80,8 +88,28 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             out.push_back({"Product " + a + "·" + b, matrixFormula("", a + "*" + b)});
             out.push_back({"Blend " + a + " → " + b + " (slider)", morph("matrix", "lerp(" + a + ", " + b + ", $s)")});
         }
+        if (quats.size() >= 2) {
+            const std::string& a = quats[0]->name();
+            const std::string& b = quats[1]->name();
+            out.push_back({"Compose " + a + "·" + b + " (" + b + " first)", quaternionFormula(a + "*" + b)});
+            out.push_back({"Compose " + b + "·" + a + " (" + a + " first)", quaternionFormula(b + "*" + a)});
+            out.push_back({"Turn from " + a + " to " + b + " (slerp, slider)",
+                           morph("quaternion", "slerp(" + a + ", " + b + ", $s)")});
+        }
+        if (!quats.empty() && !vectors.empty()) {
+            const std::string& q = quats[0]->name();
+            for (const SceneObject* v : vectors)
+                out.push_back({"Rotate " + v->name() + " by " + q, vectorFormula("", "rotate(" + q + ", " + v->name() + ")")});
+        }
+        if (quats.size() == 1) {
+            const std::string& q = quats[0]->name();
+            out.push_back({"Matrix of " + q, matrixFormula("", "mat(" + q + ")")});
+            out.push_back({"Inverse rotation " + q + "⁻¹", quaternionFormula("inv(" + q + ")")});
+            out.push_back({"Turn " + q + " from no rotation (slider)", morph("quaternion", "slerp(quat(1, 0, 0, 0), " + q + ", $s)")});
+        }
         if (matrices.size() == 1) {
             const std::string& m = matrices[0]->name();
+            out.push_back({"Quaternion of " + m + " (rotations only)", quaternionFormula("quat(" + m + ")")});
             AddChoice e;
             e.typeId = "eigen";
             e.fields["of"] = m;

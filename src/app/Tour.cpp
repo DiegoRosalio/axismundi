@@ -262,7 +262,17 @@ void Tour::buildSteps() {
         app.scene().commit();
     }, 20);
     step("16m_quaternion_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 20);
+    step("16n_quaternion_pair", [](App& app) {
+        app.view().style = view::StyleId::Colorful;
+        app.clearSpace(AppMode::Space3D);
+        app.addObject(AppMode::Space3D, "quaternion", "q1", {{"value", "qaxis([0, 0, 1], pi/2)"}}, {{"basis", "0"}});
+        app.addObject(AppMode::Space3D, "quaternion", "q2", {{"value", "qaxis([1, 0, 0], pi/2)"}}, {{"basis", "0"}});
+        app.select("q1");
+        app.select("q2", AppMode::Space3D, true);
+    }, 20);
+    step("16o_quaternion_templates", [](App& app) { app.openAddMenu(); }, 15);
     step("17_help", [](App& app) {
+        app.closePopovers();
         app.view().style = view::StyleId::Colorful;
         app.resetScene();
         app.setMode(AppMode::Space3D);

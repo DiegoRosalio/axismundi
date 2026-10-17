@@ -55,10 +55,12 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
         if (const scene::SceneObject* o = space.find(id)) picked.push_back(o);
 
     const scene::SceneObject* matrixObj = nullptr;
-    std::vector<const scene::SceneObject*> vectors, numbers;
+    std::vector<const scene::SceneObject*> vectors, numbers, quats;
     for (const auto* o : picked) {
         if (!o->value().ok()) continue;
-        if (o->value().type == expr::Type::Matrix) {
+        if (o->value().type == expr::Type::Quaternion) {
+            if (quats.size() < 2) quats.push_back(o);
+        } else if (o->value().type == expr::Type::Matrix) {
             matrixObj = o;  // the most recently selected matrix wins
         } else if (o->value().type == expr::Type::Vector && vectors.size() < 2) vectors.push_back(o);
         else if (o->value().isNumber() && o->typeId() != "parameter" && numbers.size() < 2) numbers.push_back(o);
@@ -84,10 +86,73 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
     m_eigen = EigenResult{};
     m_hasMatrix = false;
 
-    if (!matrixObj && vectors.empty() && numbers.empty()) {
+    if (!matrixObj && vectors.empty() && numbers.empty() && quats.empty()) {
         Section& s = section("empty", "Nothing to analyse", true);
-        note(s, "Select a matrix, one or two vectors, or complex numbers (Ctrl+click for several).");
+        note(s, "Select a matrix, one or two vectors or quaternions, or complex numbers (Ctrl+click for several).");
         return;
+    }
+
+    // --- Quaternions ---------------------------------------------------------
+    for (size_t k = 0; k < quats.size(); k++) {
+        const scene::SceneObject* q = quats[k];
+        const expr::Value& v = q->value();
+        const char* N = q->name().c_str();
+        Section& s = section("quat." + std::to_string(k), "Quaternion " + q->name(), true);
+        s.tip = "The rotation this quaternion stands for, as an axis and angle, a matrix and yaw/pitch/roll.";
+        body(s, q->name() + " = " + v.summary());
+        tipped(s, fmt("w = %.3f   x = %.3f   y = %.3f   z = %.3f", v.re, v.qi, v.qj, v.qk),
+               "The four numbers: w = cos(angle/2), (x, y, z) = axis · sin(angle/2) for a unit quaternion.");
+        expr::Rotation r;
+        if (!expr::rotationOf(v, r)) {
+            note(s, "The zero quaternion is not a rotation.");
+            continue;
+        }
+        tipped(s, fmt("|%s| = %.3f", N, r.norm), "Length √(w² + x² + y² + z²). Rotations use length 1.");
+        if (r.hasAxis)
+            tipped(s, fmt("angle %.1f° about %s", r.angle * RAD2DEG, vecStr(r.axis).c_str()),
+                   "Turns by this angle about the axis, counterclockwise when the axis points at you.");
+        else
+            body(s, "no rotation (angle 0)");
+        float vals[9];
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) vals[i * 3 + j] = r.matrix.m[i][j];
+        addMatrix(s, ("mat(" + q->name() + ")").c_str(), vals, 3);
+        // Yaw, pitch, roll (z, then y, then x: R = Rz(yaw)·Ry(pitch)·Rx(roll))
+        const Matrix3D& m = r.matrix;
+        double yaw = std::atan2(m.m[1][0], m.m[0][0]);
+        double pitch = std::asin(std::clamp(-static_cast<double>(m.m[2][0]), -1.0, 1.0));
+        double roll = std::atan2(m.m[2][1], m.m[2][2]);
+        tipped(s, fmt("yaw %.1f°   pitch %.1f°   roll %.1f°", clean(static_cast<float>(yaw * RAD2DEG)),
+                      clean(static_cast<float>(pitch * RAD2DEG)), clean(static_cast<float>(roll * RAD2DEG))),
+               "The same rotation as three turns: roll about x, then pitch about y, then yaw about z.");
+        if (std::fabs(r.norm - 1.0) > 1e-3) note(s, "Not length 1: drawn as the rotation of q/|q| (unit(q)).");
+    }
+    if (quats.size() == 2) {
+        const expr::Value& a = quats[0]->value();
+        const expr::Value& b = quats[1]->value();
+        const std::string& na = quats[0]->name();
+        const std::string& nb = quats[1]->name();
+        auto mul = [](const expr::Value& x, const expr::Value& y) {
+            return expr::Value::quat(x.re * y.re - x.qi * y.qi - x.qj * y.qj - x.qk * y.qk,
+                                     x.re * y.qi + x.qi * y.re + x.qj * y.qk - x.qk * y.qj,
+                                     x.re * y.qj - x.qi * y.qk + x.qj * y.re + x.qk * y.qi,
+                                     x.re * y.qk + x.qi * y.qj - x.qj * y.qi + x.qk * y.re);
+        };
+        expr::Value ab = mul(a, b), ba = mul(b, a);
+        Section& s = section("quat.pair", na + " and " + nb, true);
+        s.tip = "Composing two rotations: the product does the right one first.";
+        tipped(s, na + "·" + nb + " = " + ab.summary(), "The rotation: first the right factor, then the left.");
+        body(s, nb + "·" + na + " = " + ba.summary());
+        double diff = std::fabs(ab.re - ba.re) + std::fabs(ab.qi - ba.qi) + std::fabs(ab.qj - ba.qj) + std::fabs(ab.qk - ba.qk);
+        note(s, diff > 1e-6 ? "Different: the order of rotations matters." : "The same here (same axis, or one is no turn).");
+        expr::Rotation ra, rb;
+        if (expr::rotationOf(a, ra) && expr::rotationOf(b, rb)) {
+            double na2 = std::sqrt(a.re * a.re + a.qi * a.qi + a.qj * a.qj + a.qk * a.qk);
+            double nb2 = std::sqrt(b.re * b.re + b.qi * b.qi + b.qj * b.qj + b.qk * b.qk);
+            double d = std::fabs((a.re * b.re + a.qi * b.qi + a.qj * b.qj + a.qk * b.qk) / (na2 * nb2));
+            tipped(s, fmt("angle between them %.1f°", 2 * std::acos(std::min(1.0, d)) * RAD2DEG),
+                   "How far you turn to get from one rotation to the other (what slerp travels).");
+        }
     }
 
     // --- Vectors -----------------------------------------------------------
