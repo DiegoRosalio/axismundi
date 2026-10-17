@@ -69,6 +69,8 @@ floor grid larger.
 
 ## Make it yours
 
+- **Style** (View section): Colorful, Paper, High contrast (for projectors) or Chalkboard.
+- **O** shows only the selected objects; press it again (or **Show all**) to see everything.
 - **T** switches between the dark and light theme; **Ctrl+=** / **Ctrl+−** change the interface size.
 - Drag panels by their title bar; collapse or close them with the buttons on the right.
 - **Ctrl+S** / **F5** saves the scene (the first time it asks for a name), **Ctrl+Shift+S** saves under a new

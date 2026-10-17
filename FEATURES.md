@@ -94,6 +94,17 @@ Tried with real X11 input (xdotool under Xvfb, `tools/dev/input-test.sh`) and fi
 - [x] Enter in the big editor doesn't apply a formula with a syntax error
 - [x] Screenshots on SIGUSR1 for scripted input tests
 
+## View styles and visibility
+- [x] Style setting in the View section: Colorful, Paper (the B/W preview, matching the LaTeX export), High
+      contrast (thick lines, big labels, strong colors) and Chalkboard (green board, pastel colors)
+- [x] One style definition (`view/ViewStyle`): a new style is data, not a new drawing path
+- [x] The style is saved in the scene file; new scenes use the last style picked
+- [x] The export panel's "B/W preview" switches the view to Paper and back
+- [x] Smooth/Faceted surfaces default per style; Settings can override
+- [x] Selection highlight: halo, label ring; other objects fade while something is selected (Settings switch)
+- [x] 3D labels never overlap (greedy placement, leader lines)
+- [x] Show only the selection (O, objects header button) and Show all
+
 ## Files and defaults
 - [x] Implement save/load scene state
 - [x] Sensible defaults: new vectors start with length 1 (e.g. along an axis), and the app opens with an

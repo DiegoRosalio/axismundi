@@ -71,7 +71,11 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
     const size_t perLine = charsPerLine(r.width);
     std::vector<size_t> starts = text::wrapLines(s, perLine);
     const float lh = lineHeight(), cw = charWidth();
-    const float left = r.x + px(kPadX), top = r.y + px(kPadY);
+    // A field always shows at least one line: when it is barely taller than a line (small windows,
+    // where the mono font stops shrinking), that line is centered instead of padded from the top
+    const float left = r.x + px(kPadX);
+    const bool tight = r.height - 2 * px(kPadY) < lh;
+    const float top = tight ? r.y + (r.height - lh) / 2 : r.y + px(kPadY);
 
     auto positionAt = [&](Vector2 m) {
         float sc = active ? st.scroll : 0.0f;  // an inactive field is not scrolled
@@ -207,7 +211,7 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
     // Keep the cursor line visible
     size_t curLine = 0, curCol = 0;
     text::cursorToLineCol(s, starts, st.cursor, curLine, curCol);
-    float visibleH = r.height - 2 * px(kPadY);
+    float visibleH = tight ? lh : r.height - 2 * px(kPadY);
     if (active) {
         float cy = curLine * lh;
         if (cy < st.scroll) st.scroll = cy;
@@ -219,7 +223,9 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
 
     // No scissor here (the side bar's scroll area already uses it and raylib cannot nest it):
     // only lines that fit inside the field are drawn
-    auto lineVisible = [&](float y) { return y >= r.y + px(1) && y + lh <= r.y + r.height - px(1); };
+    auto lineVisible = [&](float y) {
+        return tight ? y >= top - 0.5f && y <= top + 0.5f : y >= r.y + px(1) && y + lh <= r.y + r.height - px(1);
+    };
     size_t selA = std::min(st.anchor, st.cursor), selB = std::max(st.anchor, st.cursor);
     for (size_t i = 0; i < starts.size(); i++) {
         size_t end = i + 1 < starts.size() ? starts[i + 1] : s.size();

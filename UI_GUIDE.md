@@ -55,6 +55,11 @@ Each space has its own list of objects. The side bar shows:
   eye button to show or hide the object. Red text means the object has a problem; hover the row to read it.
   Click to select, Ctrl+click to add to the selection; clicking an object in the 3D view does the same, and
   clicking empty space clears the selection. Undo / redo and **Add** sit in the header.
+  - In the view, selected objects get a halo and an accent ring around their label, and the others fade (Settings
+    can turn the fading off). Labels never overlap: a label that had to move gets a thin line back to its point.
+  - **Only the selection** (O, or the target button in the header) hides everything else in the view (the list
+    keeps them, faded); a chip at the top of the view says it's on. **Show all** shows hidden objects again
+    (one undo step) and turns it off.
 - **Inspector**: the selected object's type, name (rename it here; formulas that use it are updated), color,
   its fields, and Duplicate / Delete.
 
@@ -186,6 +191,15 @@ reference. Each tab keeps its own camera.
 ## View section
 
 - Grid (G), Axes, Labels (L), Axis length, Grid size, Reset camera (C)
+- **Style**: how the 3D view is drawn. The panels keep the dark/light theme.
+  - **Colorful**: theme colors, heat maps, shaded surfaces.
+  - **Paper**: black and white on white, in the LaTeX export's line styles and grays (the export panel's B/W
+    preview switches to it and back).
+  - **High contrast**: thick lines and arrows, big labels, strong colors on black (or white in the light theme),
+    for projectors and slides.
+  - **Chalkboard**: a green board, chalk-white axes and grid, pastel objects and softened heat maps.
+
+  The style is saved in the scene file; the last style picked is used at startup and for new scenes.
 - **New** (clear both spaces), **Open…** (Ctrl+O / F9), **Save** (Ctrl+S / F5; asks for a name the first time),
   **Save as…** (Ctrl+Shift+S), and the current file name. The file dialog browses folders (scene files are
   `.txt`), remembers recent files, and asks before replacing a file. Opening and New can be undone.
@@ -194,8 +208,10 @@ reference. Each tab keeps its own camera.
 
 ## Settings (gear icon)
 
-Theme, interface size, **Surfaces** (Smooth: colors blend with soft shading by slope; Faceted: flat cells, one
-color each, so the sample grid stays visible), tooltips, status overlay, reset panel layout. Preferences are saved in
+Theme, interface size, **Surfaces** (By style: each view style picks, smooth for Colorful and High contrast,
+faceted for Paper and Chalkboard; Smooth: colors blend with soft shading by slope; Faceted: flat cells, one color
+each, so the sample grid stays visible), **Fade unselected objects** (on: while something is selected the other
+objects fade toward the background), tooltips, status overlay, reset panel layout. Preferences are saved in
 `$XDG_CONFIG_HOME/axismundi/settings.txt` (usually `~/.config/axismundi/settings.txt`) when the app closes.
 
 ## Export to LaTeX
@@ -213,8 +229,8 @@ modal: you can keep adjusting the scene while it's open, and the code updates li
   - Plots get legend entries; vectors and points are labelled at their tips.
   - Surfaces are white with a black mesh, or shaded in grays by height.
   - Standalone gives a complete document to compile on its own.
-- **B/W preview** draws the 3D view on white in the export's styles: the same line styles, grays and labels,
-  so what you see is what you get. Objects outside the export are drawn faint.
+- **B/W preview** switches the view to the Paper style (and back when turned off): the export's line styles,
+  grays and labels, so what you see is what you get. Objects outside the export are drawn faint.
 - **Copy LaTeX** puts the code on the clipboard; **Save .tex…** writes a file to `\input`.
 
 **Style.**
@@ -248,6 +264,7 @@ To use the figure, add to your preamble (the first comment of the code lists the
 | Camera ⟷ UI mode | Tab |
 | Switch space | 1 / 2 or the tabs |
 | Select / add to selection | Click / Ctrl+click (list or view) |
+| Show only the selection | O, or the target button in the objects header; Show all brings everything back |
 | Add / delete / duplicate | N or Add / Del / Ctrl+D |
 | Edit a value | Click, type, Enter |
 | Undo / redo | Ctrl+Z / Ctrl+Y |

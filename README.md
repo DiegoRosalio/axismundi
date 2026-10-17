@@ -62,7 +62,7 @@ and worked calculations.
   - Choose the visible objects or only the selection, 2D / 3D / auto, the width (a fraction of
     `\linewidth`), axes, legend, grid, gray surface shading, and a standalone document.
   - **Copy LaTeX** to the clipboard or **Save .tex**. The 3D view follows the camera angle.
-- **B/W preview**: the 3D view is drawn on white in the export's styles while you design the figure.
+- **B/W preview**: switches the 3D view to the Paper style (the export's styles) while you design the figure.
 
 | | |
 |---|---|
@@ -73,6 +73,9 @@ and worked calculations.
   embedded fonts and real math symbols.
 - Dark and light themes (T), floating panels you can drag, collapse and close, fullscreen (F11),
   screenshots (F12).
+- View styles (View section): Colorful, Paper (black and white, like the LaTeX export), High contrast (thick
+  lines, big labels) and Chalkboard. Selected objects are highlighted and the others fade; labels never overlap;
+  **O** shows only the selection.
 - Long formulas wrap onto several lines in the inspector; the ⤢ button next to a formula (or Ctrl+Enter while
   typing) opens a big editor that shows the result or the error live. The side bar collapses to a thin strip
   (Ctrl+B or the button left of the logo) to give the view the whole window.
@@ -156,6 +159,7 @@ window to exit.
 | Esc | Leave camera mode, close a popup or the help, cancel an edit |
 | 1 / 2 | 3D space / complex plane |
 | Click / Ctrl+click | Select an object / add it to the selection |
+| O | Show only the selection (again: show everything) |
 | N | Add an object |
 | Del / Ctrl+D | Delete / duplicate the selection |
 | Ctrl+Z / Ctrl+Y | Undo / redo (UI mode) |

@@ -5,39 +5,23 @@ Open work, roughly in the order it makes sense to do it. Everything already done
 
 ## Next up (in this order)
 
-1. View styles and better visibility of objects: design to refine first (see "Look and usability")
-2. Direct PDF export of LaTeX figures (see "LaTeX export follow-ups")
-3. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
-4. Quaternions: a new value kind in the expression engine
-5. CI: `make test` and the headless tour on every push
-6. Recording the Time panel to a PNG sequence or video
-7. Later: the remaining Advanced Math items, Windows/macOS builds, performance
+1. Direct PDF export of LaTeX figures (see "LaTeX export follow-ups")
+2. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
+3. Quaternions: a new value kind in the expression engine
+4. CI: `make test` and the headless tour on every push
+5. Recording the Time panel to a PNG sequence or video
+6. Later: the remaining Advanced Math items, Windows/macOS builds, performance
 
 ## Medium priority
 
 ### Look and usability
 - [ ] Try the feel on real hardware: a physical mouse and touchpad, other keyboard layouts (typing `^`, `[`
       with dead keys), HiDPI screens. `tools/dev/input-test.sh` covers X11 events under Xvfb only
-- [ ] Better visibility of objects: make vectors, matrices, plots and labels easier to see and tell apart
-      (to define: thickness, contrast, labels, highlight of the selection, show/hide controls)
-
-#### View styles (needs more iteration before implementing)
-A Style setting in the View section chooses how the 3D view is drawn; the B/W preview becomes one style.
-First choices (from the discussion, to be refined):
-- [ ] Colorful: today's look (theme colors, heat maps, shaded surfaces)
-- [ ] Paper: today's B/W preview (white, line styles and grays, black mesh), matching the LaTeX export
-- [ ] Colorblind-safe: Okabe–Ito palette for objects, viridis scale for heat maps
-- [ ] Chalkboard: dark green board, chalk-white lines, pastel colors
-- [ ] High contrast: thicker lines and arrows, bigger labels, strong colors (projectors, slides)
-- [ ] The style is saved in the scene file; new scenes use the last style picked
-- [ ] The export panel's "B/W preview" becomes a shortcut: switch the view to Paper and back
-- [ ] One style definition (background, ink, palette, line thickness, label colors, surface mode) so a new
-      style is data, not a new drawing path; the Smooth/Faceted setting becomes a per-style default that
-      Settings can override
-
-Open questions to iterate on: the exact look of each style (palettes, thickness, labels); light/dark
-theme interplay; whether objects outside the export scope stay faint in Paper; whether Blueprint or other
-styles are worth adding.
+#### View styles: follow-ups
+- [ ] Colorblind-safe style: Okabe–Ito palette for objects, viridis scale for heat maps
+- [ ] Blueprint or other styles, if wanted
+- [ ] Whether objects outside the export scope stay faint in Paper (today: yes)
+- [ ] Selected plots: an outline on the curve or surface itself (today only the others fade)
 
 ### LaTeX export follow-ups
 

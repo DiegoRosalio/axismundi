@@ -23,7 +23,11 @@ click 150 302; key ctrl+End; key ctrl+Return
 type_ " + q";                     shot 07_big_editor_error       # live error: unknown name q
 key Escape;                       shot 08_cancelled              # formula unchanged
 click 1000 250;                   shot 09_deselected             # click on empty space
+click 250 423;                    shot 09b_style_chalkboard      # View section: Style card
+click 90 385                                                     # back to Colorful
 click 835 470;                    shot 10_picked                 # click the arrow selects v
+hover 1000 250; key o;            shot 10b_solo                  # O: only the selection, chip on top
+key o
 drag 760 736 760 420;             shot 11_panel_dragged          # Time panel moved up
 key ctrl+b;                       shot 12_sidebar_collapsed
 key ctrl+b

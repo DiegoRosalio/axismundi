@@ -98,10 +98,13 @@ src/
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
-  text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps)
+  text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
+                      LabelLayout (placing screen labels without overlaps)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table)
-  view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache,
-                      black-and-white print preview (DrawOptions.print)
+  view/SceneView      draws a space's objects (per-type), labels (laid out, no overlaps), colors, selection
+                      halo + fading, solo filter (`shown`), plot cache, Paper = the print path (DrawOptions.print)
+  view/ViewStyle      view styles as data (Colorful, Paper, High contrast, Chalkboard): `styleFor(id, theme)`,
+                      `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
   rendering/          Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
@@ -162,6 +165,18 @@ docs/screenshots/     images for the docs, produced by --tour
   `PlotSpec::smooth` picks smooth surfaces (per-vertex color + slope shading) or faceted ones (flat cells,
   plain triangle list); it comes from the Settings preference `UiSettings::smoothSurfaces`
   (`ui.smooth_surfaces`) through `SceneView::setSmoothSurfaces`, and is part of the plot cache key.
+
+### View styles
+- A style changes only the 3D view (panels keep the theme). `ViewSettings::style` is saved in scene files
+  (`view.style`; files without it keep the current style) and as the preference `view.style` (startup, New).
+- **Adding a style:** a `StyleId`, a row in `kStyles` (key, name, description) and a `case` in `styleFor`
+  that adjusts the Colorful values (palettes, background, grid, `lineScale`, `labelLarge`, `heatSoften`,
+  `smoothDefault`). Drawing code reads only the style, never `ui::theme()` for scene colors. The View section
+  shows 2×2 cards (`ViewPanel::styleCard`); more styles need another card row.
+- The export panel's B/W preview is synced with Paper in `App::update` (`m_previewShown`, `m_styleBeforePaper`).
+- Selection: `DrawOptions.dimUnselected` (Settings `ui.dim_unselected`, off during lessons and the breakdown)
+  fades the others by blending toward the background (not alpha: keeps depth right; plots use `draw(fade)`);
+  `DrawOptions.solo` (`ViewSettings::soloSelection`, key O) draws and picks only the selection.
 
 ### LaTeX export
 - `latex::exportLatex(space, selection, options)` writes a `tikzpicture` + PGFPlots `axis`.
