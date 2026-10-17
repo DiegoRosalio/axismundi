@@ -58,7 +58,7 @@ bool FormulaEditor::draw(scene::Scene& sc) {
     Rectangle er = {col.x(), col.y(), col.width(), editorH};
     col.setY(er.y + er.height + ui::px(8));
     expr::Program probe;
-    bool syntaxOk = probe.compile(m_text, field->curveVariable);
+    bool syntaxOk = probe.compile(m_text, field->variables());
     ui::EditorEvent ev = ui::textEditor(er, kEditorId, m_text, true, !syntaxOk, m_state);
     ui::anchor("formula.editor", er);
     bool enter = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER);
@@ -76,11 +76,12 @@ bool FormulaEditor::draw(scene::Scene& sc) {
         expr::Slots slots;
         slots.t = obj->time();
         slots.hasT = true;
-        if (field->expect == scene::Expect::Plot) {
+        if (field->expect == scene::Expect::Plot || field->expect == scene::Expect::Field) {
             slots.x = 0.37;
             slots.y = 0.29;
             slots.u = 0.41;
-            slots.hasX = slots.hasY = slots.hasU = true;
+            slots.z = 0.23;
+            slots.hasX = slots.hasY = slots.hasU = slots.hasZ = true;
         }
         expr::Value v = probe.eval(&sc.space(m_kind), &slots);
         std::string err = scene::checkExpect(field->expect, v);
@@ -88,6 +89,8 @@ bool FormulaEditor::draw(scene::Scene& sc) {
             result = err;
         } else if (field->expect == scene::Expect::Plot) {
             result = "plot formula, e.g. " + v.summary() + " at the sample point";
+        } else if (field->expect == scene::Expect::Field) {
+            result = "field formula, e.g. F = " + v.summary() + " at (0.37, 0.29, 0.23)";
             ok = true;
         } else {
             result = "= " + v.summary() + "   (" + v.typeName() + ")";

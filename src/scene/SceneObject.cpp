@@ -34,6 +34,8 @@ std::string checkExpect(Expect expect, const expr::Value& v) {
         case Expect::Number:
         case Expect::Plot:
             return v.isRealNumber() ? "" : "should be a real number, not " + v.typeName();
+        case Expect::Field:
+            return v.type == expr::Type::Vector ? "" : "should be a vector such as [-y, x, 0], not " + v.typeName();
         case Expect::ComplexNum:
             return v.isNumber() ? "" : "should be a number, not " + v.typeName();
         case Expect::Vector:
@@ -77,7 +79,7 @@ bool SceneObject::setField(const std::string& key, const std::string& text) {
     if (f->text == text && (f->program.valid() || !f->error.empty())) return f->program.valid();
     f->text = text;
     m_dirty = true;
-    if (!f->program.compile(text, f->curveVariable)) {
+    if (!f->program.compile(text, f->variables())) {
         f->error = f->program.error();
         return false;
     }
@@ -95,6 +97,16 @@ void SceneObject::markCurveVariable(const std::string& key) {
     Field* f = field(key);
     if (!f) return;
     f->curveVariable = true;
+    std::string text = f->text;
+    f->text.clear();
+    f->error.clear();
+    setField(key, text);
+}
+
+void SceneObject::markFieldVariable(const std::string& key) {
+    Field* f = field(key);
+    if (!f) return;
+    f->zVariable = true;
     std::string text = f->text;
     f->text.clear();
     f->error.clear();
@@ -172,14 +184,15 @@ void SceneObject::evaluate(const expr::Resolver& resolver, std::uint64_t epoch, 
             continue;
         }
         expr::Value v;
-        if (f.expect == Expect::Plot) {
+        if (f.expect == Expect::Plot || f.expect == Expect::Field) {
             // Check names and type with sample values of x, y and u, and the scene time t
             expr::Slots slots;
             provideSlots(slots);
             slots.x = 0.37;
             slots.y = 0.29;
             slots.u = 0.41;
-            slots.hasX = slots.hasY = slots.hasU = true;
+            slots.z = 0.23;
+            slots.hasX = slots.hasY = slots.hasU = slots.hasZ = true;
             v = f.program.eval(&resolver, &slots);
         } else {
             expr::Slots own;

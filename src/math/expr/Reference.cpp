@@ -33,13 +33,16 @@ std::vector<ReferenceSection> build() {
 
     s.push_back({"Time and plot variables",
                  "t is the scene time in seconds, run by the Time panel; everything that uses it moves when the "
-                 "clock plays and can be scrubbed. Plots also have their own variables.",
+                 "clock plays and can be scrubbed. Plots and vector fields also have their own variables.",
                  {
                      {"t", "Scene time in seconds, in every formula.", "[cos(t), sin(t), 1]"},
                      {"x   y", "Plot variables: y = f(x), z = f(x, y), f(x, y) = 0. Examples here use x = 1, y = 2.",
                       "x^2 + y^2"},
                      {"u", "The curve variable in x(u), y(u), z(u); it runs over the curve's range. Examples here use "
                            "u = 0.5.", "2cos(u)"},
+                     {"x   y   z", "Vector field variables: F(x, y, z) gives the arrow at the point (x, y, z), e.g. a "
+                                   "rotation [-y, x, 0] or a source [x, y, z]. Only fields have z; elsewhere z is an "
+                                   "ordinary name. Examples here use z = 3.", "[-y, x, z/3]"},
                  }});
 
     s.push_back({"Vectors",

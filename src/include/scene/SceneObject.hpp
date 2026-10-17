@@ -29,6 +29,7 @@ enum class Expect {
     Vector,
     Matrix,
     Plot,         // real-valued function of x, y, t (checked with sample values)
+    Field,        // vector-valued function of x, y, z, t (vector fields; checked with sample values)
 };
 
 // One editable input of an object, written as an expression ("[1, 0, 0]", "a + b", "cos(theta)")
@@ -41,6 +42,8 @@ struct Field {
     std::string error;   // parse or evaluation error ("" when fine)
     expr::Value value;   // result of the last evaluation (not used for Plot fields)
     bool curveVariable = false;  // curve fields: `u` is the curve's own variable
+    bool zVariable = false;      // vector field formulas: `z` is a variable (with x and y)
+    unsigned variables() const { return (curveVariable ? expr::kVarU : 0u) | (zVariable ? expr::kVarZ : 0u); }
 };
 
 // Base of everything that can live in a space: vectors, matrices, plots,
@@ -113,6 +116,7 @@ protected:
     void addField(const std::string& key, const std::string& label, Expect expect, const std::string& text);
     // Make `u` the curve variable in this field (recompiles it)
     void markCurveVariable(const std::string& key);
+    void markFieldVariable(const std::string& key);  // z becomes a variable in this field
     // Turn evaluated fields into the object's value (default: the "value" field)
     virtual expr::Value computeValue() const;
     virtual std::unique_ptr<SceneObject> makeEmpty() const = 0;

@@ -484,6 +484,40 @@ expr::Value evalText(const std::string& text, const expr::Resolver* r = nullptr)
     return p.eval(r);
 }
 
+void testFieldVariable() {
+    using namespace expr;
+    // z is a variable only with kVarZ; otherwise a name (objects may be called z)
+    Program f;
+    CHECK(f.compile("[-y, x, z/2]", kVarZ));
+    CHECK(f.usesX() && f.usesY() && f.usesZ());
+    CHECK(f.names().empty());
+    Slots s;
+    s.x = 1, s.y = 2, s.z = 4;
+    s.hasX = s.hasY = s.hasZ = true;
+    Value v = f.eval(nullptr, &s);
+    CHECK(v.type == Type::Vector);
+    CHECK_NEAR(v.vector.x, -2, 1e-12);
+    CHECK_NEAR(v.vector.y, 1, 1e-12);
+    CHECK_NEAR(v.vector.z, 2, 1e-12);
+    Slots noZ = s;
+    noZ.hasZ = false;
+    CHECK(f.eval(nullptr, &noZ).error == "z is only available in vector fields");
+
+    Program plain;
+    CHECK(plain.compile("z + 1"));
+    CHECK(!plain.usesZ());
+    CHECK(plain.names().count("z") == 1);
+    Program both;
+    CHECK(both.compile("u + z", kVarU | kVarZ));
+    CHECK(both.usesU() && both.usesZ() && both.names().empty());
+    CHECK(both.compile("u + z", true));  // true = curves: u only
+    CHECK(both.usesU() && !both.usesZ() && both.names().count("z") == 1);
+
+    // Field formulas must give vectors
+    CHECK(scene::checkExpect(scene::Expect::Field, Value::vec({1, 2, 3})).empty());
+    CHECK(!scene::checkExpect(scene::Expect::Field, Value::scalar(1)).empty());
+}
+
 void testExprEngine() {
     using expr::Type;
     using expr::Value;
@@ -926,7 +960,8 @@ void testReference() {
     slots.y = 2;
     slots.t = 0.5;
     slots.u = 0.5;
-    slots.hasX = slots.hasY = slots.hasT = slots.hasU = true;
+    slots.z = 3;
+    slots.hasX = slots.hasY = slots.hasT = slots.hasU = slots.hasZ = true;
     std::string documented;
     int examples = 0;
     for (const auto& section : reference()) {
@@ -936,7 +971,7 @@ void testReference() {
             if (e.example.empty()) continue;
             examples++;
             Program p;
-            bool ok = p.compile(e.example, true);
+            bool ok = p.compile(e.example, kVarU | kVarZ);
             if (!ok) fprintf(stderr, "  reference example does not compile: %s (%s)\n", e.example.c_str(), p.error().c_str());
             CHECK(ok);
             if (!ok || e.usesObjects) continue;
@@ -1362,6 +1397,7 @@ int main() {
         {"Reference", testReference},
         {"Contour", testContour},
         {"Text layout", testTextLayout},
+        {"Field variable z", testFieldVariable},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},
         {"PDF compile", testPdfCompile},
