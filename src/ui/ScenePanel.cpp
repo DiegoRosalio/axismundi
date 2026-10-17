@@ -46,6 +46,7 @@ std::string summaryOf(const SceneObject& o) {
     if (type == "implicit") return o.field("f")->text + " = 0";
     if (type == "curve") return "curve in u";
     if (type == "field") return "F = " + o.field("F")->text;
+    if (type == "doubleintegral" || type == "lineintegral") return "= " + o.value().summary();
     if (type == "quaternion") {
         expr::Rotation r;
         if (!expr::rotationOf(o.value(), r)) return o.value().summary();
@@ -683,6 +684,91 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         note(col, curve ? "u runs along the curve; t is the scene time. Parameters work by name too."
                         : "Use x, y, t (the scene time) and parameters by name, e.g. a*sin(x - t).",
              t.textFaint);
+    } else if (type == "doubleintegral" || type == "lineintegral") {
+        bool dbl = type == "doubleintegral";
+        auto rangeRow = [&](const char* lo, const char* hi, const char* label) {
+            Rectangle row = col.row(34.0f);
+            Rectangle l = ui::takeLeft(row, 34.0f, 6.0f);
+            ui::textIn(l, label, ui::FontRole::Body, t.textMuted);
+            auto cells = ui::splitRow(row, {1, 1}, 26.0f);
+            const char* keys[2] = {lo, hi};
+            for (int k = 0; k < 2; k++) {
+                std::string key = keys[k];
+                scene::Field* f = o.field(key);
+                editText(cells[k], fieldId(o, key), f->text, !f->error.empty(),
+                         [&sc, kind, oid, key](const std::string& text) {
+                             SceneObject* ob = sc.space(kind).find(oid);
+                             if (!ob) return false;
+                             ob->setField(key, text);
+                             sc.commit();
+                             return true;
+                         });
+            }
+            ui::textIn({cells[0].x + cells[0].width, row.y, ui::px(26), row.height}, "to", ui::FontRole::Small,
+                       t.textMuted, ui::Align::Center);
+        };
+        char buf[160];
+        if (dbl) {
+            auto& d = static_cast<scene::DoubleIntegralObject&>(o);
+            col.setY(fieldRow(col.x(), col.y(), col.width(), d, "f", sc, 34.0f));
+            ui::anchor("integral.f", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+            rangeRow("xmin", "xmax", "x");
+            rangeRow("ymin", "ymax", "y");
+            col.setY(fieldRow(col.x(), col.y(), col.width(), d, "n", sc, 110.0f));
+            ui::anchor("integral.n", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+            Rectangle ruleRow = col.row(30.0f);
+            int rule = static_cast<int>(d.rule());
+            if (ui::segmented(ruleRow, {"Left", "Middle", "Right"}, rule,
+                              {"Each box takes the height of f at its lower-left corner.",
+                               "Each box takes the height of f at its center (usually the most accurate).",
+                               "Each box takes the height of f at its upper-right corner."})) {
+                d.setProp("rule", rule == 0 ? "left" : rule == 2 ? "right" : "middle");
+                commit();
+            }
+            bool boxes = d.showBoxes(), surface = d.showSurface();
+            if (ui::toggleRow(col.row(30), "Boxes", boxes)) {
+                d.setProp("boxes", boxes);
+                commit();
+            }
+            if (ui::toggleRow(col.row(30), "Surface", surface)) {
+                d.setProp("surface", surface);
+                commit();
+            }
+            if (d.error().empty()) {
+                int n = d.boxesPerSide();
+                const char* ruleName = rule == 0 ? "left" : rule == 2 ? "right" : "middle";
+                snprintf(buf, sizeof(buf), "Boxes (%d × %d, %s): %.4f", n, n, ruleName, d.riemann().sum);
+                note(col, buf, t.text);
+                snprintf(buf, sizeof(buf), "Volume ∫∫ f dA ≈ %.4f", d.exact());
+                note(col, buf, t.text);
+                snprintf(buf, sizeof(buf), "Error of the boxes: %.4f", d.riemann().sum - d.exact());
+                note(col, buf, t.textMuted);
+                if (d.riemann().skipped > 0) {
+                    snprintf(buf, sizeof(buf), "%d boxes left out: f is undefined there.", d.riemann().skipped);
+                    note(col, buf, t.warning);
+                }
+            }
+            note(col, "More boxes get closer to the exact volume. Volume below the floor counts negative. Use a "
+                      "parameter in n (e.g. round(2 + 18*s)) to watch the boxes refine.",
+                 t.textFaint);
+        } else {
+            auto& li = static_cast<scene::LineIntegralObject&>(o);
+            col.setY(fieldRow(col.x(), col.y(), col.width(), li, "F", sc, 92.0f));
+            ui::anchor("integral.F", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+            for (const char* k : {"x", "y", "z"}) col.setY(fieldRow(col.x(), col.y(), col.width(), li, k, sc, 64.0f));
+            rangeRow("umin", "umax", "u");
+            col.setY(fieldRow(col.x(), col.y(), col.width(), li, "upto", sc, 64.0f));
+            ui::anchor("integral.upto", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+            if (li.error().empty()) {
+                snprintf(buf, sizeof(buf), "Work so far (%.0f%% of the path): %.4f", li.upto() * 100, li.value().re);
+                note(col, buf, t.text);
+                snprintf(buf, sizeof(buf), "Whole path: %.4f", li.total());
+                note(col, buf, t.textMuted);
+            }
+            note(col, "Green where F pushes along the motion, red where it pushes against it. Up to: 0 to 1, e.g. a "
+                      "parameter or mod(t/4, 1) to travel the path.",
+                 t.textFaint);
+        }
     } else if (type == "quaternion") {
         auto& qo = static_cast<scene::QuaternionObject&>(o);
         col.setY(fieldRow(col.x(), col.y(), col.width(), qo, "value", sc, 34.0f));

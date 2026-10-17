@@ -251,7 +251,8 @@ Color SceneView::colorOf(const SceneObject& o) {
     const std::string& type = o.typeId();
     if (type == "vector" || type == "quaternion") return paletteColor(s.vectors, o.paletteIndex);
     if (type == "eigen") return s.eigen;
-    if (type == "function" || type == "curve" || type == "surface" || type == "implicit" || type == "field")
+    if (type == "function" || type == "curve" || type == "surface" || type == "implicit" || type == "field" ||
+        type == "doubleintegral" || type == "lineintegral")
         return paletteColor(s.plots, o.paletteIndex);
     if (type == "complex") return paletteColor(s.complexes, o.paletteIndex);
     if (type == "product") return s.product;
@@ -274,6 +275,20 @@ bool SceneView::anchorPoint(const SceneObject& o, scene::SpaceKind kind, const D
         if (o.typeId() == "matrix" && v.type == expr::Type::Matrix) {
             Matrix4D m = displayedMatrix(o, options);
             out = mathToWorld(m.transform(Vector3D(1, 0, 0)));
+            return true;
+        }
+        if (o.typeId() == "doubleintegral") {
+            auto& d = static_cast<const scene::DoubleIntegralObject&>(o);
+            integrals::Rect r = d.rect();
+            double top = 0;
+            for (const auto& b : d.riemann().boxes) top = std::max(top, b.height);
+            out = mathToWorld(static_cast<float>((r.x0 + r.x1) / 2), static_cast<float>((r.y0 + r.y1) / 2),
+                              static_cast<float>(top) + 0.3f);
+            return true;
+        }
+        if (o.typeId() == "lineintegral") {
+            integrals::D3 m = static_cast<const scene::LineIntegralObject&>(o).marker();
+            out = mathToWorld(static_cast<float>(m.x), static_cast<float>(m.y), static_cast<float>(m.z));
             return true;
         }
         if (o.typeId() == "quaternion") {
@@ -496,6 +511,14 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             arrow(mathToWorld(tail), mathToWorld(tail + v.vector), c, selected);
         } else if (type == "matrix" && v.type == expr::Type::Matrix) {
             basis(displayedMatrix(o, options), 1.0f, selected, dimmed(options, o));
+        } else if (type == "doubleintegral" && o.error().empty()) {
+            bool dim = dimmed(options, o);
+            drawDoubleIntegral(static_cast<const scene::DoubleIntegralObject&>(o), dim ? faded(colorOf(o)) : colorOf(o),
+                               dim, false, BLACK);
+        } else if (type == "lineintegral" && o.error().empty()) {
+            bool dim = dimmed(options, o);
+            drawLineIntegral(static_cast<const scene::LineIntegralObject&>(o), dim ? faded(colorOf(o)) : colorOf(o),
+                             dim, false, BLACK, selected);
         } else if (type == "quaternion" && v.type == expr::Type::Quaternion) {
             drawQuaternion(static_cast<const scene::QuaternionObject&>(o), selected,
                            dimmed(options, o) ? faded(colorOf(o)) : colorOf(o), dimmed(options, o), false, -1);
@@ -671,6 +694,78 @@ void SceneView::drawQuaternion(const scene::QuaternionObject& o, bool selected, 
     }
 }
 
+namespace {
+
+Vector3 w3(const integrals::D3& p) {
+    return mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+}
+
+Color mixColor(Color a, Color b, float k) {
+    k = std::clamp(k, 0.0f, 1.0f);
+    auto m = [&](unsigned char x, unsigned char y) { return static_cast<unsigned char>(x + (y - x) * k); };
+    return {m(a.r, b.r), m(a.g, b.g), m(a.b, b.b), m(a.a, b.a)};
+}
+
+} // namespace
+
+void SceneView::drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color c, bool fade, bool print, Color ink) {
+    const ViewStyle& st = activeStyle();
+    if (o.showBoxes()) {
+        Color up = print ? Color{215, 215, 215, 255} : withAlpha(c, 120);
+        Color down = print ? Color{170, 170, 170, 255} : withAlpha(fade ? faded(st.axisX) : st.axisX, 120);
+        Color edge = print ? ink : withAlpha(fade ? faded(st.text) : st.text, 90);
+        for (const auto& b : o.riemann().boxes) {
+            float h = static_cast<float>(b.height);
+            Vector3 center = mathToWorld(static_cast<float>((b.x0 + b.x1) / 2), static_cast<float>((b.y0 + b.y1) / 2),
+                                         h / 2);
+            Vector3 size = {static_cast<float>(b.x1 - b.x0), std::fabs(h), static_cast<float>(b.y1 - b.y0)};
+            DrawCubeV(center, size, h >= 0 ? up : down);
+            DrawCubeWiresV(center, size, edge);
+        }
+    }
+    if (o.showSurface()) {
+        Color line = print ? ink : (fade ? faded(c) : c);
+        for (const auto& l : o.surfaceLines())
+            for (size_t i = 1; i < l.size(); i++) DrawLine3D(w3(l[i - 1]), w3(l[i]), line);
+    }
+}
+
+void SceneView::drawLineIntegral(const scene::LineIntegralObject& o, Color c, bool fade, bool print, Color ink,
+                                 bool selected) {
+    const ViewStyle& st = activeStyle();
+    const auto& path = o.path();
+    if (path.size() < 2) return;
+    float k = print ? 0.8f : st.lineScale;
+    // The path colored by F · T: green where F helps the motion, red where it opposes it
+    Color helps = print ? Color{40, 40, 40, 255} : (fade ? faded(st.axisY) : st.axisY);
+    Color opposes = print ? Color{160, 160, 160, 255} : (fade ? faded(st.axisX) : st.axisX);
+    Color neutral = print ? Color{110, 110, 110, 255} : (fade ? faded(st.muted) : st.muted);
+    double scale = o.maxAlong() > 1e-12 ? 1.0 / o.maxAlong() : 0.0;
+    size_t done = static_cast<size_t>(std::lround(o.upto() * (path.size() - 1)));
+    for (size_t i = 1; i < path.size(); i++) {
+        double a = (path[i - 1].along + path[i].along) / 2 * scale;
+        Color col = a >= 0 ? mixColor(neutral, helps, static_cast<float>(a)) : mixColor(neutral, opposes, static_cast<float>(-a));
+        float r = (i <= done ? 0.035f : 0.018f) * k;  // the part travelled so far is thicker
+        DrawCylinderEx(w3(path[i - 1].p), w3(path[i].p), r, r, 6, col);
+    }
+    if (selected && !print) {
+        for (size_t i = 1; i < path.size(); i++)
+            DrawCylinderEx(w3(path[i - 1].p), w3(path[i].p), 0.07f * k, 0.07f * k, 8, withAlpha(c, 45));
+    }
+    // F along the path (the longest arrow 0.7 units)
+    double longest = 0;
+    for (const auto& a : o.arrows()) longest = std::max(longest, std::sqrt(a.f.x * a.f.x + a.f.y * a.f.y + a.f.z * a.f.z));
+    if (longest > 1e-12) {
+        double s = 0.7 / longest;
+        Color arrowColor = print ? ink : (fade ? faded(c) : c);
+        for (const auto& a : o.arrows()) {
+            integrals::D3 tip = {a.p.x + a.f.x * s, a.p.y + a.f.y * s, a.p.z + a.f.z * s};
+            VectorRenderer::drawArrow(toVec(w3(a.p)), toVec(w3(tip)), arrowColor, 0.012f * k, 0.12f);
+        }
+    }
+    DrawSphere(w3(o.marker()), 0.08f * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
+}
+
 void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& options) {
     const ViewSettings& view = *options.view;
     float len = view.axisLength;
@@ -714,6 +809,10 @@ void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& optio
                         if (cc == 0) DrawLine3D(corner(a, b, cc), corner(a, b, 1), cubeGray);
                     }
             for (int k = 0; k < 3; k++) printArrow(mathToWorld(origin), mathToWorld(origin + cols[k]), c, dash, selected);
+        } else if (type == "doubleintegral" && o.error().empty()) {
+            drawDoubleIntegral(static_cast<const scene::DoubleIntegralObject&>(o), c, false, true, c);
+        } else if (type == "lineintegral" && o.error().empty()) {
+            drawLineIntegral(static_cast<const scene::LineIntegralObject&>(o), c, false, true, c, false);
         } else if (type == "quaternion" && v.type == expr::Type::Quaternion) {
             drawQuaternion(static_cast<const scene::QuaternionObject&>(o), selected, c, false, true, style);
         } else if (type == "eigen" && v.type == expr::Type::Matrix) {
@@ -860,6 +959,10 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
         if (!anchorPoint(o, space.kind(), options, at)) continue;
         if (o.typeId() == "vector") {
             snprintf(text, sizeof(text), "%s  %.2f", o.name().c_str(), o.value().vector.magnitude());
+        } else if (o.typeId() == "doubleintegral") {
+            snprintf(text, sizeof(text), "%s = %.3f", o.name().c_str(), o.value().re);
+        } else if (o.typeId() == "lineintegral") {
+            snprintf(text, sizeof(text), "%s = %.3f", o.name().c_str(), o.value().re);
         } else if (o.typeId() == "quaternion") {
             expr::Rotation r;
             expr::rotationOf(o.value(), r);

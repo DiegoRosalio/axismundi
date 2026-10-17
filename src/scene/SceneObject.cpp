@@ -208,7 +208,18 @@ void SceneObject::evaluate(const expr::Resolver& resolver, std::uint64_t epoch, 
         if (!f.error.empty() && firstError.empty()) firstError = f.label + ": " + f.error;
     }
 
-    expr::Value next = firstError.empty() ? computeValue() : expr::Value::fail(firstError);
+    bool timeMoved = usesTime && m_time != m_evaluatedTime;
+    expr::Value next;
+    if (!firstError.empty()) {
+        next = expr::Value::fail(firstError);
+    } else if (cachesValue() && m_computed && !m_dirty && !inputsChanged && !timeMoved) {
+        next = m_value;  // nothing it depends on changed
+    } else {
+        m_resolver = &resolver;
+        next = computeValue();
+        m_resolver = nullptr;
+        m_computed = true;
+    }
     // "no value" marks objects that are drawn but not used in formulas (plots): not an error
     if (firstError.empty() && !next.ok() && next.error != "no value") firstError = next.error;
     // Objects drawn from formulas of t (plots have no value to compare) change with the time

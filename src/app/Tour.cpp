@@ -277,6 +277,16 @@ void Tour::buildSteps() {
         runExample(app, "Order matters (quaternions)");
     }, 20);
     step("16q_quaternion_slerp", [](App& app) { runExample(app, "Slerp between two rotations"); }, 70);
+    // Integrals: volume under a surface, refining boxes, work along paths
+    step("16r_integral_volume", [](App& app) { runExample(app, "Volume under a paraboloid"); }, 20);
+    step("16s_integral_refine", [](App& app) { runExample(app, "Riemann boxes refine"); }, 120);
+    step("16t_integral_work", [](App& app) { runExample(app, "Work around a circle"); }, 90);
+    step("16u_integral_paths", [](App& app) { runExample(app, "Path independence"); }, 20);
+    step("16v_integral_paper", [](App& app) {
+        runExample(app, "Volume under a paraboloid");
+        app.view().style = view::StyleId::Paper;
+    }, 20);
+    step("16w_integral_reset", [](App& app) { app.view().style = view::StyleId::Colorful; }, 2);
     step("17_help", [](App& app) {
         app.closePopovers();
         app.view().style = view::StyleId::Colorful;

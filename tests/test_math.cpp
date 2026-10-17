@@ -1427,6 +1427,53 @@ void testScene() {
         (void)e;
     }
 
+    // Integral objects: values, boxes, partial work, and the value cache
+    {
+        Scene is;
+        is.clearAll();
+        auto* V = static_cast<DoubleIntegralObject*>(is.add(SpaceKind::Euclidean3D, "doubleintegral", "V"));
+        V->setField("f", "4 - x^2 - y^2");
+        for (auto [k, v] : {std::pair{"xmin", "-1"}, std::pair{"xmax", "1"}, std::pair{"ymin", "-1"}, std::pair{"ymax", "1"}})
+            V->setField(k, v);
+        auto* k = static_cast<ParameterObject*>(is.add(SpaceKind::Euclidean3D, "parameter", "k"));
+        k->setNumber(4);
+        V->setField("n", "k");
+        is.evaluate();
+        CHECK(V->error().empty());
+        CHECK_NEAR(V->value().re, 40.0 / 3.0, 1e-6);
+        CHECK(V->riemann().boxes.size() == 16);
+        CHECK(std::fabs(V->riemann().sum - 40.0 / 3.0) < 0.3);
+        std::uint64_t version = V->geometryVersion();
+        is.evaluate();
+        CHECK(V->geometryVersion() == version);  // nothing changed: not recomputed
+        k->setNumber(6);  // within the slider's default range 0..2π
+        is.evaluate();
+        CHECK(V->geometryVersion() != version && V->riemann().boxes.size() == 36);
+        V->setField("xmin", "3");
+        is.evaluate();
+        CHECK(V->error().find("must be less than") != std::string::npos);
+        V->setField("xmin", "-1");
+        V->setField("f", "1/x");  // undefined at x = 0 on the precise grid
+        is.evaluate();
+        CHECK(V->error().find("undefined") != std::string::npos);
+
+        auto* W = static_cast<LineIntegralObject*>(is.add(SpaceKind::Euclidean3D, "lineintegral", "W"));
+        is.evaluate();
+        CHECK(W->error().empty());
+        CHECK_NEAR(W->value().re, 8 * 3.14159265358979, 1e-5);  // ∮ [−y, x, 0] on the circle of radius 2
+        W->setField("upto", "0.25");
+        is.evaluate();
+        CHECK_NEAR(W->value().re, 2 * 3.14159265358979, 1e-5);
+        CHECK_NEAR(W->total(), 8 * 3.14159265358979, 1e-5);
+        CHECK(!W->path().empty() && W->maxAlong() > 1.9);
+        CHECK(std::fabs(W->marker().y - 2.0) < 1e-6);  // a quarter of the way round: (0, 2, 0)
+        // Following the clock re-evaluates
+        W->setField("upto", "mod(t/4, 1)");
+        is.timeline().time = 1.0;
+        is.evaluate();
+        CHECK_NEAR(W->value().re, 2 * 3.14159265358979, 1e-5);
+    }
+
     // Quaternion objects: their value feeds other objects; the acts-on field only when switched on
     {
         Scene qs;

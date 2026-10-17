@@ -124,6 +124,11 @@ protected:
     void markFieldVariable(const std::string& key);  // z becomes a variable in this field
     // Turn evaluated fields into the object's value (default: the "value" field)
     virtual expr::Value computeValue() const;
+    // Expensive values (integrals, series): computeValue runs only when a field, property, input or
+    // (for formulas of t) the time changed; otherwise the last value is kept
+    virtual bool cachesValue() const { return false; }
+    // Other objects' values, available while computeValue runs (nullptr otherwise)
+    const expr::Resolver* evaluationResolver() const { return m_resolver; }
     virtual std::unique_ptr<SceneObject> makeEmpty() const = 0;
 
 private:
@@ -140,6 +145,8 @@ private:
     bool m_dirty = true;
     double m_time = 0.0;
     double m_evaluatedTime = -1.0;  // time of the last evaluation (fields using t change with it)
+    const expr::Resolver* m_resolver = nullptr;  // during computeValue
+    bool m_computed = false;                     // computeValue ran at least once (cachesValue)
 };
 
 // Does a value satisfy an expectation? Returns "" or an error message.

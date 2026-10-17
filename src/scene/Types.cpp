@@ -420,6 +420,160 @@ expr::Value VectorFieldObject::computeValue() const {
     return expr::Value::fail("no value");  // drawn, not used in formulas
 }
 
+// --- Double integral ----------------------------------------------------------------
+
+namespace {
+
+// Evaluate a plot-like field at (x, y, z, u) with the object's resolver and time
+bool evalNumber(const Field* f, const expr::Resolver* r, double time, double x, double y, double z, double u,
+                double& out) {
+    if (!f || !f->program.valid()) return false;
+    expr::Slots s;
+    s.x = x, s.y = y, s.z = z, s.u = u, s.t = time;
+    s.hasX = s.hasY = s.hasZ = s.hasU = s.hasT = true;
+    expr::Value v = f->program.eval(r, &s);
+    if (!v.isRealNumber()) return false;
+    out = v.re;
+    return std::isfinite(out);
+}
+
+bool evalVector(const Field* f, const expr::Resolver* r, double time, double x, double y, double z,
+                integrals::D3& out) {
+    if (!f || !f->program.valid()) return false;
+    expr::Slots s;
+    s.x = x, s.y = y, s.z = z, s.t = time;
+    s.hasX = s.hasY = s.hasZ = s.hasT = true;
+    expr::Value v = f->program.eval(r, &s);
+    if (v.type != expr::Type::Vector) return false;
+    out = {v.vector.x, v.vector.y, v.vector.z};
+    return std::isfinite(out.x) && std::isfinite(out.y) && std::isfinite(out.z);
+}
+
+std::string rangeError(const SceneObject& o, const char* lo, const char* hi) {
+    const Field* a = o.field(lo);
+    const Field* b = o.field(hi);
+    if (!a || !b || !a->value.isRealNumber() || !b->value.isRealNumber()) return "";
+    if (!(a->value.re < b->value.re)) return a->label + " must be less than " + b->label;
+    return "";
+}
+
+double numberOf(const SceneObject& o, const char* key, double fallback) {
+    const Field* f = o.field(key);
+    return f && f->value.isRealNumber() ? f->value.re : fallback;
+}
+
+} // namespace
+
+DoubleIntegralObject::DoubleIntegralObject() : SceneObject("doubleintegral") {
+    setProp("rule", "middle");
+    setProp("boxes", true);
+    setProp("surface", true);
+    addField("f", "z =", Expect::Plot, "2 - (x^2 + y^2)/4");
+    addField("xmin", "x from", Expect::Number, "-2");
+    addField("xmax", "x to", Expect::Number, "2");
+    addField("ymin", "y from", Expect::Number, "-2");
+    addField("ymax", "y to", Expect::Number, "2");
+    addField("n", "Boxes per side", Expect::Number, "6");
+}
+
+integrals::Rect DoubleIntegralObject::rect() const {
+    return {numberOf(*this, "xmin", -2), numberOf(*this, "xmax", 2), numberOf(*this, "ymin", -2),
+            numberOf(*this, "ymax", 2)};
+}
+
+int DoubleIntegralObject::boxesPerSide() const {
+    return static_cast<int>(std::clamp(std::round(numberOf(*this, "n", 6)), 1.0, 60.0));
+}
+
+integrals::Rule DoubleIntegralObject::rule() const {
+    std::string r = prop("rule", "middle");
+    return r == "left" ? integrals::Rule::Left : r == "right" ? integrals::Rule::Right : integrals::Rule::Middle;
+}
+
+expr::Value DoubleIntegralObject::computeValue() const {
+    std::string err = rangeError(*this, "xmin", "xmax");
+    if (err.empty()) err = rangeError(*this, "ymin", "ymax");
+    if (!err.empty()) return expr::Value::fail(err);
+    const Field* f = field("f");
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    integrals::Surface fn = [&](double x, double y, double& z) { return evalNumber(f, res, t, x, y, 0, 0, z); };
+    integrals::Rect r = rect();
+    int n = boxesPerSide();
+    m_riemann = integrals::riemann2D(fn, r, n, n, rule());
+    bool ok = false;
+    m_exact = integrals::simpson2D(fn, r, 120, ok);
+    // The surface, for drawing: grid lines in both directions
+    m_lines.clear();
+    const int lines = 16, samples = 48;
+    for (int dir = 0; dir < 2; dir++)
+        for (int k = 0; k <= lines; k++) {
+            std::vector<integrals::D3> line;
+            for (int i = 0; i <= samples; i++) {
+                double a = static_cast<double>(k) / lines, b = static_cast<double>(i) / samples;
+                double x = r.x0 + (dir == 0 ? a : b) * (r.x1 - r.x0), y = r.y0 + (dir == 0 ? b : a) * (r.y1 - r.y0);
+                double z = 0;
+                if (fn(x, y, z)) line.push_back({x, y, z});
+            }
+            m_lines.push_back(std::move(line));
+        }
+    m_version++;
+    if (!ok) return expr::Value::fail("f is undefined somewhere in the range");
+    return expr::Value::scalar(m_exact);
+}
+
+// --- Line integral ------------------------------------------------------------------
+
+LineIntegralObject::LineIntegralObject() : SceneObject("lineintegral") {
+    addField("F", "F(x, y, z) =", Expect::Field, "[-y, x, 0]");
+    markFieldVariable("F");
+    addField("x", "x(u) =", Expect::Plot, "2cos(u)");
+    addField("y", "y(u) =", Expect::Plot, "2sin(u)");
+    addField("z", "z(u) =", Expect::Plot, "0");
+    for (const char* k : {"x", "y", "z"}) markCurveVariable(k);
+    addField("umin", "u from", Expect::Number, "0");
+    addField("umax", "u to", Expect::Number, "2pi");
+    addField("upto", "Up to", Expect::Number, "1");
+}
+
+expr::Value LineIntegralObject::computeValue() const {
+    std::string err = rangeError(*this, "umin", "umax");
+    if (!err.empty()) return expr::Value::fail(err);
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    const Field *fx = field("x"), *fy = field("y"), *fz = field("z"), *fF = field("F");
+    integrals::Path r = [&](double u, integrals::D3& o) {
+        return evalNumber(fx, res, t, 0, 0, 0, u, o.x) && evalNumber(fy, res, t, 0, 0, 0, u, o.y) &&
+               evalNumber(fz, res, t, 0, 0, 0, u, o.z);
+    };
+    integrals::Field F = [&](const integrals::D3& p, integrals::D3& o) { return evalVector(fF, res, t, p.x, p.y, p.z, o); };
+    double a = numberOf(*this, "umin", 0), b = numberOf(*this, "umax", 6.28);
+    m_upto = std::clamp(numberOf(*this, "upto", 1), 0.0, 1.0);
+    bool ok = false;
+    m_total = integrals::lineIntegral(F, r, a, b, 1.0, 400, ok);
+    if (!ok) return expr::Value::fail("F or the curve is undefined somewhere along the path");
+    double partial = integrals::lineIntegral(F, r, a, b, m_upto, 400, ok);
+    // Path samples with F · T, a few F arrows, and the marker
+    m_path.clear();
+    m_arrows.clear();
+    m_maxAlong = 0.0;
+    const int n = 160;
+    double h = std::max(1e-7, std::fabs(b - a) * 1e-5);
+    for (int i = 0; i <= n; i++) {
+        double u = a + (b - a) * i / n;
+        integrals::D3 p, d, v;
+        if (!r(u, p) || !integrals::derivative(r, u, h, d) || !F(p, v)) continue;
+        double len = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+        double along = len > 1e-12 ? (v.x * d.x + v.y * d.y + v.z * d.z) / len : 0.0;
+        m_path.push_back({p, along});
+        m_maxAlong = std::max(m_maxAlong, std::fabs(along));
+        if (i % 10 == 5) m_arrows.push_back({p, v});
+    }
+    r(a + m_upto * (b - a), m_marker);
+    m_version++;
+    return expr::Value::scalar(partial);
+}
+
 // --- Complex ------------------------------------------------------------------------
 
 ComplexObject::ComplexObject() : SceneObject("complex") {
@@ -482,6 +636,12 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"field", "Vector field F(x, y, z)", "Fields", "F", spaceBit(SpaceKind::Euclidean3D),
          "Arrows of F at every point, with flow lines and moving particles",
          [] { return std::make_unique<VectorFieldObject>(); }},
+        {"doubleintegral", "Volume under z = f(x, y)", "Calculus", "V", spaceBit(SpaceKind::Euclidean3D),
+         "A double integral: Riemann boxes next to the exact volume",
+         [] { return std::make_unique<DoubleIntegralObject>(); }},
+        {"lineintegral", "Work ∫ F·dr along a curve", "Calculus", "W", spaceBit(SpaceKind::Euclidean3D),
+         "A line integral: how much a vector field pushes along a path",
+         [] { return std::make_unique<LineIntegralObject>(); }},
         {"complex", "Complex number", "Basics", "z", spaceBit(SpaceKind::Complex),
          "A point of the complex plane, such as 2 + i or exp(i*theta)",
          [] { return std::make_unique<ComplexObject>(); }},

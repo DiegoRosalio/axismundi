@@ -50,13 +50,16 @@ AddChoice morph(const std::string& typeId, const std::string& formula) {
 std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& sc, scene::SpaceKind kind) {
     std::vector<std::pair<std::string, AddChoice>> out;
     scene::Space& space = sc.space(kind);
-    std::vector<const SceneObject*> vectors, matrices, numbers, quats;
+    std::vector<const SceneObject*> vectors, matrices, numbers, quats, surfaces, curves, fields;
     for (scene::ObjectId id : sc.selection(kind).ids) {
         const SceneObject* o = space.find(id);
         if (!o) continue;
         if (o->typeId() == "vector") vectors.push_back(o);
         else if (o->typeId() == "matrix") matrices.push_back(o);
         else if (o->typeId() == "quaternion") quats.push_back(o);
+        else if (o->typeId() == "surface") surfaces.push_back(o);
+        else if (o->typeId() == "curve") curves.push_back(o);
+        else if (o->typeId() == "field") fields.push_back(o);
         else if (o->typeId() == "complex" || o->typeId() == "product") numbers.push_back(o);
     }
 
@@ -87,6 +90,23 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             const std::string& b = matrices[1]->name();
             out.push_back({"Product " + a + "·" + b, matrixFormula("", a + "*" + b)});
             out.push_back({"Blend " + a + " → " + b + " (slider)", morph("matrix", "lerp(" + a + ", " + b + ", $s)")});
+        }
+        auto text = [](const SceneObject* o, const char* key) {
+            const scene::Field* f = o->field(key);
+            return f ? f->text : std::string();
+        };
+        for (const SceneObject* s : surfaces) {
+            AddChoice c;
+            c.typeId = "doubleintegral";
+            for (const char* k : {"f", "xmin", "xmax", "ymin", "ymax"}) c.fields[k] = text(s, k);
+            out.push_back({"Volume under " + s->name() + " (boxes)", c});
+        }
+        if (!curves.empty() && !fields.empty()) {
+            AddChoice c;
+            c.typeId = "lineintegral";
+            c.fields["F"] = text(fields[0], "F");
+            for (const char* k : {"x", "y", "z", "umin", "umax"}) c.fields[k] = text(curves[0], k);
+            out.push_back({"Work of " + fields[0]->name() + " along " + curves[0]->name(), c});
         }
         if (quats.size() >= 2) {
             const std::string& a = quats[0]->name();

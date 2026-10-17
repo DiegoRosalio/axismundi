@@ -337,6 +337,57 @@ std::vector<Example> build() {
                                    {"umax", "2pi"}});
                         app.restartTime(true);
                     }});
+    list.push_back({"Volume under a paraboloid", C::Plots,
+                    "V = ∫∫ (4 − x² − y²) dA over the square [−1, 1]²: the boxes under the surface add up to "
+                    "almost the exact volume 40/3 ≈ 13.33.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "doubleintegral", "V",
+                                      {{"f", "4 - x^2 - y^2"}, {"xmin", "-1"}, {"xmax", "1"}, {"ymin", "-1"},
+                                       {"ymax", "1"}, {"n", "6"}});
+                        app.select("V");
+                        app.setCameraView({4.2f, 4.0f, 5.0f}, {0, 1.2f, 0});
+                    }});
+    list.push_back({"Riemann boxes refine", C::Plots,
+                    "n = round(1 + 19s) boxes per side while s plays: the sum of the boxes closes in on the exact "
+                    "volume under z = 1 + sin(x)cos(y).",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0"}, {"min", "0"}, {"max", "1"}, {"mode", "animate"},
+                                       {"anim.repeat", "2"}, {"anim.duration", "6"}});
+                        app.addObject(AppMode::Space3D, "doubleintegral", "V",
+                                      {{"f", "1 + sin(x)cos(y)"}, {"xmin", "-3"}, {"xmax", "3"}, {"ymin", "-3"},
+                                       {"ymax", "3"}, {"n", "round(1 + 19s)"}});
+                        app.select("V");
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Work around a circle", C::Plots,
+                    "The rotation field F = [−y, x, 0] pushes along the circle everywhere (all green): the work "
+                    "around it is 2π·r² = 8π. The marker travels the path with the clock.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "lineintegral", "W", {{"upto", "mod(t/8, 1)"}});
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y, x, 0]"}}, {{"density", "0.75"}});
+                        app.select("W");
+                        app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Path independence", C::Plots,
+                    "F = [y·z, x·z, x·y] is the gradient of x·y·z, so its work from (0,0,0) to (1,1,1) is 1 on "
+                    "any path: the straight W1 and the wiggly W2 agree.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "lineintegral", "W1",
+                                      {{"F", "[y*z, x*z, x*y]"}, {"x", "u"}, {"y", "u"}, {"z", "u"}, {"umin", "0"},
+                                       {"umax", "1"}});
+                        app.addObject(AppMode::Space3D, "lineintegral", "W2",
+                                      {{"F", "[y*z, x*z, x*y]"}, {"x", "u"}, {"y", "u^2"}, {"z", "u + sin(pi*u)"},
+                                       {"umin", "0"}, {"umax", "1"}});
+                        app.select("W1");
+                        app.select("W2", AppMode::Space3D, true);
+                        app.setCameraView({2.6f, 2.4f, 3.2f}, {0.5f, 0.6f, -0.5f});
+                    }});
     list.push_back({"Rotation field", C::Plots,
                     "F = [−y, x, 0] turns around the origin: arrows grow with the distance, and the flow lines "
                     "are circles.",

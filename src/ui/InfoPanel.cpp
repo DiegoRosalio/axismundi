@@ -55,7 +55,7 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
         if (const scene::SceneObject* o = space.find(id)) picked.push_back(o);
 
     const scene::SceneObject* matrixObj = nullptr;
-    std::vector<const scene::SceneObject*> vectors, numbers, quats;
+    std::vector<const scene::SceneObject*> vectors, numbers, quats, integralObjs;
     for (const auto* o : picked) {
         if (!o->value().ok()) continue;
         if (o->value().type == expr::Type::Quaternion) {
@@ -63,7 +63,10 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
         } else if (o->value().type == expr::Type::Matrix) {
             matrixObj = o;  // the most recently selected matrix wins
         } else if (o->value().type == expr::Type::Vector && vectors.size() < 2) vectors.push_back(o);
-        else if (o->value().isNumber() && o->typeId() != "parameter" && numbers.size() < 2) numbers.push_back(o);
+        else if (o->value().isNumber() && (o->typeId() == "complex" || o->typeId() == "product") && numbers.size() < 2)
+            numbers.push_back(o);
+        else if (o->typeId() == "doubleintegral" || o->typeId() == "lineintegral")
+            integralObjs.push_back(o);
     }
 
     // Rebuild sections, keeping their expanded state by key
@@ -86,10 +89,31 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
     m_eigen = EigenResult{};
     m_hasMatrix = false;
 
-    if (!matrixObj && vectors.empty() && numbers.empty() && quats.empty()) {
+    if (!matrixObj && vectors.empty() && numbers.empty() && quats.empty() && integralObjs.empty()) {
         Section& s = section("empty", "Nothing to analyse", true);
         note(s, "Select a matrix, one or two vectors or quaternions, or complex numbers (Ctrl+click for several).");
         return;
+    }
+
+    // --- Integrals -------------------------------------------------------------
+    for (size_t k = 0; k < integralObjs.size(); k++) {
+        const scene::SceneObject* o = integralObjs[k];
+        Section& s = section("integral." + std::to_string(k), o->name(), true);
+        if (o->typeId() == "doubleintegral") {
+            auto* d = static_cast<const scene::DoubleIntegralObject*>(o);
+            s.tip = "The volume between the floor and z = f(x, y), and the boxes that approximate it.";
+            int n = d->boxesPerSide();
+            tipped(s, fmt("%s = ∫∫ f dA ≈ %.4f", o->name().c_str(), d->exact()),
+                   "Computed precisely (Simpson's rule on a fine grid).");
+            tipped(s, fmt("boxes %d × %d: %.4f", n, n, d->riemann().sum), "Σ f(sample point) · area of the box.");
+            note(s, fmt("error %.4f; doubling n makes it about 4× smaller (middle rule)", d->riemann().sum - d->exact()));
+        } else {
+            auto* w = static_cast<const scene::LineIntegralObject*>(o);
+            s.tip = "The work of F along the path: how much F pushes along the motion, added up.";
+            tipped(s, fmt("%s = ∫ F·dr = %.4f", o->name().c_str(), o->value().re), "Up to the marker.");
+            body(s, fmt("whole path %.4f", w->total()), Tone::Muted);
+            note(s, "Positive: F mostly helps the motion; zero around a closed path for a gradient field.");
+        }
     }
 
     // --- Quaternions ---------------------------------------------------------

@@ -849,6 +849,18 @@ void App::pickInViewport() {
             if (o.typeId() == "vector") {
                 Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
                 consider(mathToWorld(tail), mathToWorld(tail + o.value().vector), o.id());
+            } else if (o.typeId() == "lineintegral") {
+                const auto& path = static_cast<const scene::LineIntegralObject&>(o).path();
+                auto w = [](const integrals::D3& p) {
+                    return mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+                };
+                for (size_t i = 4; i < path.size(); i += 4) consider(w(path[i - 4].p), w(path[i].p), o.id());
+            } else if (o.typeId() == "doubleintegral") {
+                Vector3 top;
+                if (view::SceneView::anchorPoint(o, kind, options, top)) {
+                    Vector3 floor = {top.x, 0.0f, top.z};
+                    consider(floor, top, o.id());
+                }
             } else if (o.typeId() == "quaternion") {
                 expr::Rotation r;
                 if (static_cast<const scene::QuaternionObject&>(o).showAxis() && expr::rotationOf(o.value(), r) && r.hasAxis)

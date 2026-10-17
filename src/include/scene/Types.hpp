@@ -1,6 +1,7 @@
 #pragma once
 
 #include "animation/Playback.hpp"
+#include "math/Integrals.hpp"
 #include "scene/SceneObject.hpp"
 #include <functional>
 #include <memory>
@@ -187,6 +188,67 @@ protected:
     bool fieldActive(const Field& f) const override;
     expr::Value computeValue() const override;
     std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<VectorFieldObject>(); }
+};
+
+// ∬ f dA over a rectangle: Riemann boxes (n per side, a sampling rule) next to the precise value.
+// The value is the integral; the boxes and a sampled surface are kept for drawing.
+class DoubleIntegralObject : public SceneObject {
+public:
+    DoubleIntegralObject();
+    integrals::Rect rect() const;
+    int boxesPerSide() const;  // the n field, rounded and clamped to 1..60
+    integrals::Rule rule() const;
+    bool showBoxes() const { return propBool("boxes", true); }
+    bool showSurface() const { return propBool("surface", true); }
+    // From the last evaluation
+    const integrals::RiemannSum& riemann() const { return m_riemann; }
+    double exact() const { return m_exact; }
+    const std::vector<std::vector<integrals::D3>>& surfaceLines() const { return m_lines; }
+    std::uint64_t geometryVersion() const { return m_version; }
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<DoubleIntegralObject>(); }
+
+private:
+    mutable integrals::RiemannSum m_riemann;
+    mutable double m_exact = 0.0;
+    mutable std::vector<std::vector<integrals::D3>> m_lines;  // surface grid lines (x and y directions)
+    mutable std::uint64_t m_version = 0;
+};
+
+// ∫ F · dr along a curve r(u): the work of a vector field. The value is the work up to `upto`
+// (a fraction of the path); the path, F·T along it and a few F arrows are kept for drawing.
+class LineIntegralObject : public SceneObject {
+public:
+    LineIntegralObject();
+    struct Sample {
+        integrals::D3 p;
+        double along;  // F · T (positive: F helps the motion)
+    };
+    struct FieldArrow {
+        integrals::D3 p, f;
+    };
+    const std::vector<Sample>& path() const { return m_path; }
+    const std::vector<FieldArrow>& arrows() const { return m_arrows; }
+    double total() const { return m_total; }        // the whole path
+    double upto() const { return m_upto; }          // 0..1
+    integrals::D3 marker() const { return m_marker; }  // where the work so far is measured
+    double maxAlong() const { return m_maxAlong; }   // |F · T| largest, for coloring
+    std::uint64_t geometryVersion() const { return m_version; }
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<LineIntegralObject>(); }
+
+private:
+    mutable std::vector<Sample> m_path;
+    mutable std::vector<FieldArrow> m_arrows;
+    mutable double m_total = 0.0, m_upto = 1.0, m_maxAlong = 0.0;
+    mutable integrals::D3 m_marker;
+    mutable std::uint64_t m_version = 0;
 };
 
 // --- Registry ----------------------------------------------------------------------
