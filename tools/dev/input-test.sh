@@ -44,5 +44,11 @@ dblclick 615 295;                 shot 19_opened
 key Tab; hover 900 450; xdotool mousemove_relative 60 0 sleep 0.2 mousemove_relative 60 -20
                                   shot 20_camera_mode
 key Escape;                       shot 21_back_to_ui
+key ctrl+e;                       shot 22_export_panel
+click 1352 660;                   shot 23_pdf_dialog             # Save PDF… (needs pdflatex)
+type_ "my figure"; key Return; sleep 8
+                                  shot 24_pdf_saved              # toast "Saved my figure.pdf"
+f="$OUT/run/my figure.pdf"
+if [ -f "$f" ] && [ "$(head -c 4 "$f")" = "%PDF" ]; then echo "  PDF ok: $f"; else echo "  PDF MISSING: $f"; fi
 echo "files saved by the app:"; ls "$OUT/run"
 input_stop

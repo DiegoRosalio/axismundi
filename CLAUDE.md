@@ -193,6 +193,10 @@ docs/screenshots/     images for the docs, produced by --tour
     enlarged by the box/axes projected ratio (a comment in the output explains it);
   - labels at the same point are stacked;
   - surfaces use `axis lines=left`.
+- **PDF:** `export/PdfCompile` (no raylib): `latexCompiler()` (pdflatex, else lualatex, via PATH), `compilePdf`
+  (mkdtemp, fork + execl with an argument list, nonstop mode, timeout kill, copy, cleanup; errors from
+  `firstLatexErrors`). ExportPanel runs it on a `std::thread` (atomic running flag, mutex-guarded result,
+  joined in the destructor); App polls `takePdfResult` in `update` and toasts. `PDF_TEST=1 make test` compiles.
 - **Adding export support for a new object type:** a branch in `exportLatex` (plus a helper like
   `exportVector`), a decision in the Auto 2D/3D rule, and print-preview drawing in
   `SceneView::drawEuclideanPrint`/`drawComplexPrint`.

@@ -232,6 +232,10 @@ modal: you can keep adjusting the scene while it's open, and the code updates li
 - **B/W preview** switches the view to the Paper style (and back when turned off): the export's line styles,
   grays and labels, so what you see is what you get. Objects outside the export are drawn faint.
 - **Copy LaTeX** puts the code on the clipboard; **Save .tex…** writes a file to `\input`.
+- **Save PDF…** compiles the figure as a standalone document with `pdflatex` (or `lualatex`) in the background
+  and saves the PDF (a figure takes a few seconds; it is stopped after 30 s). If LaTeX fails, its first error lines
+  appear in the panel. The button is disabled, with a hint, when no LaTeX is installed. The PDF uses LaTeX's
+  default font; inside a document, the `.tex` picks up the document's fonts.
 
 **Style.**
 - Objects are told apart by line style: solid, dashed, dotted, dash-dotted, loosely dashed. After five

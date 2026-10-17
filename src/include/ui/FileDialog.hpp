@@ -12,7 +12,7 @@ namespace linalg {
 class FileDialog {
 public:
     enum class Mode { Open, Save };
-    enum class Kind { Scene, Latex };
+    enum class Kind { Scene, Latex, Pdf };
 
     void open(Mode mode, const std::string& folder, const std::string& name, const std::vector<std::string>& recent,
               Kind kind = Kind::Scene);
@@ -36,8 +36,12 @@ private:
     bool m_justOpened = false;
     Mode m_mode = Mode::Open;
     Kind m_kind = Kind::Scene;
-    const char* extension() const { return m_kind == Kind::Latex ? ".tex" : ".txt"; }
-    const char* what() const { return m_kind == Kind::Latex ? "LaTeX figure" : "scene"; }
+    const char* extension() const {
+        return m_kind == Kind::Latex ? ".tex" : m_kind == Kind::Pdf ? ".pdf" : ".txt";
+    }
+    const char* what() const {
+        return m_kind == Kind::Latex ? "LaTeX figure" : m_kind == Kind::Pdf ? "PDF" : "scene";
+    }
     std::string m_folder;
     char m_name[256] = "";
     ui::EditorState m_nameState;  // cursor and selection of the name field

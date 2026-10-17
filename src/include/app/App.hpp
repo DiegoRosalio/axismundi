@@ -126,7 +126,7 @@ public:
     void openFormulaEditor(const std::string& objectName, const std::string& key);
     void setSideBarCollapsed(bool collapsed);
     // The LaTeX figure of the current space with the export panel's settings
-    std::string exportLatexCode() const;
+    std::string exportLatexCode(bool standalone = false) const;  // standalone: a complete document
     bool addMenuOpen() const { return m_addMenu.isOpen(); }
 
     void saveScene();     // to the current file (asks for a name the first time)

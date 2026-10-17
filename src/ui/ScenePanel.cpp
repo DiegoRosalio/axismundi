@@ -338,6 +338,8 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
         bool hiddenBySolo = soloActive && !selected;
         if (!o.visible || hiddenBySolo) c = Fade(c, 0.3f);
         DrawCircleV({row.x + ui::px(12), row.y + row.height / 2}, dot / 2, c);
+        // Outline, so pale colors (Chalkboard's chalk white) stay visible on a light list
+        DrawCircleLinesV({row.x + ui::px(12), row.y + row.height / 2}, dot / 2, Fade(t.borderStrong, 0.8f));
         float tx = row.x + ui::px(24);
         float nameW = std::min(ui::px(64.0f), ui::textWidth(o.name().c_str(), ui::FontRole::BodyStrong) + ui::px(2));
         ui::textIn({tx, row.y, nameW, row.height}, ui::ellipsize(o.name().c_str(), ui::FontRole::BodyStrong, ui::px(64)).c_str(),

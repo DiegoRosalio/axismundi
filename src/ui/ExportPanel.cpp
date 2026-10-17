@@ -10,9 +10,44 @@
 
 namespace linalg {
 
+ExportPanel::ExportPanel() : m_compiler(latex::latexCompiler()) {}
+
+ExportPanel::~ExportPanel() {
+    if (m_pdfThread.joinable()) m_pdfThread.join();
+}
+
+void ExportPanel::startPdf(const std::string& standaloneCode, const std::string& path) {
+    if (m_pdfRunning || m_compiler.empty()) return;
+    if (m_pdfThread.joinable()) m_pdfThread.join();
+    m_pdfRunning = true;
+    {
+        std::lock_guard<std::mutex> lock(m_pdfMutex);
+        m_pdfError.clear();
+    }
+    m_pdfThread = std::thread([this, standaloneCode, path] {
+        latex::PdfResult r = latex::compilePdf(standaloneCode, path, 30, m_compiler);
+        std::lock_guard<std::mutex> lock(m_pdfMutex);
+        m_pdfResult = r;
+        m_pdfPath = path;
+        m_pdfDone = true;
+        if (!r.ok) m_pdfError = r.message;
+        m_pdfRunning = false;
+    });
+}
+
+bool ExportPanel::takePdfResult(latex::PdfResult& result, std::string& path) {
+    std::lock_guard<std::mutex> lock(m_pdfMutex);
+    if (!m_pdfDone) return false;
+    m_pdfDone = false;
+    result = m_pdfResult;
+    path = m_pdfPath;
+    return true;
+}
+
 latex::Result ExportPanel::generate(const scene::Space& space, const scene::Selection& selection, double azimuth,
-                                    double elevation) const {
+                                    double elevation, bool forceStandalone) const {
     latex::Options o = m_options;
+    if (forceStandalone) o.standalone = true;
     o.azimuth = std::round(azimuth);
     o.elevation = std::round(elevation);
     return latex::exportLatex(space, selection, o);
@@ -127,6 +162,32 @@ float ExportPanel::drawContent(Rectangle area, const scene::Space& space, const 
     ui::anchor("export.copy", buttons[0]);
     ui::tooltip(buttons[0], "Copy the figure to the clipboard, then paste it into your document.", "Copy LaTeX");
     ui::tooltip(buttons[1], "Save the figure as a .tex file to \\input in your document.", "Save .tex");
+
+    // PDF: compiled by the system's LaTeX in the background
+    Rectangle pdfRow = col.row(ui::kRowHeight);
+    bool running = m_pdfRunning;
+    const char* pdfLabel = running ? "Compiling…" : "Save PDF…";
+    if (ui::button(pdfRow, pdfLabel, ui::ButtonKind::Secondary, m_last.exported > 0 && pdfAvailable() && !running,
+                   ui::Icon::Export))
+        actions.savePdf = true;
+    ui::anchor("export.pdf", pdfRow);
+    std::string pdfTip = pdfAvailable()
+                    ? "Compile the figure (as a standalone document) with " +
+                          m_compiler.substr(m_compiler.find_last_of('/') + 1) +
+                          " and save the PDF. It uses LaTeX's default font; for a document, the .tex keeps the "
+                          "document's fonts."
+                    : std::string("Needs pdflatex or lualatex: install TeX Live (e.g. texlive and texlive-pictures).");
+    ui::tooltip(pdfRow, pdfTip.c_str(), "Save PDF");
+    std::string pdfError;
+    {
+        std::lock_guard<std::mutex> lock(m_pdfMutex);
+        pdfError = m_pdfError;
+    }
+    if (!pdfError.empty() && !running) {
+        float eh = ui::textWrapped({col.x(), col.y(), col.width(), 0}, ("PDF failed: " + pdfError).c_str(),
+                                   ui::FontRole::Small, t.danger);
+        col.space(eh / ui::scale() + 4.0f);
+    }
     float nh = ui::textWrapped({col.x(), col.y(), col.width(), 0},
                                "Needs \\usepackage{pgfplots}, \\pgfplotsset{compat=1.18} and "
                                "\\usetikzlibrary{arrows.meta} in your preamble (they are listed in the first comment).",

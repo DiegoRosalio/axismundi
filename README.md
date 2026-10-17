@@ -61,7 +61,8 @@ and worked calculations.
   fonts.
   - Choose the visible objects or only the selection, 2D / 3D / auto, the width (a fraction of
     `\linewidth`), axes, legend, grid, gray surface shading, and a standalone document.
-  - **Copy LaTeX** to the clipboard or **Save .tex**. The 3D view follows the camera angle.
+  - **Copy LaTeX** to the clipboard, **Save .tex**, or **Save PDF** (compiled with pdflatex/lualatex when
+    installed). The 3D view follows the camera angle.
 - **B/W preview**: switches the 3D view to the Paper style (the export's styles) while you design the figure.
 
 | | |

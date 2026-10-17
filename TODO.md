@@ -5,12 +5,11 @@ Open work, roughly in the order it makes sense to do it. Everything already done
 
 ## Next up (in this order)
 
-1. Direct PDF export of LaTeX figures (see "LaTeX export follow-ups")
-2. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
-3. Quaternions: a new value kind in the expression engine
-4. CI: `make test` and the headless tour on every push
-5. Recording the Time panel to a PNG sequence or video
-6. Later: the remaining Advanced Math items, Windows/macOS builds, performance
+1. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
+2. Quaternions: a new value kind in the expression engine
+3. CI: `make test` and the headless tour on every push
+4. Recording the Time panel to a PNG sequence or video
+5. Later: the remaining Advanced Math items, Windows/macOS builds, performance
 
 ## Medium priority
 
@@ -26,12 +25,6 @@ Open work, roughly in the order it makes sense to do it. Everything already done
 ### LaTeX export follow-ups
 
 Direct PDF (and image) export
-- [ ] "Save PDF…" next to "Save .tex…", enabled when `pdflatex` is found (fallback `lualatex`; otherwise the
-      tooltip says how to install TeX Live): write the standalone version to a temporary folder, compile,
-      copy the PDF to the chosen path, remove the temporary files
-- [ ] Compile in the background with a "Compiling…" message and a timeout (~30 s); on failure show LaTeX's
-      first error lines
-- [ ] Start `pdflatex` with an argument list (no shell), so file names with spaces or odd characters are safe
 - [ ] Note: the PDF uses LaTeX's default font (Computer Modern); later an option for a font package
       (`lmodern`, `mathpazo`, ...). For documents the `.tex` stays the better choice (document fonts)
 - [ ] Later: PNG via `pdftoppm` (chosen resolution) and SVG via `dvisvgm`

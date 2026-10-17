@@ -404,11 +404,11 @@ void App::exportView(double& azimuth, double& elevation) const {
     latex::viewFromDirection(worldToMath(Vector3{p.x - t.x, p.y - t.y, p.z - t.z}), azimuth, elevation);
 }
 
-std::string App::exportLatexCode() const {
+std::string App::exportLatexCode(bool standalone) const {
     double az = 25, el = 30;
     exportView(az, el);
     scene::Scene& sc = const_cast<scene::Scene&>(m_scene);
-    return m_exportPanel.generate(sc.space(spaceKind()), sc.selection(spaceKind()), az, el).code;
+    return m_exportPanel.generate(sc.space(spaceKind()), sc.selection(spaceKind()), az, el, standalone).code;
 }
 
 void App::writeLatex(const std::string& path) {
@@ -897,6 +897,14 @@ void App::update(float deltaTime) {
     m_grid.setShowGrid(view.showGrid);
     m_grid.setShowAxes(view.showAxes);
     m_grid.setSize(static_cast<int>(view.gridSize));
+    // A PDF compile finished in the background
+    latex::PdfResult pdf;
+    std::string pdfPath;
+    if (m_exportPanel.takePdfResult(pdf, pdfPath)) {
+        if (pdf.ok) toast("Saved " + std::filesystem::path(pdfPath).filename().string());
+        else toast("PDF failed: see the export panel", true);
+    }
+
     // The export panel's B/W preview is a shortcut to the Paper style (and back to the previous one)
     bool preview = m_exportPanel.preview();
     if (preview != m_previewShown) {
@@ -1107,6 +1115,10 @@ void App::drawUi(float deltaTime) {
     }
     if (m_fileDialog.draw()) {
         if (m_fileDialog.kind() == FileDialog::Kind::Latex) writeLatex(m_fileDialog.path());
+        else if (m_fileDialog.kind() == FileDialog::Kind::Pdf) {
+            m_exportPanel.startPdf(exportLatexCode(true), m_fileDialog.path());
+            toast("Compiling the PDF…");
+        }
         else if (m_fileDialog.mode() == FileDialog::Mode::Save) writeScene(m_fileDialog.path());
         else readScene(m_fileDialog.path());
     }
@@ -1167,6 +1179,10 @@ void App::drawFloatingPanels() {
                 if (act.save) {
                     closePopovers();
                     m_fileDialog.open(FileDialog::Mode::Save, currentFolder(), "figure", {}, FileDialog::Kind::Latex);
+                }
+                if (act.savePdf) {
+                    closePopovers();
+                    m_fileDialog.open(FileDialog::Mode::Save, currentFolder(), "figure", {}, FileDialog::Kind::Pdf);
                 }
             }
         } else if (p == &m_referenceWindow) {

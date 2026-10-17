@@ -161,6 +161,14 @@ In the app
       figure while looking at it
 - [x] Export to LaTeX (PGFPlots)
 
+Direct PDF
+- [x] "Save PDF…" next to "Save .tex…", enabled when `pdflatex` (or `lualatex`) is found; otherwise the tooltip
+      says how to install TeX Live. The standalone version is compiled in a temporary folder, the PDF copied to
+      the chosen path, the temporary files removed
+- [x] Compiled in the background ("Compiling…") with a 30 s timeout; on failure LaTeX's first error lines show
+      in the panel
+- [x] `pdflatex` started with an argument list (no shell), so names with spaces or odd characters are safe
+
 Code and tests
 - [x] Exporter as a graphics-free module (scene → text) with unit tests on the generated code
 - [x] Compile check of exported examples with pdflatex (TeX Live on the dev machine; tour writes figures)

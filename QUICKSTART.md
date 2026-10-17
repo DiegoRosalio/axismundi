@@ -63,8 +63,8 @@ floor grid larger.
 - **B** Breakdown: the selected matrix as rotate → stretch → rotate, step by step.
 - **K** Calculation steps: worked calculations with your numbers.
 - **F2** Formula reference: everything you can type in a formula, with live examples and a box to try your own.
-- **Ctrl+E** Export to LaTeX: the scene as a black-and-white PGFPlots figure for your documents (copy or save
-  `.tex`), with a B/W preview in the app.
+- **Ctrl+E** Export to LaTeX: the scene as a black-and-white PGFPlots figure for your documents (copy, save
+  `.tex`, or save a PDF when LaTeX is installed), with a B/W preview in the app.
 - **P** plays or pauses the scene clock (Time panel).
 
 ## Make it yours
