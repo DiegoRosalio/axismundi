@@ -790,7 +790,10 @@ void App::drawUi(float deltaTime) {
     state.breakdownVisible = m_breakdownWindow.visible();
     state.galleryVisible = m_galleryWindow.visible();
     state.tutorialVisible = m_tutorialWindow.visible();
-    state.matricesMode = (m_mode == AppMode::Space3D);
+    state.space3D = (m_mode == AppMode::Space3D);
+    state.analysisVisible = m_analysisWindow.visible();
+    state.timeVisible = m_animationWindow.visible();
+    state.playing = m_scene.timeline().playing;
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
@@ -804,6 +807,9 @@ void App::drawUi(float deltaTime) {
     if (actions.toggleGallery) toggleWindow(m_galleryWindow);
     if (actions.toggleBreakdown) toggleWindow(m_breakdownWindow);
     if (actions.toggleSteps) toggleWindow(m_stepsWindow);
+    if (actions.toggleAnalysis) toggleWindow(m_analysisWindow);
+    if (actions.toggleTime) toggleWindow(m_animationWindow);
+    if (actions.togglePlay) TimePanel::togglePlay(m_scene);
     if (actions.toggleSettings) {
         bool open = !m_settingsPopover.isOpen();
         closePopovers();

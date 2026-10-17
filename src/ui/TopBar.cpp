@@ -68,16 +68,28 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     ui::tooltip(last, "Guided lessons with small tasks that are checked as you work (F1)", "Tutorial");
     if (rightButton(ui::Icon::Gallery, state.galleryVisible)) actions.toggleGallery = true;
     ui::anchor("topbar.gallery", last);
-    ui::tooltip(last, "Ready-made examples for every mode, each with a note on what to look at (E)",
+    ui::tooltip(last, "Ready-made scenes for both spaces, each with a note on what to look at (E)",
                 "Example gallery");
     if (rightButton(ui::Icon::Steps, state.stepsVisible)) actions.toggleSteps = true;
-    ui::tooltip(last, "Worked, step-by-step calculations for the current inputs (K)", "Calculation steps");
-    if (state.matricesMode) {
+    ui::tooltip(last, "Worked, step-by-step calculations with the selected objects (K)", "Calculation steps");
+    if (state.space3D) {
         if (rightButton(ui::Icon::Layers, state.breakdownVisible)) actions.toggleBreakdown = true;
         ui::anchor("topbar.breakdown", last);
         ui::tooltip(last, "Split the matrix into rotate, stretch, rotate (and move) steps and watch them one "
                           "at a time (B)", "Transformation breakdown");
     }
+    if (rightButton(ui::Icon::Chart, state.analysisVisible)) actions.toggleAnalysis = true;
+    ui::anchor("topbar.analysis", last);
+    ui::tooltip(last, "Results for the selection: lengths, angles, determinant, eigenvalues, polar form (M)",
+                "Analysis");
+    divider();
+    if (rightButton(ui::Icon::Clock, state.timeVisible)) actions.toggleTime = true;
+    ui::anchor("topbar.time", last);
+    ui::tooltip(last, "The scene clock: play, pause and scrub time for every Animate and Formula parameter",
+                "Time panel");
+    if (rightButton(state.playing ? ui::Icon::Pause : ui::Icon::Play, state.playing)) actions.togglePlay = true;
+    ui::anchor("topbar.play", last);
+    ui::tooltip(last, state.playing ? "Pause the scene clock (P)" : "Play the scene clock (P)", "Play / pause");
     divider();
     if (rightButton(ui::Icon::Camera, false)) actions.screenshot = true;
     ui::tooltip(last, "Save a PNG of the window in the current folder (F12; Shift+F12 for the 3D view only)",

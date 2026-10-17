@@ -16,6 +16,9 @@ struct TopBarActions {
     bool toggleBreakdown = false;
     bool toggleGallery = false;
     bool toggleTutorial = false;
+    bool toggleAnalysis = false;
+    bool toggleTime = false;   // show / hide the Time panel
+    bool togglePlay = false;   // play / pause the scene clock
 };
 
 // Which toggles are currently on (drawn as selected)
@@ -25,9 +28,12 @@ struct TopBarState {
     bool fullscreen = false;
     bool stepsVisible = false;
     bool breakdownVisible = false;
-    bool matricesMode = true;
+    bool space3D = true;          // breakdown only makes sense in the 3D space
     bool galleryVisible = false;
     bool tutorialVisible = false;
+    bool analysisVisible = false;
+    bool timeVisible = false;
+    bool playing = false;         // scene clock
 };
 
 // Full-width bar at the top: app name, mode tabs and action buttons.

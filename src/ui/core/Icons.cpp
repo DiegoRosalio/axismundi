@@ -198,6 +198,17 @@ void drawIcon(Icon icon, Rectangle r, Color color) {
             c.ring(8, 3.0f, 8.0f, 38.0f, 142.0f);
             c.dot(8, 8, 2.2f);
             break;
+        case Icon::Clock:
+            c.ring(8, 8, 6.0f, 0.0f, 360.0f);
+            c.seg(8.0f, 8.0f, 8.0f, 4.5f);
+            c.seg(8.0f, 8.0f, 10.8f, 9.6f);
+            break;
+        case Icon::Chart:
+            c.seg(2.5f, 13.5f, 13.5f, 13.5f);
+            c.seg(4.8f, 13.5f, 4.8f, 9.0f);
+            c.seg(8.0f, 13.5f, 8.0f, 4.0f);
+            c.seg(11.2f, 13.5f, 11.2f, 7.0f);
+            break;
         case Icon::Grid:
             for (int i = 0; i < 4; i++) {
                 float t = 2.5f + i * 3.67f;

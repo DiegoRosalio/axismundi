@@ -4,7 +4,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ ▣ axismundi  [3D space|Complex plane]        ⛶ 📷 │ ≡ ▦ 📖 ⧉ │ ☀ ? ⚙           │  top bar
+│ ▣ axismundi  [3D space|Complex plane]   ⛶ 📷 │ ▶ ◷ │ ▥ ◈ ≡ ▦ 📖 │ ☀ ? ⚙        │  top bar
 ├──────────────┬───────────────────────────────────────────────────────────────────┤
 │ ▾ OBJECTS  + │                                         ┌──────────────┐          │
 │  M  a  b  s  │            3D view                      │ Analysis     │          │
@@ -24,6 +24,10 @@
   a panel brings it to the front, and only the top panel under the mouse reacts to clicks. Positions are kept
   as a fraction of the free space, so they stay in place when the window is resized. Settings → "Reset panel
   layout" puts everything back.
+
+Top bar buttons, from the left: fullscreen and screenshot; **play / pause** the scene clock and show the
+**Time panel**; the **Analysis** panel, the transformation breakdown (3D space only), calculation steps, the
+example gallery and the tutorial; then theme, help and settings. A highlighted button means its panel is open.
 
 ## Camera mode and UI mode
 

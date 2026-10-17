@@ -15,7 +15,7 @@ enum class Icon {
     Close, ChevronDown, ChevronRight, ChevronLeft,
     Plus, Minus, Check,
     Save, Load, Reset,
-    Eye, Grid,
+    Eye, Grid, Clock, Chart,
 };
 
 // Draw an icon centered in `r`
