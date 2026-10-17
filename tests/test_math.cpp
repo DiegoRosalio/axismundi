@@ -1049,6 +1049,34 @@ void testLatexExport() {
         save("field-volume", fr.code);
     }
 
+    // Quaternions: a 3D figure with the axis, the arc and the moved basis; a turn about z with no basis
+    // is flat
+    {
+        Scene qsc;
+        qsc.clearAll();
+        auto* q = static_cast<QuaternionObject*>(qsc.add(SpaceKind::Euclidean3D, "quaternion", "q"));
+        q->setField("value", "qaxis([1, 1, 1], 2pi/3)");
+        q->setProp("act", true);
+        q->setField("v", "[1.5, 0, 0.5]");
+        qsc.evaluate();
+        latex::Options qo;
+        qo.standalone = true;
+        latex::Result qr = latex::exportLatex(qsc.space(SpaceKind::Euclidean3D), qsc.selection(SpaceKind::Euclidean3D), qo);
+        CHECK(qr.exported == 1 && !qr.flat);
+        CHECK(qr.code.find("q\\,e_{3}") != std::string::npos);      // moved basis
+        CHECK(qr.code.find("densely dashed") != std::string::npos);    // the axis
+        CHECK(qr.code.find("\\vec v") != std::string::npos);         // acting on a vector
+        CHECK(noColors(qr.code));
+        save("quaternion-3d", qr.code);
+        q->setField("value", "qaxis([0, 0, 1], pi/2)");
+        q->setProp("basis", false);
+        q->setField("v", "[1.5, 0, 0]");
+        qsc.evaluate();
+        qr = latex::exportLatex(qsc.space(SpaceKind::Euclidean3D), qsc.selection(SpaceKind::Euclidean3D), qo);
+        CHECK(qr.flat);
+        save("quaternion-flat", qr.code);
+    }
+
     // Default 3D scene: vectors, matrix, eigenvectors -> 3D axis with arrows and labels
     Scene sc;
     sc.evaluate();

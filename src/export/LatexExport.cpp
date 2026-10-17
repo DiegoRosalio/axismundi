@@ -161,6 +161,59 @@ void exportMatrix(Figure& f, const scene::SceneObject& o, const Style& s) {
         arrow(f, origin, c[k], styleOptions(s, "thick"), name + "\\,e_{" + std::to_string(k + 1) + "}");
 }
 
+// A quaternion as its rotation: axis (dashed line + arrow), angle arc, moved basis, and a vector
+// before and after when "acts on" is on
+void exportQuaternion(Figure& f, const scene::QuaternionObject& o, const Style& s) {
+    expr::Rotation r;
+    if (!expr::rotationOf(o.value(), r)) return;
+    std::string name = nameToLatex(o.name());
+    auto P = [](const Vector3D& v) { return Point3{v.x, v.y, v.z}; };
+    auto arcDraw = [&](const Vector3D& center, const Vector3D& start, double angle, const std::string& options) {
+        int n = std::max(2, static_cast<int>(std::fabs(angle) / 0.1) + 2);
+        Vector3D side = r.axis.cross(start);
+        f.body << "\\draw[" << options << "] ";
+        for (int i = 0; i <= n; i++) {
+            float a = static_cast<float>(angle * i / n);
+            Vector3D p = center + start * std::cos(a) + side * std::sin(a);
+            f.body << (i ? " -- " : "") << f.at(p.x, p.y, p.z);
+        }
+        f.body << ";\n";
+    };
+    if (o.showBasis()) {
+        int dims = f.flat ? 2 : 3;
+        for (int k = 0; k < dims; k++) {
+            Vector3D e(k == 0 ? 1.0f : 0.0f, k == 1 ? 1.0f : 0.0f, k == 2 ? 1.0f : 0.0f);
+            line(f, {0, 0, 0}, P(e), "black!45, dotted");
+            arrow(f, {0, 0, 0}, P(r.matrix.transform(e)), styleOptions(s, "thick"),
+                  name + "\\,e_{" + std::to_string(k + 1) + "}");
+        }
+    }
+    if (o.showAxis() && r.hasAxis) {
+        Vector3D a = r.axis;
+        if (!f.flat) {  // in 2D the axis points out of the page: only the arc is drawn
+            line(f, P(a * -2.6f), P(a * 2.6f), std::string("densely dashed, ") + s.gray + ", thin");
+            arrow(f, {0, 0, 0}, P(a * 2.0f), styleOptions(s, "semithick"), name);
+        }
+        Vector3D u = a.cross(std::fabs(a.x) < 0.9f ? Vector3D(1, 0, 0) : Vector3D(0, 1, 0)).normalized();
+        arcDraw(Vector3D::zero(), u, r.angle, std::string(kArrow) + ", " + s.gray + ", semithick");
+        if (f.flat) {
+            Vector3D mid = u * std::cos(static_cast<float>(r.angle / 2)) + a.cross(u) * std::sin(static_cast<float>(r.angle / 2));
+            f.body << "\\node[" << s.gray << ", inner sep=2pt] at " << f.at(mid.x * 1.25f, mid.y * 1.25f) << " {$" << name
+                   << "$};\n";
+        }
+    }
+    if (o.actsOnVector()) {
+        const scene::Field* vf = o.field("v");
+        if (vf && vf->value.type == expr::Type::Vector) {
+            Vector3D v = vf->value.vector, w = r.matrix.transform(v);
+            Vector3D along = r.axis * r.axis.dot(v);
+            arcDraw(along, v - along, r.angle, "black!45, densely dotted");
+            arrow(f, {0, 0, 0}, P(v), "black!50, thick", "\\vec v");
+            arrow(f, {0, 0, 0}, P(w), styleOptions(s, "thick"), name + "\\,\\vec v\\," + name + "^{-1}");
+        }
+    }
+}
+
 void exportEigen(Figure& f, const scene::SceneObject& o, const Style& s) {
     EigenResult er = eigen3(o.value().matrix3());
     std::string name = nameToLatex(o.name());
@@ -521,6 +574,15 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
                 if (t == "function" || t == "implicit") continue;
                 // Plane fields live on the floor (only F's x and y are used)
                 if (t == "field" && !static_cast<const scene::VectorFieldObject*>(o)->volume()) continue;
+                // A turn about z with no basis keeps everything on the floor
+                if (t == "quaternion") {
+                    auto* q = static_cast<const scene::QuaternionObject*>(o);
+                    expr::Rotation r;
+                    bool aboutZ = expr::rotationOf(o->value(), r) && (!r.hasAxis || std::fabs(std::fabs(r.axis.z) - 1.0f) < 1e-6f);
+                    const scene::Field* vf = q->field("v");
+                    bool vFlat = !q->actsOnVector() || (vf && vf->value.type == expr::Type::Vector && isZ0(vf->value.vector));
+                    if (aboutZ && !q->showBasis() && vFlat) continue;
+                }
                 if (t == "vector") {
                     auto* v = static_cast<const scene::VectorObject*>(o);
                     if (isZ0(o->value().vector) && isZ0(v->tail())) continue;
@@ -556,6 +618,8 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             exportEigen(f, o, s);
         } else if (auto* p = dynamic_cast<const scene::PlotObject*>(&o)) {
             exportPlot(f, *p, s, space, opt);
+        } else if (auto* qo = dynamic_cast<const scene::QuaternionObject*>(&o)) {
+            exportQuaternion(f, *qo, s);
         } else if (auto* vf = dynamic_cast<const scene::VectorFieldObject*>(&o)) {
             exportField(f, *vf, s, space, opt);
         } else {
