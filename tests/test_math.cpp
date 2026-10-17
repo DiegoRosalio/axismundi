@@ -1124,6 +1124,28 @@ void testLatexExport() {
         save("quaternion-flat", qr.code);
     }
 
+    // Integrals: boxes and the value; a flat work integral is a 2D figure
+    {
+        Scene isc;
+        isc.clearAll();
+        auto* V = isc.add(SpaceKind::Euclidean3D, "doubleintegral", "V");
+        V->setField("n", "4");
+        isc.evaluate();
+        latex::Options io;
+        io.standalone = true;
+        latex::Result ir = latex::exportLatex(isc.space(SpaceKind::Euclidean3D), isc.selection(SpaceKind::Euclidean3D), io);
+        CHECK(ir.exported == 1 && !ir.flat);
+        CHECK(ir.code.find("\\fill[black!10]") != std::string::npos);
+        CHECK(ir.code.find("V \\approx") != std::string::npos);
+        save("integral-volume", ir.code);
+        isc.clearAll();
+        isc.add(SpaceKind::Euclidean3D, "lineintegral", "W");
+        isc.evaluate();
+        ir = latex::exportLatex(isc.space(SpaceKind::Euclidean3D), isc.selection(SpaceKind::Euclidean3D), io);
+        CHECK(ir.flat && ir.code.find("W = 25.1") != std::string::npos);
+        save("integral-work", ir.code);
+    }
+
     // Default 3D scene: vectors, matrix, eigenvectors -> 3D axis with arrows and labels
     Scene sc;
     sc.evaluate();

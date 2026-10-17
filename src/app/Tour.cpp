@@ -339,7 +339,8 @@ void Tour::buildSteps() {
                                   {"Damped wave", "damped_wave"}, {"Projection of a vector", "projection"},
                                   {"Shear", "shear"}, {"Powers of a root of unity", "roots_of_unity"},
                                   {"Rotate and scale", "rotate_scale"}, {"Source and sink", "source_sink"},
-                                  {"3D swirl", "swirl"}, {"Quarter turn (quaternion)", "quaternion"}};
+                                  {"3D swirl", "swirl"}, {"Quarter turn (quaternion)", "quaternion"},
+                                  {"Volume under a paraboloid", "volume"}, {"Path independence", "work"}};
         for (const auto& n : names) {
             runExample(app, n[0]);
             app.scene().evaluate();

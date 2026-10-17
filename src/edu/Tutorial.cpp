@@ -418,6 +418,58 @@ std::vector<Lesson> build() {
          "Select two quaternions and pick \"Turn from … (slerp, slider)\" in the Add menu.", "objects.add"},
     }});
 
+    list.push_back({"Integrals as volumes", "Boxes, the exact volume, and work", {
+        {"Boxes under a surface",
+         "A double integral ∫∫ f dA is the volume between the floor and the surface z = f(x, y). Cut the floor "
+         "into squares, stand a box on each one as tall as f, and add the boxes up: that is a Riemann sum.",
+         [](App& app) {
+             app.setMode(AppMode::Space3D);
+             app.restartTime(false);
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "doubleintegral", "V",
+                           {{"f", "4 - x^2 - y^2"}, {"xmin", "-1"}, {"xmax", "1"}, {"ymin", "-1"}, {"ymax", "1"},
+                            {"n", "3"}});
+             app.select("V");
+             app.setCameraView({4.2f, 4.0f, 5.0f}, {0, 1.2f, 0});
+         },
+         nullptr, nullptr, nullptr, "integral.f"},
+        {"More boxes",
+         "Thinner boxes follow the surface more closely, so their sum gets closer to the exact volume (40/3 here).",
+         nullptr, "Use at least 12 boxes per side.",
+         [](App& app, const TutorialContext&) {
+             auto* v = dynamic_cast<scene::DoubleIntegralObject*>(app.object("V"));
+             return v && v->boxesPerSide() >= 12;
+         },
+         "Type 12 (or more) in \"Boxes per side\".", "integral.n"},
+        {"Where to sample",
+         "Each box takes the height of f at one point. The middle of the box is usually best; the corners make "
+         "a bigger error.",
+         nullptr, "Switch the rule to Left and compare the error.",
+         [](App& app, const TutorialContext&) {
+             auto* v = app.object("V");
+             return v && v->prop("rule", "middle") == "left";
+         },
+         "Click Left in V's inspector.", "integral.rule"},
+        {"Work along a path",
+         "A line integral ∫ F·dr adds up how much a vector field pushes along a path: the work. It is green "
+         "where F helps the motion and red where it pushes back.",
+         nullptr, "Add a work integral.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Space3D).objects())
+                 if (o->typeId() == "lineintegral" && o->error().empty()) return true;
+             return false;
+         },
+         "Add → Work ∫ F·dr along a curve.", "objects.add"},
+        {"Against the flow",
+         "Reverse the field and every step goes against it: the work becomes negative.",
+         nullptr, "Make the work negative.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Space3D).objects())
+                 if (o->typeId() == "lineintegral" && o->error().empty() && o->value().re < -0.1) return true;
+             return false;
+         },
+         "Set F to [y, -x, 0] (or put a minus in front of it).", "integral.F"},
+    }});
     return list;
 }
 

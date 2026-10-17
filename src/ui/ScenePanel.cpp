@@ -718,6 +718,7 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
             ui::anchor("integral.n", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
             Rectangle ruleRow = col.row(30.0f);
             int rule = static_cast<int>(d.rule());
+            ui::anchor("integral.rule", ruleRow);
             if (ui::segmented(ruleRow, {"Left", "Middle", "Right"}, rule,
                               {"Each box takes the height of f at its lower-left corner.",
                                "Each box takes the height of f at its center (usually the most accurate).",

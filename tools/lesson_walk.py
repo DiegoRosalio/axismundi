@@ -33,6 +33,10 @@ walk = r'''    auto solve = [](App& app, size_t L, size_t K) -> bool {
         if (title == "One after the other") { app.addObject(AppMode::Space3D, "quaternion", "p", {{"value", "qaxis([1, 0, 0], pi/2)"}}); app.addObject(AppMode::Space3D, "quaternion", "r", {{"value", "q*p"}}); return true; }
         if (title == "Order matters") { app.select("q"); app.select("p", AppMode::Space3D, true); return true; }
         if (title == "Blend with slerp") { app.addObject(AppMode::Space3D, "parameter", "s"); app.addObject(AppMode::Space3D, "quaternion", "b", {{"value", "slerp(q, p, s)"}}); return true; }
+        if (title == "More boxes") { if (auto* o = app.object("V")) o->setField("n", "12"); return true; }
+        if (title == "Where to sample") { if (auto* o = app.object("V")) o->setProp("rule", "left"); return true; }
+        if (title == "Work along a path") { app.addObject(AppMode::Space3D, "lineintegral", "W"); return true; }
+        if (title == "Against the flow") { if (auto* o = app.object("W")) o->setField("F", "[y, -x, 0]"); return true; }
         if (title == "Add a surface") { app.addObject(AppMode::Space3D, "surface", "S"); return true; }
         if (title == "Use a parameter") { app.addObject(AppMode::Space3D, "parameter", "k"); if (auto* o = app.object("S")) o->setField("f", "sin(k*x)"); return true; }
         return false;

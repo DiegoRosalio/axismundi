@@ -324,6 +324,68 @@ void exportField(Figure& f, const scene::VectorFieldObject& o, const Style& s, c
     }
 }
 
+// The volume under z = f(x, y): the boxes (top faces light gray, edges thin) and the surface's grid lines
+void exportDoubleIntegral(Figure& f, const scene::DoubleIntegralObject& o, const Style& s) {
+    const auto& boxes = o.riemann().boxes;
+    std::string name = nameToLatex(o.name());
+    double top = 0;
+    if (boxes.size() <= 144) {  // at most 12 × 12, so the document stays light
+        for (const auto& b : boxes) {
+            double h = b.height;
+            top = std::max(top, h);
+            f.body << "\\fill[black!10] " << f.at(b.x0, b.y0, h) << " -- " << f.at(b.x1, b.y0, h) << " -- "
+                   << f.at(b.x1, b.y1, h) << " -- " << f.at(b.x0, b.y1, h) << " -- cycle;\n";
+            const double xs[2] = {b.x0, b.x1}, ys[2] = {b.y0, b.y1};
+            for (double x : xs)
+                for (double y : ys) line(f, {x, y, 0}, {x, y, h}, "black!45, very thin");
+            for (double z : {0.0, h}) {
+                f.body << "\\draw[black!55, very thin] " << f.at(b.x0, b.y0, z) << " -- " << f.at(b.x1, b.y0, z)
+                       << " -- " << f.at(b.x1, b.y1, z) << " -- " << f.at(b.x0, b.y1, z) << " -- cycle;\n";
+            }
+        }
+    } else {
+        f.body << "% " << boxes.size() << " boxes: too many to draw, only the surface\n";
+    }
+    for (const auto& l : o.surfaceLines()) {
+        if (l.size() < 2) continue;
+        f.body << "\\addplot3[" << plotStyle(s, "thin, forget plot") << "] coordinates {";
+        for (size_t i = 0; i < l.size(); i += 2) {
+            f.body << (i % 12 == 0 ? "\n  " : " ") << f.coord(l[i].x, l[i].y, l[i].z);
+            f.extend(l[i].x, l[i].y, l[i].z);
+            top = std::max(top, l[i].z);
+        }
+        f.body << " " << f.coord(l.back().x, l.back().y, l.back().z) << "\n};\n";
+    }
+    integrals::Rect r = o.rect();
+    // Beside the region (the middle top is where the z axis and its ticks are)
+    f.body << "\\node[anchor=west, inner sep=3pt] at " << f.at(r.x1, r.y1, top) << " {$" << name << " \\approx "
+           << num(o.exact()) << "$};\n";
+}
+
+// The work along a curve: the path, F at a few points along it, the marker and the value
+void exportLineIntegral(Figure& f, const scene::LineIntegralObject& o, const Style& s) {
+    const auto& path = o.path();
+    if (path.size() < 2) return;
+    std::string name = nameToLatex(o.name());
+    f.body << (f.flat ? "\\addplot[" : "\\addplot3[") << plotStyle(s, "thick, forget plot") << "] coordinates {";
+    for (size_t i = 0; i < path.size(); i += 2) {
+        f.body << (i % 12 == 0 ? "\n  " : " ") << f.coord(path[i].p.x, path[i].p.y, path[i].p.z);
+        f.extend(path[i].p.x, path[i].p.y, f.flat ? 0 : path[i].p.z);
+    }
+    f.body << " " << f.coord(path.back().p.x, path.back().p.y, path.back().p.z) << "\n};\n";
+    double longest = 0;
+    for (const auto& a : o.arrows()) longest = std::max(longest, std::sqrt(a.f.x * a.f.x + a.f.y * a.f.y + a.f.z * a.f.z));
+    if (longest > 1e-12) {
+        double k = 0.7 / longest;
+        for (const auto& a : o.arrows())
+            arrow(f, {a.p.x, a.p.y, a.p.z}, {a.p.x + a.f.x * k, a.p.y + a.f.y * k, a.p.z + a.f.z * k},
+                  "black!60, thin", "");
+    }
+    integrals::D3 m = o.marker();
+    f.body << "\\fill " << f.at(m.x, m.y, m.z) << " circle[radius=1.5pt]"
+           << labelNode(f, {m.x, m.y, m.z}, 1, -1, name + " = " + num(o.value().re)) << ";\n";
+}
+
 void exportPlot(Figure& f, const scene::PlotObject& p, const Style& s, const scene::Space& space,
                 const Options& opt) {
     auto text = [&](const char* key) { return p.field(key) ? p.field(key)->text : std::string(); };
@@ -574,6 +636,14 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
                 if (t == "function" || t == "implicit") continue;
                 // Plane fields live on the floor (only F's x and y are used)
                 if (t == "field" && !static_cast<const scene::VectorFieldObject*>(o)->volume()) continue;
+                // A work integral along a flat path in a flat field
+                if (t == "lineintegral") {
+                    auto* li = static_cast<const scene::LineIntegralObject*>(o);
+                    bool planar = true;
+                    for (const auto& p : li->path()) planar = planar && std::fabs(p.p.z) < 1e-9;
+                    for (const auto& a : li->arrows()) planar = planar && std::fabs(a.f.z) < 1e-9;
+                    if (planar) continue;
+                }
                 // A turn about z with no basis keeps everything on the floor
                 if (t == "quaternion") {
                     auto* q = static_cast<const scene::QuaternionObject*>(o);
@@ -618,6 +688,10 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             exportEigen(f, o, s);
         } else if (auto* p = dynamic_cast<const scene::PlotObject*>(&o)) {
             exportPlot(f, *p, s, space, opt);
+        } else if (auto* di = dynamic_cast<const scene::DoubleIntegralObject*>(&o)) {
+            exportDoubleIntegral(f, *di, s);
+        } else if (auto* li = dynamic_cast<const scene::LineIntegralObject*>(&o)) {
+            exportLineIntegral(f, *li, s);
         } else if (auto* qo = dynamic_cast<const scene::QuaternionObject*>(&o)) {
             exportQuaternion(f, *qo, s);
         } else if (auto* vf = dynamic_cast<const scene::VectorFieldObject*>(&o)) {
