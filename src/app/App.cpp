@@ -15,6 +15,7 @@
 #include <rlgl.h>
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <cmath>
 #include <ctime>
@@ -54,7 +55,8 @@ App::App(const AppOptions& options)
       m_breakdownWindow("breakdown", "Transformation breakdown", 380.0f, {0.0f, 0.4f}, false),
       m_galleryWindow("gallery", "Example gallery", 700.0f, {0.5f, 0.2f}, false),
       m_tutorialWindow("tutorial", "Tutorial", 400.0f, {0.0f, 0.0f}, false),
-      m_referenceWindow("reference", "Formula reference", 620.0f, {0.45f, 0.1f}, false) {
+      m_referenceWindow("reference", "Formula reference", 620.0f, {0.45f, 0.1f}, false),
+      m_exportWindow("export", "Export to LaTeX", 470.0f, {1.0f, 0.3f}, false) {
     // Preferences (not during the tour, which must be reproducible)
     SceneData prefs;
     if (options.tourDir.empty()) loadPreferences(prefs);
@@ -80,6 +82,7 @@ App::App(const AppOptions& options)
     m_panels.add(&m_galleryWindow);
     m_panels.add(&m_tutorialWindow);
     m_panels.add(&m_referenceWindow);
+    m_panels.add(&m_exportWindow);
 
     applyPreferences(prefs);
     if (options.theme == "light") ui::setTheme(ui::ThemeKind::Light);
@@ -370,6 +373,25 @@ void App::newScene() {
     toast("New scene (Ctrl+Z brings the previous one back)");
 }
 
+void App::exportView(double& azimuth, double& elevation) const {
+    Vector3 p = m_camera.position(), t = m_camera.target();
+    latex::viewFromDirection(worldToMath(Vector3{p.x - t.x, p.y - t.y, p.z - t.z}), azimuth, elevation);
+}
+
+std::string App::exportLatexCode() const {
+    double az = 25, el = 30;
+    exportView(az, el);
+    scene::Scene& sc = const_cast<scene::Scene&>(m_scene);
+    return m_exportPanel.generate(sc.space(spaceKind()), sc.selection(spaceKind()), az, el).code;
+}
+
+void App::writeLatex(const std::string& path) {
+    std::ofstream out(path);
+    out << exportLatexCode();
+    if (out) toast("Saved " + std::filesystem::path(path).filename().string());
+    else toast("Could not write " + path, true);
+}
+
 void App::writeScene(const std::string& path) {
     SceneData data;
     m_scene.save(data);
@@ -487,6 +509,7 @@ void App::applyPreferences(const SceneData& prefs) {
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
     getBool(prefs, "ui.smooth_surfaces", m_uiSettings.smoothSurfaces);
     m_tutorialPanel.loadState(prefs);
+    m_exportPanel.loadState(prefs);
     for (auto* p : m_panels.panels()) p->loadState(prefs);
     getString(prefs, "files.folder", m_lastFolder);
     m_recentFiles.clear();
@@ -508,6 +531,7 @@ void App::savePreferences() {
         putInt(prefs, "window.height", GetScreenHeight());
     }
     m_tutorialPanel.saveState(prefs);
+    m_exportPanel.saveState(prefs);
     for (auto* p : m_panels.panels()) p->saveState(prefs);
     if (!m_lastFolder.empty()) prefs["files.folder"] = m_lastFolder;
     for (size_t i = 0; i < m_recentFiles.size(); i++) prefs["files.recent." + std::to_string(i)] = m_recentFiles[i];
@@ -652,6 +676,10 @@ void App::handleShortcuts(bool uiMode) {
             m_scene.redo();
         }
         if (IsKeyPressed(KEY_D)) duplicateSelection();
+        if (IsKeyPressed(KEY_E)) {
+            m_exportWindow.toggle();
+            if (m_exportWindow.visible()) m_panels.bringToFront(&m_exportWindow);
+        }
         if (IsKeyPressed(KEY_S)) {
             if (shift) saveSceneAs();
             else saveScene();
@@ -884,6 +912,7 @@ void App::drawUi(float deltaTime) {
     state.timeVisible = m_animationWindow.visible();
     state.playing = m_scene.timeline().playing;
     state.referenceVisible = m_referenceWindow.visible();
+    state.exportVisible = m_exportWindow.visible();
     TopBarActions actions = m_topBar.draw(m_mode, state);
     if (actions.toggleTheme) toggleTheme();
     if (actions.toggleHelp) m_help.toggle();
@@ -900,6 +929,7 @@ void App::drawUi(float deltaTime) {
     if (actions.toggleAnalysis) toggleWindow(m_analysisWindow);
     if (actions.toggleTime) toggleWindow(m_animationWindow);
     if (actions.toggleReference) toggleWindow(m_referenceWindow);
+    if (actions.toggleExport) toggleWindow(m_exportWindow);
     if (actions.togglePlay) TimePanel::togglePlay(m_scene);
     if (actions.toggleSettings) {
         bool open = !m_settingsPopover.isOpen();
@@ -933,7 +963,8 @@ void App::drawUi(float deltaTime) {
 
     drawTutorialHighlight();
     if (m_fileDialog.draw()) {
-        if (m_fileDialog.mode() == FileDialog::Mode::Save) writeScene(m_fileDialog.path());
+        if (m_fileDialog.kind() == FileDialog::Kind::Latex) writeLatex(m_fileDialog.path());
+        else if (m_fileDialog.mode() == FileDialog::Mode::Save) writeScene(m_fileDialog.path());
         else readScene(m_fileDialog.path());
     }
     drawToast(deltaTime);
@@ -977,6 +1008,23 @@ void App::drawFloatingPanels() {
             if (p->begin(m_analysisHeight, content)) {
                 m_analysisHeight = m_infoPanel.drawContent(content);
                 p->end();
+            }
+        } else if (p == &m_exportWindow) {
+            if (p->begin(m_exportHeight, content)) {
+                double az = 25, el = 30;
+                exportView(az, el);
+                ExportPanel::Actions act;
+                m_exportHeight = m_exportPanel.drawContent(content, m_scene.space(spaceKind()),
+                                                           m_scene.selection(spaceKind()), az, el, act);
+                p->end();
+                if (act.copy) {
+                    SetClipboardText(exportLatexCode().c_str());
+                    toast("LaTeX copied: paste it into your document");
+                }
+                if (act.save) {
+                    closePopovers();
+                    m_fileDialog.open(FileDialog::Mode::Save, currentFolder(), "figure", {}, FileDialog::Kind::Latex);
+                }
             }
         } else if (p == &m_referenceWindow) {
             if (p->begin(m_referenceHeight, content)) {

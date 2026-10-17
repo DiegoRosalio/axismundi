@@ -95,6 +95,10 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     ui::anchor("topbar.play", last);
     ui::tooltip(last, state.playing ? "Pause the scene clock (P)" : "Play the scene clock (P)", "Play / pause");
     divider();
+    if (rightButton(ui::Icon::Export, state.exportVisible)) actions.toggleExport = true;
+    ui::anchor("topbar.export", last);
+    ui::tooltip(last, "Export the scene as a black-and-white LaTeX figure (PGFPlots) for your documents (Ctrl+E)",
+                "Export to LaTeX");
     if (rightButton(ui::Icon::Camera, false)) actions.screenshot = true;
     ui::tooltip(last, "Save a PNG of the window in the current folder (F12; Shift+F12 for the 3D view only)",
                 "Screenshot");

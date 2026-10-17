@@ -15,17 +15,18 @@ namespace linalg {
 namespace {
 constexpr int kNameId = 1;
 
-std::string withTxt(std::string name) {
-    if (fs::path(name).extension().empty()) name += ".txt";
+std::string withExtension(std::string name, const char* ext) {
+    if (fs::path(name).extension().empty()) name += ext;
     return name;
 }
 } // namespace
 
 void FileDialog::open(Mode mode, const std::string& folder, const std::string& name,
-                      const std::vector<std::string>& recent) {
+                      const std::vector<std::string>& recent, Kind kind) {
     m_open = true;
     m_justOpened = true;
     m_mode = mode;
+    m_kind = kind;
     m_recent = recent;
     m_message.clear();
     m_confirmReplace = false;
@@ -52,7 +53,7 @@ void FileDialog::setFolder(const std::string& folder) {
         if (name.empty() || name[0] == '.') continue;  // hidden files and folders
         std::error_code e2;
         if (it->is_directory(e2)) m_dirs.push_back(name);
-        else if (it->path().extension() == ".txt") m_files.push_back(name);
+        else if (it->path().extension() == extension()) m_files.push_back(name);
     }
     if (ec) {
         m_message = "Cannot read this folder: " + ec.message();
@@ -79,7 +80,7 @@ bool FileDialog::confirm() {
         return false;
     }
     if (m_mode == Mode::Save) {
-        p = withTxt(p.string());
+        p = withExtension(p.string(), extension());
         if (!fs::is_directory(p.parent_path(), ec)) {
             m_message = "The folder " + p.parent_path().string() + " does not exist.";
             m_messageIsError = true;
@@ -115,7 +116,8 @@ bool FileDialog::draw() {
     ui::card(box, true);
     ui::Column col(box.x + ui::px(18), box.y + ui::px(16), box.width - ui::px(36), 8.0f);
 
-    ui::textIn(col.row(26), m_mode == Mode::Open ? "Open scene" : "Save scene", ui::FontRole::Title, t.text);
+    std::string title = std::string(m_mode == Mode::Open ? "Open " : "Save ") + what();
+    ui::textIn(col.row(26), title.c_str(), ui::FontRole::Title, t.text);
 
     // Folder and Up
     Rectangle folderRow = col.row(30.0f);
@@ -176,7 +178,8 @@ bool FileDialog::draw() {
     ui::clearClip();
     EndScissorMode();
     if (count == 0)
-        ui::textIn(list, "No folders or scene files (.txt) here", ui::FontRole::Small, t.textFaint, ui::Align::Center);
+        ui::textIn(list, (std::string("No folders or ") + what() + " files (" + extension() + ") here").c_str(),
+                   ui::FontRole::Small, t.textFaint, ui::Align::Center);
     col.setY(list.y + list.height + ui::px(8));
 
     // Recent files
@@ -208,9 +211,10 @@ bool FileDialog::draw() {
     if (ui::textField(nameRow, m_name, sizeof(m_name), kNameId, m_activeId, m_messageIsError && !m_message.empty())) {
         if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) done = confirm();
     }
-    ui::tooltip(nameRow, m_mode == Mode::Save ? "A name in this folder (.txt is added), or a full path."
-                                              : "A file in this folder, or a full path.",
-                "File name");
+    std::string nameTip = m_mode == Mode::Save
+                              ? std::string("A name in this folder (") + extension() + " is added), or a full path."
+                              : std::string("A file in this folder, or a full path.");
+    ui::tooltip(nameRow, nameTip.c_str(), "File name");
 
     // Message and buttons
     Rectangle bottom = col.row(32.0f);

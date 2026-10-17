@@ -18,6 +18,7 @@
 #include "ui/InfoPanel.hpp"
 #include "ui/Preferences.hpp"
 #include "ui/ReferencePanel.hpp"
+#include "ui/ExportPanel.hpp"
 #include "ui/ScenePanel.hpp"
 #include "ui/SettingsPopover.hpp"
 #include "ui/SideBar.hpp"
@@ -118,6 +119,9 @@ public:
     TutorialPanel& tutorialPanel() { return m_tutorialPanel; }
     ScenePanel& scenePanel() { return m_scenePanel; }
     ReferencePanel& referencePanel() { return m_referencePanel; }
+    ExportPanel& exportPanel() { return m_exportPanel; }
+    // The LaTeX figure of the current space with the export panel's settings
+    std::string exportLatexCode() const;
     bool addMenuOpen() const { return m_addMenu.isOpen(); }
 
     void saveScene();     // to the current file (asks for a name the first time)
@@ -202,6 +206,11 @@ private:
     ui::FloatingPanel m_referenceWindow;
     ReferencePanel m_referencePanel;
     float m_referenceHeight = 0.0f;
+    ui::FloatingPanel m_exportWindow;
+    ExportPanel m_exportPanel;
+    float m_exportHeight = 0.0f;
+    void exportView(double& azimuth, double& elevation) const;  // from the camera
+    void writeLatex(const std::string& path);
     FileDialog m_fileDialog;
     std::string m_currentFile;               // scene file of the last save / open
     std::string m_lastFolder;                // where the file dialog starts

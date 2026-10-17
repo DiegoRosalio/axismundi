@@ -312,8 +312,10 @@ void exportPlot(Figure& f, const scene::PlotObject& p, const Style& s, const sce
 // Complex plane extras: arcs for angles, dashed projections, circle through z
 void arc(Figure& f, double radius, double from, double to, const std::string& options) {
     if (std::fabs(to - from) < 1e-6) return;
+    int samples = std::clamp(static_cast<int>(std::fabs(to - from) * 180.0 / kPi / 4.0), 12, 90);
     f.body << "\\addplot[" << options << ", domain=" << num(from * 180.0 / kPi) << ":" << num(to * 180.0 / kPi)
-           << ", samples=40, forget plot] ({" << num(radius) << "*cos(x)}, {" << num(radius) << "*sin(x)});\n";
+           << ", samples=" << samples << ", forget plot] ({" << num(radius) << "*cos(x)}, {" << num(radius)
+           << "*sin(x)});\n";
 }
 
 void exportComplex(Figure& f, const scene::SceneObject& o, const Style& s) {

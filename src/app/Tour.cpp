@@ -5,6 +5,8 @@
 #include <raylib.h>
 #include <rlgl.h>
 #include <cstdio>
+#include <fstream>
+#include <filesystem>
 #include "ui/core/Ui.hpp"
 
 namespace linalg {
@@ -207,7 +209,39 @@ void Tour::buildSteps() {
         if (auto* p = app.panel("analysis")) p->setVisible(true);
         if (auto* p = app.panel("gallery")) p->setVisible(true);
     });
+    // LaTeX export: the panel, the Save .tex dialog, and standalone figures for several scenes
+    auto saveLatex = [dir](App& app, const char* name) {
+        std::filesystem::create_directories(dir + "/latex");
+        bool standalone = app.exportPanel().options().standalone;
+        app.exportPanel().options().standalone = true;
+        std::ofstream(dir + "/latex/" + name + ".tex") << app.exportLatexCode();
+        app.exportPanel().options().standalone = standalone;
+    };
+    step("21a_export_panel", [saveLatex](App& app) {
+        if (auto* p = app.panel("gallery")) p->setVisible(false);
+        app.resetScene();
+        if (auto* p = app.panel("export")) p->setVisible(true);
+        saveLatex(app, "default3d");
+    }, 25);
+    step("21a2_export_save_dialog", [](App& app) {
+        app.fileDialog().open(FileDialog::Mode::Save, ".", "figure", {}, FileDialog::Kind::Latex);
+    }, 10);
+    step("21a3_export_examples", [saveLatex](App& app) {
+        app.fileDialog().close();
+        const char* names[][2] = {{"Saddle", "saddle"}, {"Lemniscate", "lemniscate"}, {"Trefoil knot", "trefoil"},
+                                  {"Damped wave", "damped_wave"}, {"Projection of a vector", "projection"},
+                                  {"Shear", "shear"}, {"Powers of a root of unity", "roots_of_unity"},
+                                  {"Rotate and scale", "rotate_scale"}};
+        for (const auto& n : names) {
+            runExample(app, n[0]);
+            app.scene().evaluate();
+            saveLatex(app, n[1]);
+        }
+        app.setMode(AppMode::Space3D);
+        runExample(app, "Saddle");
+    }, 25);
     step("21b_reference", [](App& app) {
+        if (auto* p = app.panel("export")) p->setVisible(false);
         if (auto* p = app.panel("gallery")) p->setVisible(false);
         app.resetScene();
         if (auto* p = app.panel("reference")) p->setVisible(true);
