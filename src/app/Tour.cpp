@@ -86,8 +86,8 @@ void Tour::buildSteps() {
         if (p) {
             p->setMode(scene::ParameterObject::Mode::Formula);
             p->setField("formula", "pi/4*sin(2t)");
-            p->restart();
         }
+        app.restartTime(true);
         app.select("theta");
     }, 50);
     step("08_matrix_formula_4x4", [](App& app) {

@@ -14,9 +14,7 @@ ParameterObject::ParameterObject() : SceneObject("parameter") {
     setProp("min", 0.0);
     setProp("max", 6.2832);
     setProp("step", 0.0);
-    setProp("playing", false);
-    setProp("clock", 0.0);
-    setProp("period", 0.0);  // formula mode: wrap the clock after this many seconds (0 = never)
+    setProp("anim.start", 0.0);
     Playback p;
     p.duration = 6.0f;
     setPlayback(p);
@@ -31,15 +29,14 @@ ParameterObject::Mode ParameterObject::mode() const {
 }
 
 void ParameterObject::setMode(Mode m) {
+    // Leaving a time-driven mode keeps the current value on the slider
+    if (m == Mode::Slider && mode() != Mode::Slider) setProp("value", number());
     setProp("mode", std::string(m == Mode::Animate ? "animate" : m == Mode::Formula ? "formula" : "slider"));
 }
 
 Playback ParameterObject::playback() const {
     Playback p;
     p.load(props(), "anim.");
-    p.phase = static_cast<float>(propNumber("anim.phase", 0.0));
-    p.direction = propNumber("anim.direction", 1.0) < 0 ? -1 : 1;
-    p.playing = playing();
     return p;
 }
 
@@ -47,14 +44,21 @@ void ParameterObject::setPlayback(const Playback& p) {
     SceneData d;
     p.save(d, "anim.");
     for (const auto& [k, v] : d) setProp(k, v);
-    setProp("anim.phase", static_cast<double>(p.phase));
-    setProp("anim.direction", static_cast<double>(p.direction));
+}
+
+double ParameterObject::animatedValue(double seconds) const {
+    double lo = minimum(), hi = maximum();
+    return lo + (hi - lo) * static_cast<double>(playback().valueAt(seconds - startDelay()));
 }
 
 double ParameterObject::number() const {
-    if (mode() == Mode::Formula) {
-        const Field* f = field("formula");
-        return (f && f->value.isRealNumber()) ? f->value.re : 0.0;
+    switch (mode()) {
+        case Mode::Formula: {
+            const Field* f = field("formula");
+            return (f && f->value.isRealNumber()) ? f->value.re : 0.0;
+        }
+        case Mode::Animate: return animatedValue(time());
+        case Mode::Slider: break;
     }
     return propNumber("value", 0.0);
 }
@@ -65,43 +69,6 @@ void ParameterObject::setNumber(double v) {
     double step = propNumber("step", 0.0);
     if (step > 0) v = lo + std::round((v - lo) / step) * step;
     setProp("value", v);
-    if (mode() == Mode::Animate && hi > lo) {
-        // Jump the animation to the matching point (inverse only for linear progress)
-        Playback p = playback();
-        p.phase = static_cast<float>((v - lo) / (hi - lo));
-        setPlayback(p);
-    }
-}
-
-void ParameterObject::restart() {
-    setProp("clock", 0.0);
-    Playback p = playback();
-    p.phase = 0.0f;
-    p.direction = 1;
-    setPlayback(p);
-    if (mode() == Mode::Animate) setProp("value", minimum());
-    setPlaying(true);
-}
-
-void ParameterObject::advance(double dt) {
-    if (!playing()) return;
-    if (mode() == Mode::Formula) {
-        double t = clock() + dt;
-        double period = propNumber("period", 0.0);
-        if (period > 0.0) t = std::fmod(t, period);
-        setProp("clock", t);
-        return;
-    }
-    if (mode() == Mode::Animate) {
-        Playback p = playback();
-        p.advance(static_cast<float>(dt));
-        setPlayback(p);
-        setPlaying(p.playing);
-        double lo = minimum(), hi = maximum();
-        setProp("value", lo + (hi - lo) * static_cast<double>(p.value()));
-        return;
-    }
-    setPlaying(false);  // a plain slider does not play
 }
 
 bool ParameterObject::fieldActive(const Field& f) const {
@@ -109,14 +76,14 @@ bool ParameterObject::fieldActive(const Field& f) const {
 }
 
 bool ParameterObject::provideSlots(expr::Slots& slots) const {
-    slots.t = clock();
+    slots.t = time();
     slots.hasT = true;
     return true;
 }
 
 expr::Value ParameterObject::computeValue() const {
     if (mode() == Mode::Formula) return field("formula")->value;
-    return expr::Value::scalar(propNumber("value", 0.0));
+    return expr::Value::scalar(number());
 }
 
 // --- Vector -----------------------------------------------------------------------

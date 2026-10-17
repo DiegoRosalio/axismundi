@@ -16,6 +16,7 @@ using Fields = std::map<std::string, std::string>;
 void fresh(App& app, AppMode mode) {
     app.setMode(mode);
     app.stopAnimation();
+    app.restartTime(false);
     app.clearSpace(mode);
     if (auto* p = app.panel("breakdown")) p->setVisible(false);
     app.resetCamera();
@@ -71,11 +72,12 @@ std::vector<Example> build() {
                     [](App& app) {
                         fresh(app, AppMode::Space3D);
                         app.addObject(AppMode::Space3D, "parameter", "theta", {},
-                                      {{"value", "0"}, {"min", "0"}, {"max", "6.2832"}, {"mode", "animate"}, {"playing", "1"}});
+                                      {{"value", "0"}, {"min", "0"}, {"max", "6.2832"}, {"mode", "animate"}});
                         app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "rotz(theta)"}}, {{"mode", "formula"}});
                         app.addObject(AppMode::Space3D, "vector", "a", {{"x", "2"}, {"y", "0"}, {"z", "1"}});
                         app.addObject(AppMode::Space3D, "vector", "Ma", {{"value", "M*a"}}, {{"mode", "formula"}});
                         app.select("theta");
+                        app.restartTime(true);
                     }});
     list.push_back({"Pendulum (formula of time)", C::Matrices,
                     "θ is a formula of time: θ = π/4·cos(2t). The arm r hangs from (0, 0, 4) and swings with it; "
@@ -83,11 +85,12 @@ std::vector<Example> build() {
                     [](App& app) {
                         fresh(app, AppMode::Space3D);
                         app.addObject(AppMode::Space3D, "parameter", "theta", {{"formula", "pi/4*cos(2t)"}},
-                                      {{"mode", "formula"}, {"playing", "1"}});
+                                      {{"mode", "formula"}});
                         app.addObject(AppMode::Space3D, "vector", "r",
                                       {{"value", "[3sin(theta), 0, -3cos(theta)]"}, {"tail", "[0, 0, 4]"}},
                                       {{"mode", "formula"}});
                         app.select("theta");
+                        app.restartTime(true);
                     }});
     list.push_back({"Stretch back and forth", C::Matrices,
                     "s runs from 0.5 to 2 and back (ping-pong) with an ease-in-out curve. M = diag(s, 1/s, 1) "
@@ -96,13 +99,13 @@ std::vector<Example> build() {
                         fresh(app, AppMode::Space3D);
                         app.addObject(AppMode::Space3D, "parameter", "s", {},
                                       {{"value", "0.5"}, {"min", "0.5"}, {"max", "2"}, {"mode", "animate"},
-                                       {"anim.repeat", "2"}, {"anim.easing", "3"}, {"anim.duration", "3"},
-                                       {"playing", "1"}});
+                                       {"anim.repeat", "2"}, {"anim.easing", "3"}, {"anim.duration", "3"}});
                         app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "scale(s, 1/s, 1)"}},
                                       {{"mode", "formula"}});
                         app.addObject(AppMode::Space3D, "vector", "a", {{"x", "1"}, {"y", "1"}, {"z", "0"}});
                         app.addObject(AppMode::Space3D, "vector", "Ma", {{"value", "M*a"}}, {{"mode", "formula"}});
                         app.select("s");
+                        app.restartTime(true);
                     }});
     list.push_back({"Non-uniform scale", C::Matrices,
                     "Stretches x by 2 and squeezes y to half. The axes are eigenvectors with λ = 2, 0.5 and 1.",

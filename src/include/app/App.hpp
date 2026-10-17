@@ -81,6 +81,11 @@ public:
     void resetCamera();
     void startAnimation(AnimationPreset preset) { m_animator.start(preset); }
     void stopAnimation() { m_animator.stop(); }
+    // Scene clock: back to t = 0, then play or stay paused
+    void restartTime(bool play) {
+        m_scene.timeline().time = 0.0;
+        m_scene.timeline().playing = play;
+    }
     void setAnimationStyle(Repeat repeat, Easing easing, bool showEasings = false) {
         m_animator.setRepeat(repeat);
         m_animator.setEasing(easing);

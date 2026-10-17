@@ -683,8 +683,7 @@ void testScene() {
     CHECK_NEAR(d.find("Ma")->value().vector.y, 1.0f, 1e-5f);
     std::uint64_t before = d.find("Ma")->changedAt();
     theta->setMode(ParameterObject::Mode::Animate);
-    theta->setPlaying(true);
-    theta->advance(0.5);
+    sc.setTime(0.5);
     sc.evaluate();
     CHECK(d.find("Ma")->changedAt() > before);  // change propagated
 
@@ -737,51 +736,79 @@ void testScene() {
         (void)e;
     }
 
-    // Parameter modes
+    // Parameter modes driven by the scene clock
     {
         Scene ps;
         auto* k = static_cast<ParameterObject*>(ps.add(SpaceKind::Euclidean3D, "parameter", "k"));
         auto* q = static_cast<ParameterObject*>(ps.add(SpaceKind::Euclidean3D, "parameter", "q"));
-        // Formula of time, using another object
+        // Formula of the scene time, using another (static) parameter
         q->setMode(ParameterObject::Mode::Formula);
         q->setField("formula", "2t + k");
         k->setNumber(1.0);
-        q->setPlaying(true);
-        q->advance(1.5);
+        ps.setTime(1.5);
         ps.evaluate();
         CHECK(q->error().empty());
         CHECK_NEAR(q->number(), 4.0, 1e-9);
         CHECK_NEAR(q->value().re, 4.0, 1e-9);
-        q->setProp("period", 2.0);
-        q->advance(1.0);  // 2.5 s wraps to 0.5 s
+        ps.setTime(0.5);  // scrubbing back gives the earlier value
         ps.evaluate();
-        CHECK_NEAR(q->clock(), 0.5, 1e-9);
-        q->restart();
-        CHECK_NEAR(q->clock(), 0.0, 1e-12);
-        // A slider ignores t in its (inactive) formula field
+        CHECK_NEAR(q->number(), 2.0, 1e-9);
+        // A slider is static: time does not change it, and its inactive formula is ignored
         k->setField("formula", "nonsense(");
+        ps.setTime(3.0);
         ps.evaluate();
         CHECK(k->error().empty());
-        // Animate: eased value stays in range, ping-pong comes back
+        CHECK_NEAR(k->number(), 1.0, 1e-12);
+        // Animate: a pure function of time with easing, repeat and a start delay
         k->setMode(ParameterObject::Mode::Animate);
         k->setProp("min", 2.0);
         k->setProp("max", 4.0);
+        k->setProp("anim.start", 1.0);
         Playback pb = k->playback();
         pb.duration = 2.0f;
         pb.repeat = Repeat::PingPong;
         pb.easing = Easing::EaseInOut;
-        pb.phase = 0.0f;
         k->setPlayback(pb);
-        k->setPlaying(true);
-        k->advance(1.0);
-        CHECK_NEAR(k->number(), 3.0, 1e-5);  // ease-in-out(0.5) = 0.5
-        k->advance(0.5);
-        CHECK(k->number() > 3.0 && k->number() <= 4.0);
-        k->advance(1.0);  // reached the end and went back half way to 0.75 -> eased
-        CHECK(k->playback().direction == -1);
-        CHECK(k->number() >= 2.0 && k->number() <= 4.0);
-        // Round trip keeps mode, formula and style
+        CHECK_NEAR(k->animatedValue(0.5), 2.0, 1e-9);  // before its start
+        CHECK_NEAR(k->animatedValue(2.0), 3.0, 1e-5);  // half way: ease-in-out(0.5) = 0.5
+        CHECK_NEAR(k->animatedValue(3.0), 4.0, 1e-5);  // the end
+        CHECK_NEAR(k->animatedValue(4.0), 3.0, 1e-5);  // half way back
+        ps.setTime(2.0);
+        ps.evaluate();
+        CHECK_NEAR(k->value().re, 3.0, 1e-5);
+        CHECK_NEAR(q->number(), 7.0, 1e-5);  // 2t + k follows k
+        // Automatic length: start 1 s + ping-pong 2 x 2 s
+        CHECK_NEAR(ps.autoLength(), 5.0, 1e-9);
+        // The clock: loop wraps, otherwise it stops at the end
+        ps.setTime(0.0);
+        ps.timeline().playing = true;
+        ps.advance(6.0);
+        CHECK_NEAR(ps.timeline().time, 1.0, 1e-9);
+        ps.timeline().loop = false;
+        ps.advance(10.0);
+        CHECK_NEAR(ps.timeline().time, 5.0, 1e-9);
+        CHECK(!ps.timeline().playing);
+        ps.timeline().length = 8.0;
+        CHECK_NEAR(ps.timelineLength(), 8.0, 1e-12);
+        // Back to a slider keeps the current value
+        ps.setTime(2.0);
+        ps.evaluate();
+        k->setMode(ParameterObject::Mode::Slider);
+        CHECK_NEAR(k->number(), 3.0, 1e-5);
+        k->setMode(ParameterObject::Mode::Animate);
+        // Undo snapshots leave the clock alone
+        ps.commit();
+        double tNow = ps.timeline().time;
+        k->setProp("max", 9.0);
+        ps.commit();
+        ps.setTime(1.0);
+        ps.undo();
+        CHECK_NEAR(ps.timeline().time, 1.0, 1e-12);
+        CHECK_NEAR(static_cast<ParameterObject*>(ps.space(SpaceKind::Euclidean3D).find("k"))->maximum(), 4.0, 1e-12);
+        (void)tNow;
+        // Round trip keeps modes, formula, style and the clock
         SceneData data;
+        ps.timeline().playing = true;
         ps.save(data);
         Scene back;
         std::string err;
@@ -790,15 +817,13 @@ void testScene() {
         auto* k2 = static_cast<ParameterObject*>(back.space(SpaceKind::Euclidean3D).find("k"));
         CHECK(q2 && q2->mode() == ParameterObject::Mode::Formula && q2->field("formula")->text == "2t + k");
         CHECK(k2 && k2->playback().easing == Easing::EaseInOut && k2->playback().repeat == Repeat::PingPong);
-        // Old files: speed + loop, no mode
+        CHECK(k2 && std::fabs(k2->startDelay() - 1.0) < 1e-9);
+        CHECK(back.timeline().playing && std::fabs(back.timeline().length - 8.0) < 1e-6);
+        // Old files: own clocks (speed + loop + playing), no mode and no timeline
         for (auto it = data.begin(); it != data.end();) {
-            if (it->first.find(".prop.mode") != std::string::npos || it->first.find(".prop.anim.") != std::string::npos)
-                it = data.erase(it);
-            else
-                ++it;
-        }
-        for (auto& [key, v] : data) {
-            if (key.size() > 13 && key.compare(key.size() - 13, 13, ".prop.playing") == 0) v = "1";
+            bool drop = it->first.find(".prop.mode") != std::string::npos ||
+                        it->first.find(".prop.anim.") != std::string::npos || it->first.rfind("time.", 0) == 0;
+            it = drop ? data.erase(it) : std::next(it);
         }
         std::string kp;
         for (auto& [key, v] : data)
@@ -806,6 +831,7 @@ void testScene() {
         CHECK(!kp.empty());
         data[kp + "prop.speed"] = "0.25";
         data[kp + "prop.loop"] = "0";
+        data[kp + "prop.playing"] = "1";
         Scene old;
         CHECK(old.load(data, err));
         auto* k3 = static_cast<ParameterObject*>(old.space(SpaceKind::Euclidean3D).find("k"));
@@ -813,7 +839,9 @@ void testScene() {
         if (k3) {
             CHECK_NEAR(k3->playback().duration, 4.0f, 1e-4f);
             CHECK(k3->playback().repeat == Repeat::Once);
+            CHECK(!k3->props().count("playing") && !k3->props().count("speed"));
         }
+        CHECK(old.timeline().playing);
     }
 
     // Unique names and rename with reference rewriting

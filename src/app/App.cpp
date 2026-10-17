@@ -637,12 +637,8 @@ void App::pickInViewport() {
 }
 
 void App::update(float deltaTime) {
-    // Playing parameters move on; then everything is re-evaluated
-    for (int k = 0; k < scene::kSpaceCount; k++) {
-        for (const auto& o : m_scene.space(static_cast<SpaceKind>(k)).objects()) {
-            if (auto* p = dynamic_cast<scene::ParameterObject*>(o.get())) p->advance(deltaTime);
-        }
-    }
+    // The scene clock moves on; then everything is re-evaluated
+    m_scene.advance(deltaTime);
     m_scene.evaluate();
 
     // Analysis follows the selection of the current space
@@ -734,6 +730,10 @@ void App::drawUi(float deltaTime) {
     if (requests.openColor) {
         closePopovers();
         openColorPicker();
+    }
+    if (requests.openTime) {
+        m_animationWindow.setVisible(true);
+        m_panels.bringToFront(&m_animationWindow);
     }
     if (!requests.message.empty()) toast(requests.message, requests.messageIsError);
     if (m_viewPanel.takeResetCameraRequest()) resetCamera();

@@ -598,11 +598,10 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         Rectangle modeRow = col.row(30.0f);
         int m = static_cast<int>(p.mode());
         if (ui::segmented(modeRow, {"Slider", "Animate", "Formula"}, m,
-                          {"Set the value by hand.",
-                           "Run from min to max with a repeat style and an easing curve.",
-                           "The value is a formula of time t (seconds), e.g. 2pi*t/5 or sin(t)."})) {
+                          {"Set the value by hand. It stays where you put it.",
+                           "Follows the scene clock from min to max, with a repeat style and an easing curve.",
+                           "A formula of t, the scene time in seconds, e.g. 2pi*t/5 or sin(t)."})) {
             p.setMode(static_cast<PMode>(m));
-            if (p.mode() == PMode::Slider) p.setPlaying(false);
             commit();
         }
         ui::anchor("parameter.mode", modeRow);
@@ -610,10 +609,8 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         if (p.mode() == PMode::Formula) {
             col.setY(fieldRow(col.x(), col.y(), col.width(), o, "formula", sc, 64.0f));
             ui::anchor("parameter.formula", {col.x(), col.y() - ui::px(40), col.width(), ui::px(36)});
-            char buf[96];
-            snprintf(buf, sizeof(buf), "t = %.2f s     %s = %s", p.clock(), p.name().c_str(), fmt(p.number()).c_str());
-            ui::textIn(col.row(18.0f), buf, ui::FontRole::Mono, t.textMuted);
-        } else {
+        }
+        if (p.mode() == PMode::Slider) {
             Rectangle row = col.row(30.0f);
             Rectangle value = ui::takeRight(row, 56.0f, 8.0f);
             float v = static_cast<float>(p.number());
@@ -623,7 +620,8 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
             }
             ui::anchor("parameter.slider", row);
             ui::textIn(value, fmt(p.number()).c_str(), ui::FontRole::Mono, t.text, ui::Align::Right);
-
+        }
+        if (p.mode() != PMode::Formula) {
             Rectangle range = col.row(34.0f);
             Rectangle l = ui::takeLeft(range, 52.0f, 6.0f);
             ui::textIn(l, "Range", ui::FontRole::Body, t.textMuted);
@@ -657,7 +655,7 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
             Rectangle durValue = ui::takeRight(row, 44.0f, 6.0f);
             float dur = pb.duration;
             if (ui::slider(row, dur, 0.5f, 30.0f)) {
-                pb.duration = dur;
+                pb.duration = std::round(dur * 10.0f) / 10.0f;
                 changed = true;
                 m_sliderDirty = true;
             }
@@ -675,58 +673,40 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
                 p.setPlayback(pb);
                 if (!m_sliderDirty) commit();
             }
+            // Start delay, so several parameters can run one after another
+            Rectangle startRow = col.row(34.0f);
+            Rectangle sl = ui::takeLeft(startRow, 64.0f, 6.0f);
+            ui::textIn(sl, "Start at", ui::FontRole::Body, t.textMuted);
+            Rectangle sf = ui::takeLeft(startRow, 80.0f, 6.0f);
+            editText(sf, fieldId(p, "#start"), fmt(p.startDelay()), false, [&sc, kind, oid](const std::string& text) {
+                float val;
+                auto* ob = dynamic_cast<scene::ParameterObject*>(sc.space(kind).find(oid));
+                if (!ob || !parseNumber(text.c_str(), val) || val < 0.0f) return false;
+                ob->setProp("anim.start", static_cast<double>(val));
+                sc.commit();
+                return true;
+            });
+            ui::tooltip(sf, "Seconds of scene time before this parameter starts moving.", "Start delay");
+            ui::textIn(startRow, "s", ui::FontRole::Small, t.textMuted);
         }
 
-        // Transport: play / pause, restart (Play on a plain slider switches it to Animate)
-        Rectangle controls = col.row(32.0f);
-        Rectangle play = ui::takeLeft(controls, 32.0f, 6.0f);
-        Rectangle restart = ui::takeLeft(controls, 32.0f, 10.0f);
-        if (ui::iconButton(play, p.playing() ? ui::Icon::Pause : ui::Icon::Play, p.playing())) {
-            if (p.mode() == PMode::Slider) {
-                p.setMode(PMode::Animate);
-                Playback pb = p.playback();
-                double lo = p.minimum(), hi = p.maximum();
-                pb.phase = hi > lo ? static_cast<float>((p.number() - lo) / (hi - lo)) : 0.0f;
-                p.setPlayback(pb);
-                p.setPlaying(true);
-                commit();
-            } else {
-                Playback pb = p.playback();
-                if (p.mode() == PMode::Animate && !p.playing() && pb.repeat == Repeat::Once && pb.phase >= 1.0f) {
-                    p.restart();
-                } else {
-                    p.setPlaying(!p.playing());
-                }
+        if (p.timeDriven()) {
+            // Current value and the link to the clock that drives it
+            const scene::Timeline& tl = sc.timeline();
+            char buf[96];
+            snprintf(buf, sizeof(buf), "t = %.2f s     %s = %s", tl.time, p.name().c_str(), fmt(p.number()).c_str());
+            ui::textIn(col.row(18.0f), buf, ui::FontRole::Mono, t.textMuted);
+            Rectangle link = col.row(30.0f);
+            if (ui::button(link, tl.playing ? "Follows the Time panel (playing)" : "Follows the Time panel (paused)",
+                           ui::ButtonKind::Secondary, true, tl.playing ? ui::Icon::Pause : ui::Icon::Play)) {
+                m_requests.openTime = true;
             }
+            ui::anchor("parameter.time", link);
+            ui::tooltip(link, "Time-driven parameters follow the scene clock. Play, pause and scrub it in the Time "
+                              "panel (P plays or pauses).", "Scene clock");
         }
-        if (ui::iconButton(restart, ui::Icon::Reset, false)) p.restart();
-        ui::anchor("parameter.play", play);
-        ui::tooltip(play, p.mode() == PMode::Formula ? "Run or pause the clock t."
-                                                     : "Run through the range (switches a slider to Animate).",
-                    "Play / pause");
-        ui::tooltip(restart, p.mode() == PMode::Formula ? "Set t back to 0 and play." : "Start again from min.",
-                    "Restart");
-        if (p.mode() == PMode::Formula) {
-            Rectangle wrapLabel = ui::takeLeft(controls, 96.0f, 6.0f);
-            ui::textIn(wrapLabel, "Wrap t after", ui::FontRole::Small, t.textMuted);
-            Rectangle wrapField = ui::takeLeft(controls, 70.0f, 6.0f);
-            double period = p.propNumber("period", 0.0);
-            editText(wrapField, fieldId(p, "#period"), period > 0 ? fmt(period) : std::string("never"), false,
-                     [&sc, kind, oid](const std::string& text) {
-                         auto* ob = dynamic_cast<scene::ParameterObject*>(sc.space(kind).find(oid));
-                         if (!ob) return false;
-                         float val = 0.0f;
-                         if (text == "never" || text.empty()) val = 0.0f;
-                         else if (!parseNumber(text.c_str(), val) || val < 0.0f) return false;
-                         ob->setProp("period", static_cast<double>(val));
-                         sc.commit();
-                         return true;
-                     });
-            ui::tooltip(wrapField, "Restart t at 0 after this many seconds (empty or \"never\": keep counting).",
-                        "Period");
-            ui::textIn(controls, "s", ui::FontRole::Small, t.textMuted);
-        }
-        note(col, "Use " + p.name() + " in any formula, e.g. rotz(" + p.name() + ") or exp(i*" + p.name() + ").",
+        note(col, "Use " + p.name() + " in any formula, e.g. rotz(" + p.name() + ") or lerp(eye(), M, " + p.name() +
+                      ").",
              t.textFaint);
     } else if (type == "complex") {
         col.setY(fieldRow(col.x(), col.y(), col.width(), o, "value", sc, 52.0f));

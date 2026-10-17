@@ -73,6 +73,10 @@ public:
     // clock t. Return false for none (the default).
     virtual bool provideSlots(expr::Slots& slots) const;
 
+    // Scene time in seconds (set by the scene before each evaluation). Not saved.
+    void setTime(double seconds) { m_time = seconds; }
+    double time() const { return m_time; }
+
     // --- Properties (non-expression settings, saved as text) -------------------
     std::string prop(const std::string& key, const std::string& fallback = "") const;
     double propNumber(const std::string& key, double fallback = 0.0) const;
@@ -120,6 +124,7 @@ private:
     std::string m_error;
     std::uint64_t m_changedAt = 0;
     bool m_dirty = true;
+    double m_time = 0.0;
 };
 
 // Does a value satisfy an expectation? Returns "" or an error message.

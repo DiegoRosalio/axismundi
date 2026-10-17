@@ -206,7 +206,7 @@ std::vector<Lesson> build() {
          "Press Play on theta and watch the scene turn.",
          [](App& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
-             return p && (p->playing() || std::fabs(p->number() - 0.5) > 0.2);
+             return p && std::fabs(p->number() - 0.5) > 0.2;
          },
          "The play button is in theta's inspector. Dragging the slider works too.", "parameter.play"},
         {"Repeat and easing",

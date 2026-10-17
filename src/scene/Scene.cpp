@@ -48,7 +48,48 @@ Scene::Scene() {
 }
 
 void Scene::evaluate() {
-    for (auto& s : m_spaces) s.evaluate();
+    for (auto& s : m_spaces) {
+        for (const auto& o : s.objects()) o->setTime(m_timeline.time);
+        s.evaluate();
+    }
+}
+
+double Scene::autoLength() const {
+    double longest = 0.0;
+    for (const auto& s : m_spaces) {
+        for (const auto& o : s.objects()) {
+            const auto* p = dynamic_cast<const ParameterObject*>(o.get());
+            if (!p || p->mode() != ParameterObject::Mode::Animate) continue;
+            Playback pb = p->playback();
+            if (pb.repeat == Repeat::Loop) continue;  // loops have no end of their own
+            double runs = pb.repeat == Repeat::PingPong ? 2.0 : 1.0;
+            longest = std::max(longest, p->startDelay() + runs * pb.duration);
+        }
+    }
+    return longest > 0.0 ? longest : 10.0;
+}
+
+double Scene::timelineLength() const {
+    return m_timeline.length > 0.0 ? m_timeline.length : autoLength();
+}
+
+void Scene::setTime(double seconds) {
+    m_timeline.time = std::clamp(seconds, 0.0, timelineLength());
+}
+
+void Scene::advance(double dt) {
+    if (!m_timeline.playing) return;
+    double end = timelineLength();
+    double t = m_timeline.time + dt * m_timeline.speed;
+    if (t >= end) {
+        if (m_timeline.loop && end > 0.0) {
+            t = std::fmod(t, end);
+        } else {
+            t = end;
+            m_timeline.playing = false;
+        }
+    }
+    m_timeline.time = t;
 }
 
 SceneObject* Scene::add(SpaceKind kind, const std::string& typeId, const std::string& name) {
@@ -110,8 +151,15 @@ void Scene::resetToDefault() {
     save(m_committed);
 }
 
-void Scene::save(SceneData& data) const {
+void Scene::save(SceneData& data, bool withTimeline) const {
     putInt(data, "scene.version", 2);
+    if (withTimeline) {
+        putFloat(data, "time.t", static_cast<float>(m_timeline.time));
+        putBool(data, "time.playing", m_timeline.playing);
+        putFloat(data, "time.speed", m_timeline.speed);
+        putBool(data, "time.loop", m_timeline.loop);
+        putFloat(data, "time.length", static_cast<float>(m_timeline.length));
+    }
     for (int s = 0; s < kSpaceCount; s++) {
         const Space& sp = m_spaces[s];
         std::string base = std::string("space.") + spaceKey(sp.kind()) + ".";
@@ -153,6 +201,7 @@ bool Scene::load(const SceneData& data, std::string& error) {
 }
 
 void Scene::restore(const SceneData& data) {
+    bool anyPlaying = false;
     for (int s = 0; s < kSpaceCount; s++) {
         Space& sp = m_spaces[s];
         // Keep the selection across undo/redo by name (ids change on reload)
@@ -187,20 +236,38 @@ void Scene::restore(const SceneData& data) {
                 else if (it->first.compare(0, propPrefix.size(), propPrefix) == 0)
                     obj->setProp(it->first.substr(propPrefix.size()), it->second);
             }
-            if (type == "parameter" && !data.count(propPrefix + "mode")) {
-                // Files from before parameter modes: speed (range widths per second) + loop
+            if (type == "parameter") {
                 auto* p = static_cast<ParameterObject*>(obj.get());
-                Playback pb = p->playback();
-                double speed = p->propNumber("speed", 0.15);
-                pb.duration = static_cast<float>(1.0 / std::max(0.01, speed));
-                pb.repeat = p->propBool("loop", true) ? Repeat::Loop : Repeat::Once;
-                p->setPlayback(pb);
-                p->setMode(p->playing() ? ParameterObject::Mode::Animate : ParameterObject::Mode::Slider);
+                bool wasPlaying = p->propBool("playing", false);
+                if (!data.count(propPrefix + "mode")) {
+                    // Files from before parameter modes: speed (range widths per second) + loop
+                    Playback pb = p->playback();
+                    double speed = p->propNumber("speed", 0.15);
+                    pb.duration = static_cast<float>(1.0 / std::max(0.01, speed));
+                    pb.repeat = p->propBool("loop", true) ? Repeat::Loop : Repeat::Once;
+                    p->setPlayback(pb);
+                    p->setMode(wasPlaying ? ParameterObject::Mode::Animate : ParameterObject::Mode::Slider);
+                }
+                // Parameters used to have their own clocks; the scene clock replaces them
+                if (wasPlaying && p->mode() != ParameterObject::Mode::Slider) anyPlaying = true;
+                for (const char* old : {"playing", "clock", "period", "speed", "loop", "anim.phase", "anim.direction"})
+                    p->removeProp(old);
             }
             sp.add(std::move(obj), name);
         }
         for (const auto& n : selectedNames)
             if (const SceneObject* o = sp.find(n)) m_selections[s].ids.push_back(o->id());
+    }
+    // The clock (files only; undo snapshots leave it out and keep the current one)
+    if (data.count("time.t")) {
+        float v = 0.0f;
+        if (getFloat(data, "time.t", v)) m_timeline.time = std::max(0.0f, v);
+        getBool(data, "time.playing", m_timeline.playing);
+        if (getFloat(data, "time.speed", v)) m_timeline.speed = std::clamp(v, 0.1f, 4.0f);
+        getBool(data, "time.loop", m_timeline.loop);
+        if (getFloat(data, "time.length", v)) m_timeline.length = std::max(0.0f, v);
+    } else if (anyPlaying) {
+        m_timeline.playing = true;
     }
     evaluate();
     convertOldPlots();
@@ -283,7 +350,7 @@ void Scene::loadV1(const SceneData& data) {
 
 void Scene::commit() {
     SceneData now;
-    save(now);
+    save(now, false);
     if (now == m_committed) return;
     m_undo.push_back(m_committed);
     if (m_undo.size() > kMaxHistory) m_undo.erase(m_undo.begin());
