@@ -64,7 +64,8 @@ bool FormulaEditor::draw(scene::Scene& sc) {
     bool enter = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER);
     bool done = false;
     // Only Enter applies here: clicks outside the text (buttons, the dim) must not
-    if (ev == ui::EditorEvent::Commit && enter && !m_justOpened) done = apply();
+    // A syntax error blocks Enter like it disables Apply (unknown names are allowed: they may come later)
+    if (ev == ui::EditorEvent::Commit && enter && !m_justOpened && syntaxOk) done = apply();
 
     // Live result, evaluated like the object does (t = scene time; sample x, y, u for plots)
     std::string result;

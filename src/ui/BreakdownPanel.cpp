@@ -90,7 +90,7 @@ float BreakdownPanel::drawContent(Rectangle area) {
         bool done = m_t >= i + 1 - 1e-4f;
         bool current = !done && m_t > i - 1e-4f && m_t < i + 1;
         bool hover = ui::hovered(row);
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
             m_t = static_cast<float>(i + 1);
             m_playing = false;
         }

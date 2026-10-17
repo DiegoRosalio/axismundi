@@ -57,7 +57,7 @@ bool FloatingPanel::begin(float contentHeight, Rectangle& content) {
     float freeW = std::max(1.0f, a.width - width);
     float freeH = std::max(1.0f, a.height - height);
     Rectangle titleBar = {a.x + m_anchor.x * freeW, a.y + m_anchor.y * freeH, width - px(80.0f), header};
-    if (canInteract() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, titleBar)) {
+    if (canInteract() && ui::mousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, titleBar)) {
         m_dragging = true;
         m_dragOffset = {mouse.x - titleBar.x, mouse.y - titleBar.y};
     }
@@ -159,7 +159,7 @@ void PanelManager::beginFrame() {
         }
     }
     // A click raises the panel it lands on
-    if (g_owner && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !GuiIsLocked()) bringToFront(g_owner);
+    if (g_owner && ui::mousePressed(MOUSE_BUTTON_LEFT) && !GuiIsLocked()) bringToFront(g_owner);
     // A panel being dragged keeps the mouse even when it lags behind the cursor
     for (auto* p : m_panels) {
         if (p->m_dragging) g_owner = p;

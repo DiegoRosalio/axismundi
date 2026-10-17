@@ -29,8 +29,11 @@ float editorHeight(const std::string& text, float width, int maxLines);
 // Number of wrapped lines `text` needs in a field `width` wide
 int editorLines(const std::string& text, float width);
 
-// Draw (and, when active, edit) the text. `id` ties the state to the field.
-EditorEvent textEditor(Rectangle r, int id, std::string& text, bool active, bool invalid, EditorState& state);
+// Draw (and, when active, edit) the text. `id` ties the state to the field. With
+// selectAllOnFocus, a click or Tab into the field selects its text so typing replaces it
+// (short fields: numbers, names); otherwise a click places the cursor (long formulas).
+EditorEvent textEditor(Rectangle r, int id, std::string& text, bool active, bool invalid, EditorState& state,
+                       bool selectAllOnFocus = false);
 
 // The shared state of the active inline editor (one at a time)
 EditorState& inlineEditorState();

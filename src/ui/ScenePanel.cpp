@@ -143,44 +143,19 @@ void ScenePanel::update(scene::Scene&) {
 
 void ScenePanel::editText(Rectangle r, int id, const std::string& current, bool invalid,
                           std::function<bool(const std::string&)> commit) {
-    m_editables.push_back({id, current, commit});
-    char tmp[1024];
-    bool active = (m_activeId == id);
-    char* buf = active ? m_buffer : tmp;
-    if (!active) snprintf(tmp, sizeof(tmp), "%s", current.c_str());
-
-    bool showInvalid = invalid && !active;
-    if (active) {
-        // Live syntax check while typing
-        expr::Program probe;
-        showInvalid = !probe.compile(m_buffer);
-    }
-
-    int before = m_activeId;
-    bool finished = ui::textField(r, buf, sizeof(m_buffer), id, m_activeId, showInvalid);
-    if (!active && m_activeId == id) {
-        // Just activated: commit the field that was being edited, then take over
-        if (before >= 0 && before != id) {
-            for (const auto* list : {&m_editables, &m_lastEditables}) {
-                bool done = false;
-                for (const auto& e : *list) {
-                    if (e.id == before) {
-                        e.commit(m_buffer);
-                        done = true;
-                        break;
-                    }
-                }
-                if (done) break;
-            }
-        }
-        snprintf(m_buffer, sizeof(m_buffer), "%s", tmp);
-    }
-    if (finished) commit(m_buffer);
+    // Short fields (cells, names, ranges): one line, the text is selected on focus
+    editField(r, id, current, invalid, std::move(commit), scene::kNoObject, std::string(), true);
 }
 
 void ScenePanel::editFormula(Rectangle r, int id, const std::string& current, bool invalid,
                              std::function<bool(const std::string&)> commit, scene::ObjectId object,
                              const std::string& key) {
+    editField(r, id, current, invalid, std::move(commit), object, key, false);
+}
+
+void ScenePanel::editField(Rectangle r, int id, const std::string& current, bool invalid,
+                           std::function<bool(const std::string&)> commit, scene::ObjectId object,
+                           const std::string& key, bool shortField) {
     m_editables.push_back({id, current, commit});
     bool active = (m_activeId == id);
     std::string text = active ? std::string(m_buffer) : current;
@@ -189,7 +164,7 @@ void ScenePanel::editFormula(Rectangle r, int id, const std::string& current, bo
         expr::Program probe;  // live syntax check while typing
         showInvalid = !probe.compile(text);
     }
-    ui::EditorEvent ev = ui::textEditor(r, id, text, active, showInvalid, ui::inlineEditorState());
+    ui::EditorEvent ev = ui::textEditor(r, id, text, active, showInvalid, ui::inlineEditorState(), shortField);
     if (ev == ui::EditorEvent::Activated) {
         // Commit the field that was being edited, then take over
         int before = m_activeId;
@@ -215,7 +190,7 @@ void ScenePanel::editFormula(Rectangle r, int id, const std::string& current, bo
     if (ev == ui::EditorEvent::Commit) {
         m_activeId = -1;
         commit(m_buffer);
-    } else if (ev == ui::EditorEvent::Expand) {
+    } else if (ev == ui::EditorEvent::Expand && !key.empty()) {
         // The big editor takes over the unsaved text
         m_activeId = -1;
         m_requests.openFormula = true;
@@ -343,7 +318,7 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
         Rectangle eye = {row.x + row.width - ui::px(32), row.y + ui::px(3), ui::px(30), ui::px(30)};
         bool selected = sel.contains(o.id());
         bool hoverRow = ui::hovered(row) && !ui::hovered(eye);
-        if (hoverRow && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (hoverRow && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
             if (m_activeId >= 0) finishEditing(sc);
             if (ctrl) sel.toggle(o.id());
             else sel.set(o.id());

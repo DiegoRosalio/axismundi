@@ -1,3 +1,9 @@
+// GLFW is available when raylib is built from source (tools/dev/raylib.sh): raylib's own
+// static library contains it. With a system raylib the click latch is simply off.
+#if __has_include("external/glfw/include/GLFW/glfw3.h")
+#include "external/glfw/include/GLFW/glfw3.h"
+#define AXIS_CLICK_LATCH 1
+#endif
 #include "ui/core/Ui.hpp"
 #include "ui/core/Theme.hpp"
 
@@ -136,7 +142,43 @@ void init() {
     beginFrame();
 }
 
+namespace {
+int g_pressEvents[3] = {0, 0, 0}, g_releaseEvents[3] = {0, 0, 0};
+bool g_pressedLatch[3] = {false, false, false}, g_releasedLatch[3] = {false, false, false};
+#ifdef AXIS_CLICK_LATCH
+GLFWmousebuttonfun g_previousButtonCallback = nullptr;
+void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
+    if (button >= 0 && button < 3) {
+        if (action == GLFW_PRESS) g_pressEvents[button]++;
+        else if (action == GLFW_RELEASE) g_releaseEvents[button]++;
+    }
+    if (g_previousButtonCallback) g_previousButtonCallback(window, button, action, mods);
+}
+#endif
+} // namespace
+
+void installClickLatch() {
+#ifdef AXIS_CLICK_LATCH
+    auto* window = static_cast<GLFWwindow*>(GetWindowHandle());
+    if (window) g_previousButtonCallback = glfwSetMouseButtonCallback(window, onMouseButton);
+#endif
+}
+
+bool mousePressed(int button) {
+    return IsMouseButtonPressed(button) || (button >= 0 && button < 3 && g_pressedLatch[button]);
+}
+
+bool mouseReleased(int button) {
+    return IsMouseButtonReleased(button) || (button >= 0 && button < 3 && g_releasedLatch[button]);
+}
+
 void beginFrame() {
+    // Events of the frame just polled (callbacks ran inside raylib's EndDrawing)
+    for (int b = 0; b < 3; b++) {
+        g_pressedLatch[b] = g_pressEvents[b] > 0;
+        g_releasedLatch[b] = g_releaseEvents[b] > 0;
+        g_pressEvents[b] = g_releaseEvents[b] = 0;
+    }
     g_lastAnchors.swap(g_anchors);
     g_anchors.clear();
 
@@ -386,11 +428,11 @@ bool hovered(Rectangle r) {
 }
 
 bool clicked(Rectangle r) {
-    return hovered(r) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    return hovered(r) && mousePressed(MOUSE_BUTTON_LEFT);
 }
 
 bool rightClicked(Rectangle r) {
-    return hovered(r) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+    return hovered(r) && mousePressed(MOUSE_BUTTON_RIGHT);
 }
 
 // ---------------------------------------------------------------------------

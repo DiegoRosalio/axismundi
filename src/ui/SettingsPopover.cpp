@@ -19,7 +19,7 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     m_bounds = {std::max(ui::px(8), x), m_anchor.y + m_anchor.height + ui::px(6.0f), w, h};
 
     // Close when clicking outside (not on the frame that opened it)
-    if (!m_justOpened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+    if (!m_justOpened && ui::mousePressed(MOUSE_BUTTON_LEFT) &&
         !CheckCollisionPointRec(GetMousePosition(), m_bounds)) {
         m_open = false;
         return actions;

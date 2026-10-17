@@ -62,7 +62,7 @@ float GalleryPanel::drawContent(Rectangle area, int& chosen) {
             const Example& e = list[index];
             Rectangle card = {col.x() + (k - start) * (cardW + gap), y, cardW, rowH};
             bool hover = ui::hovered(card);
-            if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) chosen = index;
+            if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) chosen = index;
 
             if (hover) ui::shadow(card, ui::px(ui::kCardRadius), ui::px(10.0f));
             ui::fillRounded(card, ui::px(ui::kCardRadius), hover ? t.hover : t.panelAlt);

@@ -49,19 +49,24 @@ float editorHeight(const std::string& text, float width, int maxLines) {
     return 2 * px(kPadY) + lines * lineHeight() + px(4);
 }
 
-EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool invalid, EditorState& st) {
+EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool invalid, EditorState& st,
+                       bool selectAllOnFocus) {
     const Theme& t = theme();
     EditorEvent event = EditorEvent::None;
     bool hover = hovered(r);
     float radius = px(kRadius);
 
-    if (active && st.id != id) {
+    if (active && st.id != id) {  // focused by Tab (or programmatically)
         st = EditorState{};
         st.id = id;
         st.cursor = st.anchor = s.size();
+        if (selectAllOnFocus) st.anchor = 0;
     }
-    st.cursor = std::min(st.cursor, s.size());
-    st.anchor = std::min(st.anchor, s.size());
+    // The state is shared by all inline editors: only the active one may touch it
+    if (active) {
+        st.cursor = std::min(st.cursor, s.size());
+        st.anchor = std::min(st.anchor, s.size());
+    }
 
     const size_t perLine = charsPerLine(r.width);
     std::vector<size_t> starts = text::wrapLines(s, perLine);
@@ -69,7 +74,8 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
     const float left = r.x + px(kPadX), top = r.y + px(kPadY);
 
     auto positionAt = [&](Vector2 m) {
-        size_t line = static_cast<size_t>(std::max(0.0f, std::floor((m.y - top + st.scroll) / lh)));
+        float sc = active ? st.scroll : 0.0f;  // an inactive field is not scrolled
+        size_t line = static_cast<size_t>(std::max(0.0f, std::floor((m.y - top + sc) / lh)));
         size_t col = static_cast<size_t>(std::max(0.0f, std::round((m.x - left) / cw)));
         return text::lineColToCursor(s, starts, line, col);
     };
@@ -81,11 +87,16 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
             event = EditorEvent::Activated;
             st = EditorState{};
             st.id = id;
-            st.cursor = st.anchor = positionAt(mouse);
-            st.dragging = true;
+            if (selectAllOnFocus) {
+                st.anchor = 0;
+                st.cursor = s.size();
+            } else {
+                st.cursor = st.anchor = positionAt(mouse);
+                st.dragging = true;
+            }
         }
     } else {
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (ui::mousePressed(MOUSE_BUTTON_LEFT)) {
             if (CheckCollisionPointRec(mouse, r) && canInteract()) {
                 st.cursor = positionAt(mouse);
                 if (!shiftDown()) st.anchor = st.cursor;
@@ -201,6 +212,8 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
         float cy = curLine * lh;
         if (cy < st.scroll) st.scroll = cy;
         if (cy + lh > st.scroll + visibleH) st.scroll = cy + lh - visibleH;
+        // Never scroll further than the text needs (the field grows a frame after the text)
+        st.scroll = std::clamp(st.scroll, 0.0f, std::max(0.0f, starts.size() * lh - visibleH));
     }
     float scroll = active ? st.scroll : 0.0f;
 

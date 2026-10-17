@@ -72,6 +72,12 @@ bool canInteract();               // false while the GUI is locked (camera mode,
 void setClip(Rectangle r);
 void clearClip();
 bool mouseInClip();
+// Mouse buttons with presses/releases latched per frame: a touchpad tap can press and release
+// within one frame, which raylib's per-frame sampling misses. Use these instead of
+// IsMouseButtonPressed/Released. installClickLatch() after InitWindow.
+void installClickLatch();
+bool mousePressed(int button);
+bool mouseReleased(int button);
 bool hovered(Rectangle r);        // mouse inside and interaction allowed
 bool clicked(Rectangle r);        // left button pressed inside this frame
 bool rightClicked(Rectangle r);

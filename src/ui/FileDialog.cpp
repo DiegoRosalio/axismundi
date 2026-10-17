@@ -5,6 +5,7 @@
 #include "ui/core/Ui.hpp"
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <system_error>
 
@@ -32,6 +33,11 @@ void FileDialog::open(Mode mode, const std::string& folder, const std::string& n
     m_confirmReplace = false;
     m_activeId = mode == Mode::Save ? kNameId : -1;
     std::snprintf(m_name, sizeof(m_name), "%s", name.c_str());
+    // The suggested name starts selected, so typing replaces it
+    m_nameState = ui::EditorState{};
+    m_nameState.id = kNameId;
+    m_nameState.anchor = 0;
+    m_nameState.cursor = std::strlen(m_name);
     std::error_code ec;
     std::string start = folder;
     if (start.empty() || !fs::is_directory(start, ec)) start = fs::current_path(ec).string();
@@ -208,8 +214,14 @@ bool FileDialog::draw() {
     Rectangle nameRow = col.row(34.0f);
     Rectangle nameLabel = ui::takeLeft(nameRow, 76.0f, 8.0f);
     ui::textIn(nameLabel, "File name", ui::FontRole::Body, t.textMuted);
-    if (ui::textField(nameRow, m_name, sizeof(m_name), kNameId, m_activeId, m_messageIsError && !m_message.empty())) {
+    std::string nameText = m_name;
+    ui::EditorEvent ev = ui::textEditor(nameRow, kNameId, nameText, m_activeId == kNameId,
+                                        m_messageIsError && !m_message.empty(), m_nameState);
+    std::snprintf(m_name, sizeof(m_name), "%s", nameText.c_str());
+    if (ev == ui::EditorEvent::Activated) m_activeId = kNameId;
+    if (ev == ui::EditorEvent::Commit) {
         if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) done = confirm();
+        else m_activeId = -1;  // a click elsewhere in the dialog
     }
     std::string nameTip = m_mode == Mode::Save
                               ? std::string("A name in this folder (") + extension() + " is added), or a full path."
@@ -228,7 +240,7 @@ bool FileDialog::draw() {
     if (ui::button(ok, okLabel, m_confirmReplace ? ui::ButtonKind::Danger : ui::ButtonKind::Primary)) done = confirm();
 
     // A click outside the dialog cancels it (not on the frame that opened it)
-    if (!m_justOpened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), box))
+    if (!m_justOpened && ui::mousePressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), box))
         close();
     m_justOpened = false;
     return done;

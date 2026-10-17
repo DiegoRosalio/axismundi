@@ -68,7 +68,7 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
         for (int i = 0; i < static_cast<int>(all.size()); i++) {
             Rectangle row = col.row(50.0f);
             bool hover = ui::hovered(row);
-            if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
                 startLesson(i);
                 m_finishedMessage.clear();
             }

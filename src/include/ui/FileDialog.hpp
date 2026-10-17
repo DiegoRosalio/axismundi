@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ui/core/TextEditor.hpp"
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -39,6 +40,7 @@ private:
     const char* what() const { return m_kind == Kind::Latex ? "LaTeX figure" : "scene"; }
     std::string m_folder;
     char m_name[256] = "";
+    ui::EditorState m_nameState;  // cursor and selection of the name field
     std::vector<std::string> m_dirs, m_files, m_recent;
     std::string m_result;
     std::string m_message;

@@ -162,7 +162,7 @@ bool AddMenu::draw(scene::Scene& sc, scene::SpaceKind kind, AddChoice& choice) {
     m_bounds = {m_anchor.x + m_anchor.width - w, m_anchor.y + m_anchor.height + ui::px(6), w, h};
     if (m_bounds.x < ui::px(8)) m_bounds.x = ui::px(8);
 
-    if (!m_justOpened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), m_bounds)) {
+    if (!m_justOpened && ui::mousePressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), m_bounds)) {
         m_open = false;
         return false;
     }
@@ -195,7 +195,7 @@ bool AddMenu::draw(scene::Scene& sc, scene::SpaceKind kind, AddChoice& choice) {
             std::string d = ui::ellipsize(description, ui::FontRole::Small, width - ui::px(20));
             ui::text(d.c_str(), row.x + ui::px(10), row.y + ui::px(26), ui::FontRole::Small, t.textMuted);
         }
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
             choice = c;
             picked = true;
         }

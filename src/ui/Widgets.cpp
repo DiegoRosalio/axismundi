@@ -53,10 +53,10 @@ unsigned int g_dragId = 0;      // slider being dragged
 bool clickBehavior(Rectangle r, bool enabled, bool& hover, bool& down) {
     unsigned int id = widgetId(r);
     hover = enabled && hovered(r);
-    if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) g_pressedId = id;
+    if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) g_pressedId = id;
     down = (g_pressedId == id) && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     bool fired = false;
-    if (g_pressedId == id && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+    if (g_pressedId == id && ui::mouseReleased(MOUSE_BUTTON_LEFT)) {
         fired = hover;
         g_pressedId = 0;
     }
@@ -212,7 +212,7 @@ bool slider(Rectangle r, float& value, float minValue, float maxValue) {
     const Theme& t = theme();
     unsigned int id = widgetId(r);
     bool hover = hovered(r);
-    if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) g_dragId = id;
+    if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) g_dragId = id;
     if (g_dragId == id && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) g_dragId = 0;
 
     float knobR = px(7.0f);

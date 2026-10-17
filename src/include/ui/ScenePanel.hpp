@@ -64,6 +64,9 @@ private:
     // Wrapping multi-line field for formulas (with Ctrl+Enter = big editor)
     void editFormula(Rectangle r, int id, const std::string& current, bool invalid,
                      std::function<bool(const std::string&)> commit, scene::ObjectId object, const std::string& key);
+    void editField(Rectangle r, int id, const std::string& current, bool invalid,
+                   std::function<bool(const std::string&)> commit, scene::ObjectId object, const std::string& key,
+                   bool shortField);
     // "label [field ⤢]" row for an object field, with the field's error underneath; returns the bottom y
     float fieldRow(float x, float y, float width, scene::SceneObject& obj, const std::string& key, scene::Scene& scene,
                    float labelWidth = 74.0f);

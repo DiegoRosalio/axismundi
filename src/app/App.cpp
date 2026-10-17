@@ -18,6 +18,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <csignal>
 #include <ctime>
 
 namespace linalg {
@@ -71,6 +72,7 @@ App::App(const AppOptions& options)
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "axismundi - Linear Algebra 3D Visualizer");
+    ui::installClickLatch();  // touchpad taps shorter than a frame still count as clicks
     SetWindowMinSize(800, 600);
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);  // Esc never quits; close the window to exit
@@ -569,9 +571,22 @@ void App::savePreferences() {
 // Main loop
 // ---------------------------------------------------------------------------
 
+namespace {
+// Testing hook (tools/dev/input-test.sh): SIGUSR1 saves a screenshot of the next frame as
+// signal_NNN.png in the current folder, whatever the keyboard focus is
+volatile std::sig_atomic_t g_shotSignal = 0;
+void onShotSignal(int) { g_shotSignal = 1; }
+}
+
 void App::run() {
+#ifdef SIGUSR1
+    std::signal(SIGUSR1, onShotSignal);
+#endif
+    int signalShots = 0;
     while (!WindowShouldClose()) {
         float deltaTime = GetFrameTime();
+        bool signalShot = g_shotSignal != 0;
+        g_shotSignal = 0;
 
         if (m_tour && !m_tour->advance(*this)) break;
 
@@ -587,6 +602,14 @@ void App::run() {
             if (m_screenshotRequest != 2) drawUi(deltaTime);
             if (m_tour) m_tour->capture();
             if (m_screenshotRequest) takeScreenshot();
+            if (signalShot) {
+                char name[32];
+                snprintf(name, sizeof(name), "signal_%03d.png", signalShots++);
+                rlDrawRenderBatchActive();
+                Image image = LoadImageFromScreen();
+                ExportImage(image, name);
+                UnloadImage(image);
+            }
         EndDrawing();
     }
 }
@@ -771,7 +794,7 @@ void App::duplicateSelection() {
 }
 
 void App::pickInViewport() {
-    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || isEditing()) return;
+    if (!ui::mousePressed(MOUSE_BUTTON_LEFT) || isEditing()) return;
     Vector2 mouse = GetMousePosition();
     // Only clicks on the 3D view itself, not on panels or popovers
     if (mouse.x < SideBar::width() || mouse.y < TopBar::height()) return;
