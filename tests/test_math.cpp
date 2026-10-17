@@ -3,6 +3,9 @@
 
 #include "animation/Playback.hpp"
 #include "math/expr/Reference.hpp"
+#include "math/Contour.hpp"
+#include "export/LatexExport.hpp"
+#include <fstream>
 #include "math/Complex.hpp"
 #include "math/Decompositions.hpp"
 #include "math/Expression.hpp"
@@ -18,6 +21,7 @@
 
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <functional>
 #include <string>
@@ -665,6 +669,143 @@ void testUsability() {
     CHECK_NEAR(v->value().vector.magnitude(), 1.0f, 1e-6f);
 }
 
+void testContour() {
+    // Circle x^2 + y^2 = 4 on a grid: points lie on the circle, segments chain into one closed line
+    int n = 40;
+    std::vector<double> v((n + 1) * (n + 1));
+    for (int j = 0; j <= n; j++)
+        for (int i = 0; i <= n; i++) {
+            double x = -3 + 6.0 * i / n, y = -3 + 6.0 * j / n;
+            v[j * (n + 1) + i] = x * x + y * y - 4;
+        }
+    auto segs = marchingSquares(v, n, n, -3, 3, -3, 3);
+    CHECK(segs.size() > 20);
+    for (const auto& sg : segs) CHECK_NEAR(std::hypot(sg.x0, sg.y0), 2.0, 0.05);
+    auto lines = chainSegments(segs, 1e-6);
+    CHECK(lines.size() == 1);
+    if (!lines.empty()) {
+        CHECK(lines[0].size() == segs.size() + 1);
+        CHECK_NEAR(lines[0].front().first, lines[0].back().first, 1e-9);  // closed
+    }
+}
+
+void testLatexExport() {
+    using namespace scene;
+    CHECK(latex::nameToLatex("theta") == "\\theta");
+    CHECK(latex::nameToLatex("z1") == "z_{1}");
+    CHECK(latex::nameToLatex("Ma") == "\\mathit{Ma}");
+    CHECK(latex::nameToLatex("a_b") == "a_{b}");
+    CHECK(latex::nameToLatex("v12") == "v_{12}");
+    CHECK(latex::nameToLatex("alpha2") == "\\alpha_{2}");
+
+    double az = 0, el = 0;
+    latex::viewFromDirection(Vector3D(0, -1, 0), az, el);  // viewer in front (negative y)
+    CHECK_NEAR(az, 0.0, 1e-9);
+    CHECK_NEAR(el, 0.0, 1e-9);
+    latex::viewFromDirection(Vector3D(0, 0, 1), az, el);   // from above
+    CHECK_NEAR(el, 90.0, 1e-9);
+    latex::viewFromDirection(Vector3D(1, 0, 0), az, el);   // from +x
+    CHECK_NEAR(az, 90.0, 1e-9);
+
+    CHECK(std::string(latex::styleFor(0).dash) == "solid");
+    CHECK(std::string(latex::styleFor(1).dash) == "dashed");
+    CHECK(std::string(latex::styleFor(5).gray) == "black!65");
+
+    const char* outDir = std::getenv("LATEX_OUT");
+    auto save = [&](const char* name, const std::string& code) {
+        if (!outDir) return;
+        std::ofstream(std::string(outDir) + "/" + name + ".tex") << code;
+    };
+    auto noColors = [](const std::string& code) {
+        for (const char* c : {"red", "blue", "green", "yellow", "orange", "cyan", "magenta"})
+            if (code.find(c) != std::string::npos) return false;
+        return true;
+    };
+
+    // Default 3D scene: vectors, matrix, eigenvectors -> 3D axis with arrows and labels
+    Scene sc;
+    sc.evaluate();
+    latex::Options opt;
+    latex::Result r = latex::exportLatex(sc.space(SpaceKind::Euclidean3D), sc.selection(SpaceKind::Euclidean3D), opt);
+    CHECK(!r.flat);
+    CHECK(r.exported >= 7);
+    CHECK(r.code.find("\\begin{tikzpicture}") != std::string::npos);
+    CHECK(r.code.find("view={25}{30}") != std::string::npos);
+    CHECK(r.code.find("\\vec{a}") != std::string::npos);
+    CHECK(r.code.find("\\lambda") != std::string::npos);
+    CHECK(r.code.find("\\usepackage{pgfplots}") != std::string::npos);  // preamble in a comment
+    CHECK(r.code.find("\\documentclass") == std::string::npos);
+    CHECK(noColors(r.code));
+    opt.standalone = true;
+    save("scene3d", latex::exportLatex(sc.space(SpaceKind::Euclidean3D), sc.selection(SpaceKind::Euclidean3D), opt).code);
+
+    // Only flat objects -> 2D axis; selection scope
+    Scene flat;
+    Space& d = flat.space(SpaceKind::Euclidean3D);
+    d.clear();
+    auto* fn = flat.add(SpaceKind::Euclidean3D, "function", "f");
+    fn->setField("f", "sin(x)");
+    auto* im = flat.add(SpaceKind::Euclidean3D, "implicit", "g");
+    im->setField("f", "x^2/9 + y^2/4 - 1");
+    auto* ve = static_cast<VectorObject*>(flat.add(SpaceKind::Euclidean3D, "vector", "v"));
+    ve->setField("x", "2");
+    ve->setField("y", "1");
+    flat.add(SpaceKind::Euclidean3D, "parameter", "k");
+    flat.evaluate();
+    r = latex::exportLatex(d, flat.selection(SpaceKind::Euclidean3D), latex::Options{});
+    CHECK(r.flat);
+    CHECK(r.exported == 3);
+    CHECK(r.skipped.size() == 1);  // the parameter
+    CHECK(r.code.find("\\addlegendentry{$y = f(x)$}") != std::string::npos);
+    CHECK(r.code.find("view=") == std::string::npos);
+    CHECK(r.code.find("solid") != std::string::npos && r.code.find("dashed") != std::string::npos);
+    latex::Options sopt;
+    sopt.standalone = true;
+    sopt.grid = true;
+    save("flat", latex::exportLatex(d, flat.selection(SpaceKind::Euclidean3D), sopt).code);
+    flat.selection(SpaceKind::Euclidean3D).set(ve->id());
+    latex::Options selOpt;
+    selOpt.scope = latex::Scope::Selection;
+    r = latex::exportLatex(d, flat.selection(SpaceKind::Euclidean3D), selOpt);
+    CHECK(r.exported == 1);
+    CHECK(latex::styleIndexOf(d, flat.selection(SpaceKind::Euclidean3D), latex::Scope::Visible, ve->id()) == 2);
+
+    // Surface: mesh rows match the samples
+    Scene surf;
+    surf.space(SpaceKind::Euclidean3D).clear();
+    auto* sf = surf.add(SpaceKind::Euclidean3D, "surface", "S");
+    sf->setField("f", "sin(sqrt(x^2 + y^2))");
+    surf.evaluate();
+    latex::Options so;
+    so.surfaceSamples = 20;
+    r = latex::exportLatex(surf.space(SpaceKind::Euclidean3D), surf.selection(SpaceKind::Euclidean3D), so);
+    CHECK(!r.flat);
+    CHECK(r.code.find("mesh/rows=21") != std::string::npos);
+    CHECK(r.code.find("faceted color=black") != std::string::npos);
+    so.standalone = true;
+    save("surface", latex::exportLatex(surf.space(SpaceKind::Euclidean3D), surf.selection(SpaceKind::Euclidean3D), so).code);
+    so.grayShading = true;
+    save("surface_gray", latex::exportLatex(surf.space(SpaceKind::Euclidean3D), surf.selection(SpaceKind::Euclidean3D), so).code);
+
+    // Complex plane: always 2D, unit circle, labels as math
+    r = latex::exportLatex(sc.space(SpaceKind::Complex), sc.selection(SpaceKind::Complex), latex::Options{});
+    CHECK(r.flat);
+    CHECK(r.code.find("z_{1}") != std::string::npos);
+    CHECK(r.code.find("unit circle") != std::string::npos);
+    latex::Options co;
+    co.standalone = true;
+    save("complex", latex::exportLatex(sc.space(SpaceKind::Complex), sc.selection(SpaceKind::Complex), co).code);
+
+    // A curve in 3D
+    Scene cv;
+    cv.space(SpaceKind::Euclidean3D).clear();
+    cv.add(SpaceKind::Euclidean3D, "curve", "c");
+    cv.evaluate();
+    latex::Options cvo;
+    cvo.standalone = true;
+    save("curve", latex::exportLatex(cv.space(SpaceKind::Euclidean3D), cv.selection(SpaceKind::Euclidean3D), cvo).code);
+}
+
 void testReference() {
     using namespace expr;
     // Every example compiles; those that need no objects evaluate without errors
@@ -1107,6 +1248,8 @@ int main() {
         {"Blend functions", testBlendFunctions},
         {"Scene time", testSceneTime},
         {"Reference", testReference},
+        {"Contour", testContour},
+        {"LaTeX export", testLatexExport},
         {"Usability", testUsability},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},

@@ -1,4 +1,5 @@
 #include "rendering/PlotRenderer.hpp"
+#include "math/Contour.hpp"
 #include "rendering/Labels.hpp"
 #include "rendering/WorldMapping.hpp"
 #include "ui/core/Theme.hpp"
@@ -454,52 +455,11 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
         }
     }
 
-    // Marching squares. Corners: 0 = (i,j), 1 = (i+1,j), 2 = (i+1,j+1), 3 = (i,j+1).
-    // Edges: 0 = bottom (0-1), 1 = right (1-2), 2 = top (2-3), 3 = left (3-0).
-    for (int j = 0; j < ny; j++) {
-        for (int i = 0; i < nx; i++) {
-            double c[4] = {v[idx(i, j)], v[idx(i + 1, j)], v[idx(i + 1, j + 1)], v[idx(i, j + 1)]};
-            if (!std::isfinite(c[0]) || !std::isfinite(c[1]) || !std::isfinite(c[2]) || !std::isfinite(c[3]))
-                continue;
-            Vector3 p[4] = {{xAt(i), yAt(j), 0}, {xAt(i + 1), yAt(j), 0},
-                            {xAt(i + 1), yAt(j + 1), 0}, {xAt(i), yAt(j + 1), 0}};
-
-            int mask = (c[0] > 0) | ((c[1] > 0) << 1) | ((c[2] > 0) << 2) | ((c[3] > 0) << 3);
-            if (mask == 0 || mask == 15) continue;
-
-            auto edgePoint = [&](int e) {
-                int a = e, b = (e + 1) % 4;
-                double t = c[a] / (c[a] - c[b]);
-                return Vector3{
-                    static_cast<float>(p[a].x + (p[b].x - p[a].x) * t),
-                    static_cast<float>(p[a].y + (p[b].y - p[a].y) * t),
-                    0.0f,
-                };
-            };
-            auto emit = [&](int e0, int e1) {
-                Vector3 a = edgePoint(e0), b = edgePoint(e1);
-                m_curve.push_back({mathToWorld(a.x, a.y, kLift), mathToWorld(b.x, b.y, kLift), curveColor(spec)});
-            };
-
-            double center = (c[0] + c[1] + c[2] + c[3]) / 4.0;
-            switch (mask) {
-                case 1: case 14: emit(3, 0); break;
-                case 2: case 13: emit(0, 1); break;
-                case 3: case 12: emit(3, 1); break;
-                case 4: case 11: emit(1, 2); break;
-                case 6: case 9:  emit(0, 2); break;
-                case 7: case 8:  emit(3, 2); break;
-                case 5:  // corners 0 and 2 positive
-                    if (center > 0) { emit(0, 1); emit(2, 3); }
-                    else            { emit(3, 0); emit(1, 2); }
-                    break;
-                case 10: // corners 1 and 3 positive
-                    if (center > 0) { emit(3, 0); emit(1, 2); }
-                    else            { emit(0, 1); emit(2, 3); }
-                    break;
-                default: break;
-            }
-        }
+    // Level-zero contour (math/Contour)
+    for (const ContourSegment& seg : marchingSquares(v, nx, ny, spec.xMin, spec.xMax, spec.yMin, spec.yMax)) {
+        m_curve.push_back({mathToWorld(static_cast<float>(seg.x0), static_cast<float>(seg.y0), kLift),
+                           mathToWorld(static_cast<float>(seg.x1), static_cast<float>(seg.y1), kLift),
+                           curveColor(spec)});
     }
 }
 
