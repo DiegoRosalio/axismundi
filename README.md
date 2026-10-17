@@ -17,10 +17,11 @@ and worked calculations.
   reported on the objects involved.
 - **Parameters** are named numbers (θ, k, …) usable in any formula, so they can turn a rotation matrix,
   reshape a surface or move e^(iθ) around the circle. Each one is driven in one of three ways:
-  - a **slider**;
-  - an **animation** from min to max: once, loop or ping-pong, with an easing curve (ease in/out, sine,
-    back, elastic, bounce, steps) and a duration;
+  - a **slider**, static, for morphing by hand (e.g. `lerp(eye(3), M, s)`);
+  - an **animation** that follows the scene clock from min to max: once, loop or ping-pong, with an easing
+    curve (ease in/out, sine, back, elastic, bounce, steps), a duration and a start delay;
   - a **formula of time** `t`, such as `pi/4*cos(2t)`, which may use other objects.
+- One **Time panel** plays, pauses and scrubs the scene clock for everything at once.
 - The **Add menu** offers templates for the current selection: sum, difference, cross product and projection
   of two vectors, M·v, the eigenvectors, inverse or transpose of a matrix, A·B, z₁·z₂, conjugates…
 - Undo/redo covers every change (Ctrl+Z / Ctrl+Y).
@@ -45,8 +46,6 @@ and worked calculations.
 - **Transformation breakdown** (B): the selected matrix as *rotate → stretch → rotate (→ move)*, played step
   by step.
 - **Calculation steps** (K): worked calculations with the selected objects' numbers.
-- **Animation**: morph from the identity to the selected matrix, rotation and scaling presets, keyframes,
-  with the same repeat styles and easing curves as parameters.
 - **Tutorial** (F1): 11 lessons with tasks that are checked as you work, including adding objects, formulas
   and parameters.
 - **Example gallery** (E): about 20 ready-made scenes.
@@ -77,7 +76,8 @@ Fields accept:
   - `sin cos tan exp log sqrt abs …` (complex-aware);
   - vectors: `dot cross norm normalize`;
   - matrices: `det tr inv transpose rotx roty rotz rot(axis, angle) scale translate eye`;
-  - complex numbers: `conj re im arg polar`.
+  - complex numbers: `conj re im arg polar`;
+  - blending: `lerp(a, b, s)` (any value kind), `keys(s, A, B, …)`, and `mod(a, b)`.
 
 `M*v` applies a matrix to a vector (4×4 matrices treat v as a point), and `M*N` composes matrices.
 
@@ -118,7 +118,7 @@ make build
 make run                       # build and run
 ./bin/linalg_viz --theme light # start with the light theme
 ./bin/linalg_viz --size 1280x720
-make test                      # math, animation and explanation unit tests (no raylib needed)
+make test                      # math, expressions, scene, playback and explanation tests (no raylib needed)
 ```
 
 ### Controls
@@ -139,7 +139,7 @@ window to exit.
 | Ctrl+Z / Ctrl+Y | Undo / redo (UI mode) |
 | I / R / S / X / F | Presets for the selected matrix (S in UI mode) |
 | F1 / E / K / B / M | Tutorial / gallery / calculation steps / breakdown / analysis |
-| P | Play / pause the matrix animation |
+| P | Play / pause the scene clock (Time panel) |
 | H | Help with all shortcuts |
 | T | Dark / light theme |
 | Ctrl+= / Ctrl+− / Ctrl+0 | Bigger / smaller / default UI size |
@@ -167,7 +167,7 @@ Shortcuts are ignored while a text field is being edited.
     │   └── expr/             #   breakdown, worked explanations; typed expression engine
     ├── scene/                # object model: objects, spaces, dependencies, undo, files
     ├── view/                 # SceneView: draws the objects of a space
-    ├── animation/            # Playback (repeat styles, easing) and Animator
+    ├── animation/            # Playback (repeat styles, easing)
     ├── edu/                  # tutorial lessons and gallery examples
     ├── rendering/            # grid, arrows, plots, camera, labels
     ├── ui/                   # side bar (objects + inspector), panels, popovers, widgets

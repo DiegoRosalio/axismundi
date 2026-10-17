@@ -14,6 +14,7 @@ bool near(float a, float b, float tol = 0.02f) { return std::fabs(a - b) <= tol;
 // The default picture in the 3D space, with M selected and the analysis open
 void fresh3D(App& app) {
     app.setMode(AppMode::Space3D);
+    app.restartTime(false);
     app.resetScene();
     app.select("M");
     if (auto* p = app.panel("analysis")) p->setVisible(true);
@@ -188,10 +189,10 @@ std::vector<Lesson> build() {
          "Put 5 in a diagonal cell of a diagonal matrix.", "matrix.grid"},
     }});
 
-    list.push_back({"Parameters", "Sliders that drive formulas", {
+    list.push_back({"Parameters and time", "Sliders, animations and the scene clock", {
         {"A slider in a formula",
          "theta is a parameter: a named number with a slider. Here M is defined by the formula rotz(theta), so "
-         "M, and everything that uses it, turns when theta changes.",
+         "M, and everything that uses it, turns when theta changes. A slider is static: it stays where you put it.",
          [](App& app) {
              fresh3D(app);
              app.addObject(AppMode::Space3D, "parameter", "theta", {}, {{"value", "0.5"}, {"min", "0"}, {"max", "6.2832"}});
@@ -202,26 +203,28 @@ std::vector<Lesson> build() {
              }
              app.select("theta");
          },
-         "Press Play on theta and watch the scene turn.",
+         "Drag theta's slider and watch the scene turn.",
          [](App& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
              return p && std::fabs(p->number() - 0.5) > 0.2;
          },
-         "The play button is in theta's inspector. Dragging the slider works too.", "parameter.play"},
-        {"Repeat and easing",
-         "Playing switched theta to Animate: it runs from min to max. Ping-pong runs back and forth, and the easing "
-         "curve shapes the motion (Ease in-out starts and stops gently, Bounce bounces at the end).",
-         nullptr, "Choose Ping-pong and a different easing for theta.",
+         "The slider is in theta's inspector, under the mode switch.", "parameter.slider"},
+        {"Animate with the clock",
+         "Set to Animate, a parameter follows the scene clock from min to max. Ping-pong runs back and forth, and the "
+         "easing curve shapes the motion (Ease in-out starts and stops gently, Bounce bounces at the end). The Time "
+         "panel plays, pauses and scrubs the clock for everything at once.",
+         nullptr, "Switch theta to Animate, choose Ping-pong and an easing, then press Play in the Time panel (or P).",
          [](App& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
-             if (!p) return false;
+             if (!p || p->mode() != scene::ParameterObject::Mode::Animate) return false;
              Playback pb = p->playback();
-             return pb.repeat == Repeat::PingPong && pb.easing != Easing::Linear;
+             return pb.repeat == Repeat::PingPong && pb.easing != Easing::Linear && app.scene().timeline().playing;
          },
-         "Both are in theta's inspector, under the range, when the mode is Animate.", "parameter.easing"},
+         "The mode switch is at the top of theta's inspector; the repeat style and easing appear under the range.",
+         "parameter.mode"},
         {"A formula of time",
-         "A parameter can also be a formula of t, its own clock in seconds. pi/4*sin(2t) swings back and forth "
-         "between ±45°; t/2 grows forever.",
+         "A parameter can also be a formula of t, the scene time in seconds. pi/4*sin(2t) swings back and forth "
+         "between ±45°; t/2 grows as long as the clock runs. Drag the Time panel's scrubber to see any moment.",
          nullptr, "Switch theta to Formula and type a formula that uses t, e.g. pi/4*sin(2t).",
          [](App& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
@@ -229,7 +232,27 @@ std::vector<Lesson> build() {
              const scene::Field* f = p->field("formula");
              return f && f->program.valid();
          },
-         "The mode switch is at the top of theta's inspector. Press Play if the clock is paused.", "parameter.mode"},
+         "The mode switch is at the top of theta's inspector.", "parameter.mode"},
+        {"Morph with a slider",
+         "lerp(A, B, s) blends from A (s = 0) to B (s = 1). Here N = lerp(eye(3), S, s): the identity morphs into the "
+         "shear S as the static slider s moves. The Add menu builds this for any selected matrix, vector or "
+         "complex number.",
+         [](App& app) {
+             fresh3D(app);
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "matrix", "S", {{"value", "[[1, 1.5, 0], [0, 1, 0], [0, 0, 1]]"}},
+                           {{"mode", "formula"}});
+             app.addObject(AppMode::Space3D, "parameter", "s", {}, {{"value", "0"}, {"min", "0"}, {"max", "1"}});
+             app.addObject(AppMode::Space3D, "matrix", "N", {{"value", "lerp(eye(3), S, s)"}}, {{"mode", "formula"}});
+             if (auto* sm = app.object("S")) sm->visible = false;
+             app.select("s");
+         },
+         "Drag s to 1 and watch the basis shear.",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::ParameterObject*>(app.object("s"));
+             return p && p->number() > 0.9;
+         },
+         "The slider is in s's inspector.", "parameter.slider"},
     }});
 
     list.push_back({"Breaking a matrix down", "Rotate, stretch, rotate", {

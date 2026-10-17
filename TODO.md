@@ -42,7 +42,8 @@
 - [x] Implement timeline scrubber
 - [x] Create animation presets (rotation, scaling, morph)
 - [x] Add animation speed control
-- [x] Support keyframe-based animations
+- [x] Support keyframe-based animations (now `keys(s, ...)` formulas)
+- [x] One scene clock (Time panel) for all time-driven parameters; morphs as `lerp` formulas
 
 ### Matrix Operations
 - [x] Display determinant value

@@ -11,7 +11,7 @@
 │ ▾ Inspector  │                                         │  ...         │          │
 │ ▾ VIEW       │    floating panels: Tutorial, Gallery,  └──────────────┘          │
 │              │    Calculation steps, Breakdown, ...                              │
-│  side bar    │  ● UI mode · status        ┌── Animation ──────────────┐          │
+│  side bar    │  ● UI mode · status        ┌── Time ───────────────────┐          │
 │  (scrolls)   │                            └───────────────────────────┘          │
 └──────────────┴───────────────────────────────────────────────────────────────────┘
 ```
@@ -70,7 +70,7 @@ Each space has its own list of objects. The side bar shows:
 | Matrix | 3D | Cells (3×3 / 4×4, presets) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
 | Function / Curve / Surface / Implicit | 3D | Expressions in x, y, t; ranges; Detail per unit; Heat map; Next example |
-| Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration; play, restart |
+| Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration, start delay |
 | Complex number | complex | Value; circle, cos/sin projections, helix options; length and angle |
 | Product | complex | Two factors; rotation and scaling construction; length and angle breakdown |
 
@@ -82,7 +82,8 @@ Every field is a formula. It can use other objects in the same space by name. Av
 - `sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil atan2 min max`;
 - vectors: `dot cross norm normalize`;
 - matrices: `det tr inv transpose rotx roty rotz rot(axis, angle) scale translate eye`;
-- complex numbers: `conj re im arg polar`.
+- complex numbers: `conj re im arg polar`;
+- blending: `lerp(a, b, s)`, `keys(s, A, B, …)`; and `mod(a, b)`.
 
 `M*v` applies a matrix to a vector (a 4×4 matrix treats v as a point); `M*N` composes; `M^-1` inverts.
 Plots use `x`, `y` and `t` as their variables. Names must start with a letter and cannot be built-in names.
@@ -92,17 +93,36 @@ red summary in the list for errors such as unknown names, wrong types or circula
 ### Parameters
 A parameter is a named number that can be used in any formula. The switch at the top of its inspector picks
 how it is driven:
-- **Slider**: set it by hand within its range.
-- **Animate**: Play runs it from min to max.
+- **Slider**: set it by hand within its range. It is static: time does not move it. Use it to morph things by
+  hand, e.g. `lerp(eye(3), M, s)` blends the identity into M as `s` goes from 0 to 1.
+- **Animate**: follows the scene clock from min to max.
   - **Once** stops at the end, **Loop** starts again, **Ping-pong** runs back and forth.
   - The **easing** button opens a grid of curves: Linear, Ease in, Ease out, Ease in-out, Sine, Back
     (overshoots), Elastic, Bounce and Steps. Hover one to read what it does.
-  - The slider next to it sets the duration of one run.
-- **Formula**: the value is a formula of `t`, the parameter's own clock in seconds, and may use other objects.
-  Examples: `2pi*t/5` (one turn every 5 s), `pi/4*sin(2t)`, `1 + k*cos(t)`. Play / pause runs the clock,
-  restart sets t back to 0, and "Wrap t after" can restart it periodically.
+  - The slider next to it sets the duration of one run; **Start at** delays it, so parameters can move one
+    after another.
+- **Formula**: the value is a formula of `t`, the scene time in seconds, and may use other objects.
+  Examples: `2pi*t/5` (one turn every 5 s), `pi/4*sin(2t)`, `1 + k*cos(t)`, `mod(t, 3)` (restarts every 3 s).
 
-Pressing Play on a slider switches it to Animate. Several parameters can play at once.
+Animate and Formula parameters show the current `t` and a link to the Time panel.
+
+### Time panel
+One clock for the whole scene, shared by both spaces:
+- **Play / pause** (P), **Restart** (back to t = 0), and a **scrubber**: dragging it shows any moment, because
+  time-driven parameters are computed from the time rather than stepped frame by frame.
+- **Speed** (0.1× to 4×) and **Loop** (start again at the end, or stop there).
+- **Length**: Auto uses the longest Once or Ping-pong animation (start delay included), or 10 s; click Auto
+  to set a length by hand.
+- The list of time-driven parameters in the current space, with their mode and current value; click one to
+  select it.
+
+The clock is saved with the scene. Undo never moves it.
+
+### Morphing
+`lerp(A, B, s)` blends any two values of the same kind (numbers, complex numbers, vectors, matrices); a plain
+`0` stands for zero, so `lerp(0, v, s)` grows v from nothing. `keys(s, A, B, C, …)` runs through several values
+as s goes from 0 to 1. The Add menu builds these for the selection: **Morph from identity** (a matrix),
+**Grow from zero** (a vector or complex number) and **Blend** (two objects), each with a new slider `s`.
 
 ### Plot detail
 **Detail** is set per unit of the range: samples per unit of x (functions) or t (curves), and grid cells per
@@ -121,8 +141,8 @@ surface cells, 800 × 800 implicit cells), and the line says so when the cap app
 
 z points up and the floor grid is the xy-plane, the usual math convention, so vectors and surfaces
 `z = f(x, y)` agree. The axes are x (red), y (green), z (blue). Matrices are drawn as their moved basis on top
-of the faint original basis. The Animation panel morphs the selected matrix (or the first one) from the
-identity, with a repeat style (Once / Loop / Ping-pong) and an easing curve.
+of the faint original basis. To watch a matrix appear, morph it from the identity with a slider (Add →
+Morph from identity), or set that slider to Animate.
 
 The floor grid has a line every unit and a stronger one every 5 units, and fades out at its edge. **Grid size**
 in the View section sets how far it reaches (±5 to ±100 units).

@@ -66,7 +66,7 @@ src/
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
   view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache
-  animation/          NO raylib: Playback (0..1 run: Once/Loop/PingPong + 9 easings, save/load), Animator
+  animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
   rendering/          Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
                       VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
@@ -75,7 +75,7 @@ src/
                       Layout, Icons, FloatingPanel + PanelManager
   ui/                 ScenePanel (objects list + inspector), AddMenu (types + templates from the
                       selection), Widgets, TopBar, SideBar, ViewPanel, InfoPanel (analysis of the
-                      selection), AnimationPanel, StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
+                      selection), TimePanel (scene clock), StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
                       SettingsPopover, ColorPopover, HelpOverlay, SceneIO, Preferences, RayguiImpl.cpp
   ui/generated/       fonts.inc (embedded fonts, subset; codepoint list)
   include/<area>/     headers mirror the folders above
@@ -92,11 +92,19 @@ docs/screenshots/     images for the docs, produced by --tour
   topological, cycles and missing names become object errors, `changedAt()` tells views what to redraw.
 - `Scene::commit()` after each user change pushes an undo snapshot (the whole scene serialized).
 - 3D space uses math coordinates with z up; draw with `mathToWorld()` (rendering/WorldMapping.hpp).
+- **Time**: `Scene::Timeline` (time, playing, speed, loop, length; 0 = auto from the longest Once/PingPong
+  animation) is the only clock. `Scene::advance(dt)` moves it; `Scene::evaluate()` calls
+  `SceneObject::setTime()` on every object first. It is saved in files (`time.*`) but left out of undo
+  snapshots (`save(data, false)`), so undo never rewinds time. There is no Animator any more.
 - `SceneObject::provideSlots(expr::Slots&)` lets an object feed x/y/t to its own (non-plot) fields;
-  ParameterObject uses it for its clock t (Formula mode). Time-dependent objects can reuse it.
-- Parameters: `mode` prop slider|animate|formula; Animate state lives in props `anim.*` (via
-  `Playback::save/load` + `anim.phase`/`anim.direction`). Old files with `speed`/`loop` are converted in
-  `Scene::restore`.
+  ParameterObject uses it for t = scene time (Formula mode). Time-dependent objects can reuse it.
+- Parameters: `mode` prop slider|animate|formula. Slider is static. Animate is a pure function of the time
+  (`animatedValue(t)` from props `anim.repeat/easing/duration/start`), so scrubbing works. Old files: per-
+  parameter clocks (`playing`, `clock`, `period`, `speed`, `loop`, `anim.phase`) are dropped in
+  `Scene::restore` and a playing parameter starts the timeline; old Animation-panel keyframes become
+  `K = keys(s, ...)` (`App::convertOldKeyframes`).
+- Morphs are formulas: `lerp(a, b, s)` (any value kind, `0` = zero of the other kind), `keys(s, ...)`.
+  Add menu templates with `AddChoice::helperParameter` create a slider `s` first and substitute `$s`.
 - Plots: `density` prop = samples (cells) per unit; `PlotObject::samples()` gives capped counts, which
   SceneView passes to `PlotRenderer` as `samplesX/Y`. Old `resolution` props are converted after loading
   (`Scene::convertOldPlots`). PlotRenderer uploads meshes once per change (indexed surface bands under
@@ -142,7 +150,7 @@ Saving/loading is automatic (fields and props are serialized generically).
 - **Theme colors** are read at draw time; the plot cache in SceneView rebuilds when the theme or an
   object's color changes.
 - Scenes (`scene.txt`, F5/F9) hold both spaces' objects (format v2; v1 files are converted), camera,
-  view and keyframes; preferences (`~/.config/axismundi/settings.txt`) hold theme, zoom, toggles, panel
+  view and the timeline; preferences (`~/.config/axismundi/settings.txt`) hold theme, zoom, toggles, panel
   layout, finished lessons, window size. Both use the `key = value` format from `SceneIO`.
 
 ## Git workflow
@@ -159,8 +167,15 @@ Saving/loading is automatic (fields and props are serialized generically).
 
 Measured under xvfb with Mesa llvmpipe (software rendering, so real GPUs are far faster): a 400×400
 surface (161k vertices, indexed) draws in ~57 ms/frame (unindexed it was ~140 ms); rebuilding it takes
-~0.2 s, which happens every frame if a playing parameter feeds the surface. Wireframe lines are still
+~0.2 s, which happens every frame if a time-driven parameter feeds the surface while the clock plays. Wireframe lines are still
 drawn per frame (capped at ~60 lines × ~150 segments per direction).
+
+## Tutorials
+
+Lesson steps have `setup`/`check`; App calls `TutorialPanel::update` every frame while the tutorial panel is
+visible (this call was lost once, silently disabling every lesson). After changing lessons, walk them: a
+temporary tour loop that enters each step, applies a scripted solution through the App API and logs
+whether `check` passes (and does not pass before the solution) caught that regression.
 
 ## Not yet verified
 

@@ -91,6 +91,20 @@ std::vector<Example> build() {
                         app.select("theta");
                         app.restartTime(true);
                     }});
+    list.push_back({"Morph to a matrix (slider)", C::Matrices,
+                    "N = lerp(I, A, s) blends the identity into A as you drag the static slider s from 0 to 1. "
+                    "Switch s to Animate to let the scene clock do it.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "matrix", "A",
+                                      {{"value", "[[1.5, 0.8, 0], [-0.4, 1, 0], [0, 0.5, 1.2]]"}}, {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0.35"}, {"min", "0"}, {"max", "1"}});
+                        app.addObject(AppMode::Space3D, "matrix", "N", {{"value", "lerp(eye(3), A, s)"}},
+                                      {{"mode", "formula"}});
+                        if (auto* a = app.object("A")) a->visible = false;
+                        app.select("s");
+                    }});
     list.push_back({"Stretch back and forth", C::Matrices,
                     "s runs from 0.5 to 2 and back (ping-pong) with an ease-in-out curve. M = diag(s, 1/s, 1) "
                     "stretches one way and squeezes the other, so areas stay the same: det M = 1.",

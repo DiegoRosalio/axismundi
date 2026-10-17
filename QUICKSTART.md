@@ -32,9 +32,13 @@ make run
 
 Add a **Parameter**, give it a name like `theta`, and use it in any formula, for example a matrix
 `rotz(theta)` or a surface `sin(theta*x)`. A parameter can be:
-- a **Slider**;
-- an **Animation** (Play): once, loop or ping-pong, with an easing curve;
+- a **Slider** (static: it stays where you put it);
+- **Animate**: follows the scene clock, once, loop or ping-pong, with an easing curve;
 - a **Formula** of time `t`, such as `pi/4*cos(2t)`.
+
+The **Time panel** (P to play or pause) runs the clock for everything at once and can be scrubbed. To morph
+something by hand, select it and use Add → Morph from identity / Grow from zero: you get a slider `s` and a
+`lerp` formula.
 
 Plot **Detail** is per unit of the range, so wide plots stay smooth. **Grid size** (View section) makes the
 floor grid larger.
@@ -51,7 +55,7 @@ floor grid larger.
 - **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form).
 - **B** Breakdown: the selected matrix as rotate → stretch → rotate, step by step.
 - **K** Calculation steps: worked calculations with your numbers.
-- **P** animates from the identity to the selected matrix.
+- **P** plays or pauses the scene clock (Time panel).
 
 ## Make it yours
 
