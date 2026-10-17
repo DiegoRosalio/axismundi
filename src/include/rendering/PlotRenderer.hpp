@@ -24,7 +24,8 @@ struct PlotSpec {
     float xMin = -5.0f, xMax = 5.0f;
     float yMin = -5.0f, yMax = 5.0f;
     float tMin = 0.0f, tMax = 12.566f;
-    int resolution = 60;
+    int samplesX = 300;            // samples (or cells) along x, or along t for curves
+    int samplesY = 60;             // cells along y (surfaces, implicit curves)
     bool heatmap = true;
     Color color = {0, 0, 0, 0};    // without heat map (alpha 0: theme color)
 };
@@ -33,8 +34,15 @@ struct PlotSpec {
 //
 // Coordinates follow the 3D space convention (z up, see WorldMapping.hpp):
 // 2D plots (y = f(x), implicit curves) lie on the floor, the xy-plane.
+// Geometry is uploaded to the GPU once per rebuild (surfaces, heat maps and
+// curve tubes are meshes), so dense plots stay cheap to draw every frame.
 class PlotRenderer {
 public:
+    PlotRenderer() = default;
+    ~PlotRenderer();
+    PlotRenderer(const PlotRenderer&) = delete;
+    PlotRenderer& operator=(const PlotRenderer&) = delete;
+
     // Re-evaluate the spec. Returns false and sets error() if it is invalid.
     // `resolver` supplies other names used in the expressions (parameters).
     bool rebuild(const PlotSpec& spec, const expr::Resolver* resolver = nullptr);
@@ -53,15 +61,25 @@ public:
     // Map an RGB heat ramp (blue -> cyan -> green -> yellow -> red), t in [0, 1]
     static Color heatColor(float t);
 
+    size_t vertexCount() const;  // GPU vertices of the meshes (for the inspector)
+
 private:
     struct Segment {
         Vector3 a, b;
         Color color;
     };
-    struct Triangle {
-        Vector3 a, b, c;
-        Color color;
+    // Triangles collected on the CPU, then uploaded as one mesh
+    struct MeshData {
+        std::vector<float> positions;
+        std::vector<unsigned char> colors;
+        std::vector<unsigned short> indices;  // empty: plain triangle list
+        void add(Vector3 p, Color c);
+        size_t count() const { return positions.size() / 3; }
     };
+    void addTube(MeshData& mesh, Vector3 a, Vector3 b, float radius, Color color) const;
+    // Upload to the GPU and keep the mesh in m_meshes; frees the CPU data
+    void upload(MeshData& data);
+    void releaseMeshes();
 
     const expr::Resolver* m_resolver = nullptr;
     double eval(const Expression& e, double x, double y, double t) const {
@@ -73,9 +91,11 @@ private:
     void buildImplicit(const PlotSpec& spec, const Expression& f);
 
     PlotType m_type = PlotType::Function2D;
-    std::vector<Segment> m_curve;      // thick lines (curves)
-    std::vector<Segment> m_wireframe;  // thin lines
-    std::vector<Triangle> m_triangles;
+    std::vector<Segment> m_curve;      // thick lines (curves), built into a tube mesh
+    std::vector<Segment> m_wireframe;  // thin lines, drawn as lines
+    MeshData m_triangles;              // heat map background (plain triangles)
+    size_t m_filled = 0;               // triangles collected (surface + heat map)
+    std::vector<Mesh> m_meshes;        // GPU meshes: surface chunks, heat map, tubes
     float m_minValue = 0.0f;
     float m_maxValue = 0.0f;
     std::string m_error;

@@ -51,6 +51,7 @@ public:
 private:
     void restore(const SceneData& data);
     void loadV1(const SceneData& data);
+    void convertOldPlots();
 
     Space m_spaces[kSpaceCount] = {Space(SpaceKind::Euclidean3D), Space(SpaceKind::Complex)};
     Selection m_selections[kSpaceCount];

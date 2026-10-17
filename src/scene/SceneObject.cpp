@@ -119,6 +119,10 @@ void SceneObject::setProp(const std::string& key, const std::string& value) {
     m_dirty = true;
 }
 
+void SceneObject::removeProp(const std::string& key) {
+    if (m_props.erase(key)) m_dirty = true;
+}
+
 void SceneObject::setProp(const std::string& key, double value) {
     char buf[32];
     snprintf(buf, sizeof(buf), "%.9g", value);

@@ -143,6 +143,8 @@ bool Scene::load(const SceneData& data, std::string& error) {
     }
     if (version < 2) {
         loadV1(data);
+        evaluate();
+        convertOldPlots();
     } else {
         restore(data);
     }
@@ -201,6 +203,18 @@ void Scene::restore(const SceneData& data) {
             if (const SceneObject* o = sp.find(n)) m_selections[s].ids.push_back(o->id());
     }
     evaluate();
+    convertOldPlots();
+}
+
+void Scene::convertOldPlots() {
+    bool any = false;
+    for (auto& sp : m_spaces)
+        for (const auto& o : sp.objects())
+            if (auto* p = dynamic_cast<PlotObject*>(o.get()); p && p->props().count("resolution")) {
+                p->convertOldResolution();
+                any = true;
+            }
+    if (any) evaluate();
 }
 
 void Scene::loadV1(const SceneData& data) {

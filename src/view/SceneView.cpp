@@ -152,7 +152,9 @@ void SceneView::updatePlots(scene::Space& space) {
         spec.yMax = static_cast<float>(p->rangeValue("ymax", 5));
         spec.tMin = static_cast<float>(p->rangeValue("tmin", 0));
         spec.tMax = static_cast<float>(p->rangeValue("tmax", 6.28f));
-        spec.resolution = p->resolution();
+        scene::PlotObject::Samples samples = p->samples();
+        spec.samplesX = samples.nx;
+        spec.samplesY = samples.ny;
         spec.heatmap = p->heatmap();
         spec.color = (p->customColor || p->paletteIndex > 0) ? color : Color{0, 0, 0, 0};
         cache.renderer.rebuild(spec, &space);

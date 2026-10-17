@@ -640,6 +640,55 @@ void testScene() {
     sc.evaluate();
     CHECK(d.find("Ma")->changedAt() > before);  // change propagated
 
+    // Plot detail per unit
+    {
+        Scene ps;
+        Space& e = ps.space(SpaceKind::Euclidean3D);
+        auto* f = static_cast<PlotObject*>(ps.add(SpaceKind::Euclidean3D, "function", "f"));
+        f->setField("xmin", "-5");
+        f->setField("xmax", "5");
+        f->setDensity(30);
+        ps.evaluate();
+        CHECK(f->samples().nx == 300);
+        f->setField("xmax", "15");  // twice the range, twice the samples
+        ps.evaluate();
+        CHECK(f->samples().nx == 600);
+        CHECK(!f->samples().capped);
+        f->setField("xmax", "2000");
+        ps.evaluate();
+        CHECK(f->samples().capped && f->samples().nx == PlotObject::densityRange(PlotObject::Kind::Function).cap);
+        auto* sf = static_cast<PlotObject*>(ps.add(SpaceKind::Euclidean3D, "surface", "S"));
+        sf->setField("xmin", "-2");
+        sf->setField("xmax", "2");
+        sf->setField("ymin", "0");
+        sf->setField("ymax", "1");
+        sf->setDensity(10);
+        ps.evaluate();
+        CHECK(sf->samples().nx == 40 && sf->samples().ny == 10);
+        sf->setDensity(1000);  // clamped to the slider range
+        CHECK_NEAR(sf->density(), PlotObject::densityRange(PlotObject::Kind::Surface).max, 1e-9);
+        // Old files: resolution 60 on a surface over 12 units -> 5 cells per unit
+        SceneData data;
+        sf->setField("xmin", "-6");
+        sf->setField("xmax", "6");
+        sf->setField("ymin", "-6");
+        sf->setField("ymax", "6");
+        ps.evaluate();
+        ps.save(data);
+        for (auto it = data.begin(); it != data.end();)
+            it = it->first.find(".prop.density") != std::string::npos ? data.erase(it) : std::next(it);
+        for (auto& [key, v] : data)
+            if (v == "S" && key.size() > 5 && key.compare(key.size() - 5, 5, ".name") == 0)
+                data[key.substr(0, key.size() - 4) + "prop.resolution"] = "60";
+        Scene old;
+        std::string err;
+        CHECK(old.load(data, err));
+        auto* s2 = static_cast<PlotObject*>(old.space(SpaceKind::Euclidean3D).find("S"));
+        CHECK(s2 && !s2->props().count("resolution"));
+        if (s2) CHECK_NEAR(s2->density(), 5.0, 1e-9);
+        (void)e;
+    }
+
     // Parameter modes
     {
         Scene ps;

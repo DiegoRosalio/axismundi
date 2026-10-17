@@ -122,6 +122,14 @@ void Tour::buildSteps() {
 
     // --- Plots ----------------------------------------------------------------------
     step("14_plot_ripple_slider", [](App& app) { runExample(app, "Ripple with a slider"); });
+    step("14b_plot_wide_dense", [](App& app) {
+        app.clearSpace(AppMode::Space3D);
+        app.addObject(AppMode::Space3D, "surface", "S",
+                      {{"f", "2sin(sqrt(x^2 + y^2))/(1 + 0.05(x^2 + y^2))"}, {"xmin", "-20"}, {"xmax", "20"},
+                       {"ymin", "-20"}, {"ymax", "20"}},
+                      {{"density", "12"}});
+        app.setCameraView({22, 18, 26}, {0, 0, 0});
+    }, 40);
     step("15_plot_implicit", [](App& app) { runExample(app, "Lemniscate"); });
     step("16_plot_curve", [](App& app) {
         runExample(app, "Trefoil knot");

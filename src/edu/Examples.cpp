@@ -193,7 +193,7 @@ std::vector<Example> build() {
                         plotScene(app, "curve",
                                   {{"x", "sin(t) + 2sin(2t)"}, {"y", "cos(t) - 2cos(2t)"}, {"z", "-sin(3t)"}, {"tmin", "0"},
                                    {"tmax", "2pi"}},
-                                  {{"resolution", "80"}});
+                                  {{"density", "80"}});
                     }});
     list.push_back({"Lemniscate", C::Plots, "(x² + y²)² = 8(x² − y²): a figure eight found as an implicit curve.",
                     [](App& app) {
@@ -204,7 +204,7 @@ std::vector<Example> build() {
     list.push_back({"Damped wave", C::Plots, "y = 3e^(−x²/10) cos(3x): a wave inside a shrinking envelope.",
                     [](App& app) {
                         plotScene(app, "function", {{"f", "3exp(-x^2/10) cos(3x)"}, {"xmin", "-8"}, {"xmax", "8"}},
-                                  {{"resolution", "80"}});
+                                  {{"density", "40"}});
                     }});
     return list;
 }

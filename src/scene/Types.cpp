@@ -1,5 +1,6 @@
 #include "scene/Types.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 
@@ -215,7 +216,7 @@ PlotObject::PlotObject(Kind kind) : SceneObject(kind == Kind::Function ? "functi
                                                 : kind == Kind::Surface ? "surface"
                                                                         : "implicit"),
                                     m_kind(kind) {
-    setProp("resolution", 60.0);
+    setProp("density", densityRange(kind).defaultValue);
     setProp("heatmap", true);
     switch (kind) {
         case Kind::Function:
@@ -245,6 +246,76 @@ PlotObject::PlotObject(Kind kind) : SceneObject(kind == Kind::Function ? "functi
             addField("ymax", "y to", Expect::Number, "5");
             break;
     }
+}
+
+PlotObject::DensityRange PlotObject::densityRange(Kind kind) {
+    switch (kind) {
+        case Kind::Function: return {2, 200, 30, 20000};
+        case Kind::Curve: return {5, 200, 40, 20000};
+        case Kind::Surface: return {1, 40, 6, 400};
+        case Kind::Implicit: return {2, 60, 10, 800};
+    }
+    return {1, 100, 10, 1000};
+}
+
+double PlotObject::density() const {
+    DensityRange r = densityRange(m_kind);
+    return std::clamp(propNumber("density", r.defaultValue), r.min, r.max);
+}
+
+void PlotObject::setDensity(double perUnit) {
+    DensityRange r = densityRange(m_kind);
+    setProp("density", std::clamp(perUnit, r.min, r.max));
+}
+
+PlotObject::Samples PlotObject::samples() const {
+    DensityRange r = densityRange(m_kind);
+    double d = density();
+    auto count = [&](const char* lo, const char* hi, double a, double b, int minimum) {
+        double span = rangeValue(hi, b) - rangeValue(lo, a);
+        if (!(span > 0.0) || !std::isfinite(span)) span = 1.0;
+        double n = std::ceil(span * d);
+        return static_cast<int>(std::clamp(n, static_cast<double>(minimum), 1e7));
+    };
+    Samples s;
+    switch (m_kind) {
+        case Kind::Function: s.wantedX = count("xmin", "xmax", -5, 5, 8); break;
+        case Kind::Curve: s.wantedX = count("tmin", "tmax", 0, 6.28, 8); break;
+        case Kind::Surface:
+        case Kind::Implicit:
+            s.wantedX = count("xmin", "xmax", -5, 5, 2);
+            s.wantedY = count("ymin", "ymax", -5, 5, 2);
+            break;
+    }
+    s.nx = std::min(s.wantedX, r.cap);
+    s.ny = std::min(s.wantedY, r.cap);
+    s.capped = s.nx < s.wantedX || s.ny < s.wantedY;
+    return s;
+}
+
+void PlotObject::convertOldResolution() {
+    auto it = props().find("resolution");
+    if (it == props().end()) return;
+    double res = std::atof(it->second.c_str());
+    if (res <= 0) res = 60;
+    auto span = [&](const char* lo, const char* hi, double a, double b) {
+        double v = rangeValue(hi, b) - rangeValue(lo, a);
+        return v > 0 ? v : 1.0;
+    };
+    // The old sample counts for each kind, spread over the range
+    double perUnit = 0;
+    switch (m_kind) {
+        case Kind::Function: perUnit = std::max(100.0, res * 6) / span("xmin", "xmax", -5, 5); break;
+        case Kind::Curve: perUnit = std::max(200.0, res * 10) / span("tmin", "tmax", 0, 6.28); break;
+        case Kind::Surface:
+            perUnit = std::clamp(res, 4.0, 200.0) / std::max(span("xmin", "xmax", -5, 5), span("ymin", "ymax", -5, 5));
+            break;
+        case Kind::Implicit:
+            perUnit = std::clamp(res * 2, 20.0, 300.0) / std::max(span("xmin", "xmax", -5, 5), span("ymin", "ymax", -5, 5));
+            break;
+    }
+    setDensity(std::round(perUnit * 10) / 10);
+    removeProp("resolution");
 }
 
 double PlotObject::rangeValue(const char* key, double fallback) const {

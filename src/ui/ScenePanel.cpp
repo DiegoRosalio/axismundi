@@ -533,14 +533,37 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
 
         Rectangle row = col.row(30.0f);
         Rectangle label = ui::takeLeft(row, 52.0f, 8.0f);
-        Rectangle value = ui::takeRight(row, 30.0f, 8.0f);
+        Rectangle value = ui::takeRight(row, 64.0f, 8.0f);
         ui::textIn(label, "Detail", ui::FontRole::Body, t.text);
-        float res = static_cast<float>(p.resolution());
-        if (ui::slider(row, res, 10.0f, 100.0f)) {
-            p.setProp("resolution", std::round(static_cast<double>(res)));
+        auto dr = scene::PlotObject::densityRange(p.kind());
+        float density = static_cast<float>(p.density());
+        if (ui::slider(row, density, static_cast<float>(dr.min), static_cast<float>(dr.max))) {
+            p.setDensity(density < 10 ? std::round(density * 2) / 2.0 : std::round(static_cast<double>(density)));
             m_sliderDirty = true;
         }
-        ui::textIn(value, std::to_string(p.resolution()).c_str(), ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+        ui::anchor("plot.detail", row);
+        bool grid2D = type == "surface" || type == "implicit";
+        char dbuf[48];
+        snprintf(dbuf, sizeof(dbuf), "%g/unit", p.density());
+        ui::textIn(value, dbuf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+        ui::tooltip({label.x, row.y, value.x + value.width - label.x, row.height},
+                    grid2D ? "Grid cells per unit of x and y. A wider range keeps the same smoothness."
+                           : (curve ? "Samples per unit of t. A longer range keeps the same smoothness."
+                                    : "Samples per unit of x. A wider range keeps the same smoothness."),
+                    "Detail");
+        scene::PlotObject::Samples sm = p.samples();
+        char sbuf[128];
+        if (grid2D) {
+            if (sm.capped)
+                snprintf(sbuf, sizeof(sbuf), "%d × %d cells (capped from %d × %d for speed)", sm.nx, sm.ny, sm.wantedX,
+                         sm.wantedY);
+            else
+                snprintf(sbuf, sizeof(sbuf), "%d × %d cells", sm.nx, sm.ny);
+        } else {
+            if (sm.capped) snprintf(sbuf, sizeof(sbuf), "%d samples (capped from %d for speed)", sm.nx, sm.wantedX);
+            else snprintf(sbuf, sizeof(sbuf), "%d samples", sm.nx);
+        }
+        note(col, sbuf, sm.capped ? t.warning : t.textFaint);
         bool heat = p.heatmap();
         if (ui::toggleRow(col.row(30), "Heat map", heat)) {
             p.setProp("heatmap", heat);

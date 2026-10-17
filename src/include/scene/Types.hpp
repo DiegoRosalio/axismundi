@@ -89,10 +89,28 @@ public:
     enum class Kind { Function, Curve, Surface, Implicit };
     explicit PlotObject(Kind kind);
     Kind kind() const { return m_kind; }
-    int resolution() const { return static_cast<int>(propNumber("resolution", 60)); }
     bool heatmap() const { return propBool("heatmap", true); }
     // Range values after evaluation (fields can be expressions such as -pi)
     double rangeValue(const char* key, double fallback) const;
+
+    // Detail = samples per unit of the plotted range (cells per unit for surfaces
+    // and implicit curves), so a wider range keeps the same smoothness.
+    struct DensityRange {
+        double min, max, defaultValue;
+        int cap;  // most samples along one axis, for speed
+    };
+    static DensityRange densityRange(Kind kind);
+    double density() const;
+    void setDensity(double perUnit);
+    struct Samples {
+        int nx = 0, ny = 0;          // samples (cells) along x (or t) and y; ny = 0 for 1D plots
+        int wantedX = 0, wantedY = 0;  // before the cap
+        bool capped = false;
+    };
+    Samples samples() const;  // uses the evaluated ranges
+    // Files from before per-unit detail stored a total "resolution"; convert it
+    // to a density for the current ranges (call after evaluation).
+    void convertOldResolution();
 
 protected:
     expr::Value computeValue() const override;

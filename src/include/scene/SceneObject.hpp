@@ -80,6 +80,7 @@ public:
     void setProp(const std::string& key, const std::string& value);
     void setProp(const std::string& key, double value);
     void setProp(const std::string& key, bool value);
+    void removeProp(const std::string& key);
     const std::map<std::string, std::string>& props() const { return m_props; }
 
     // --- Evaluation --------------------------------------------------------------
