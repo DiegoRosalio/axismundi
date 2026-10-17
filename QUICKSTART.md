@@ -10,8 +10,10 @@ make run
 
 ## First minute
 
-1. The app starts in **camera mode**: move the mouse to look around, W A S D to move.
-2. Press **Esc** (or **Tab**) to get the cursor back (**UI mode**). Esc never closes the app.
+1. The app starts with an **empty scene** and the cursor free (**UI mode**). Click **Add** (or press N) to create
+   an object, **Demo scene** for a ready-made set, or **Open…** (F9) for a saved scene.
+2. **Tab** switches to **camera mode**: move the mouse to look around, W A S D to move. **Esc** (or Tab) gives
+   the cursor back. Esc never closes the app.
 3. Press **F1** (or the book icon in the top bar) and pick **Getting around**. The tutorial walks you through
    the rest, one small task at a time.
 4. Press **E** for the example gallery and click any card.
@@ -65,6 +67,9 @@ floor grid larger.
 
 - **T** switches between the dark and light theme; **Ctrl+=** / **Ctrl+−** change the interface size.
 - Drag panels by their title bar; collapse or close them with the buttons on the right.
-- **F5** saves the scene to `scene.txt`, **F9** loads it. **F12** saves a screenshot.
+- **Ctrl+S** / **F5** saves the scene (the first time it asks for a name), **Ctrl+Shift+S** saves under a new
+  name, **Ctrl+O** / **F9** opens a scene file (with recent files), **New** clears both spaces. Opening and
+  New can be undone. **F12** saves a screenshot.
+- Matrix presets add up: Rotate 45° then Scale 2× gives scale·rotate. **Identity** starts over.
 
 See [UI_GUIDE.md](UI_GUIDE.md) for details.

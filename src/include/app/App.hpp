@@ -12,6 +12,7 @@
 #include "ui/AppMode.hpp"
 #include "ui/BreakdownPanel.hpp"
 #include "ui/ColorPopover.hpp"
+#include "ui/FileDialog.hpp"
 #include "ui/GalleryPanel.hpp"
 #include "ui/HelpOverlay.hpp"
 #include "ui/InfoPanel.hpp"
@@ -119,8 +120,14 @@ public:
     ReferencePanel& referencePanel() { return m_referencePanel; }
     bool addMenuOpen() const { return m_addMenu.isOpen(); }
 
-    void saveScene();
-    void loadScene();
+    void saveScene();     // to the current file (asks for a name the first time)
+    void saveSceneAs();   // opens the Save dialog
+    void loadScene();     // opens the Open dialog
+    void newScene();      // empty both spaces (undoable)
+    void writeScene(const std::string& path);
+    void readScene(const std::string& path);
+    const std::string& currentFile() const { return m_currentFile; }
+    FileDialog& fileDialog() { return m_fileDialog; }
     // Screenshot at the end of this frame (sceneOnly hides the UI)
     void requestScreenshot(bool sceneOnly);
 
@@ -152,6 +159,8 @@ private:
     view::DrawOptions drawOptions() const;
 
     void convertOldKeyframes(const SceneData& data);
+    std::string currentFolder() const;
+    void rememberFile(const std::string& path);
     void loadPreferences(SceneData& prefs);
     void applyPreferences(const SceneData& prefs);
     void savePreferences();
@@ -193,6 +202,10 @@ private:
     ui::FloatingPanel m_referenceWindow;
     ReferencePanel m_referencePanel;
     float m_referenceHeight = 0.0f;
+    FileDialog m_fileDialog;
+    std::string m_currentFile;               // scene file of the last save / open
+    std::string m_lastFolder;                // where the file dialog starts
+    std::vector<std::string> m_recentFiles;  // most recent first
     ui::PanelManager m_panels;
     float m_analysisHeight = 0.0f;
     float m_animationHeight = 0.0f;

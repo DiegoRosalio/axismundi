@@ -148,7 +148,14 @@ void Scene::resetToDefault() {
     m_undo.clear();
     m_redo.clear();
     m_committed.clear();
-    save(m_committed);
+    save(m_committed, false);
+}
+
+void Scene::loadDefaultScene() {
+    SceneData previous = m_committed;
+    resetToDefault();
+    m_committed = previous;
+    commit();  // one undo step back to what was there
 }
 
 void Scene::save(SceneData& data, bool withTimeline) const {
@@ -366,6 +373,21 @@ void Scene::commit() {
     if (m_undo.size() > kMaxHistory) m_undo.erase(m_undo.begin());
     m_redo.clear();
     m_committed = now;
+}
+
+void Scene::clearHistory() {
+    m_undo.clear();
+    m_redo.clear();
+    m_committed.clear();
+    save(m_committed, false);
+}
+
+void Scene::clearAll() {
+    for (int s = 0; s < kSpaceCount; s++) {
+        m_spaces[s].clear();
+        m_selections[s].clear();
+    }
+    evaluate();
 }
 
 void Scene::undo() {

@@ -257,6 +257,16 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
     ui::anchor("objects.add", add);
     if (!m_showObjects) return col.y() + ui::px(6.0f);
 
+    if (space.objects().empty()) {
+        note(col, "No objects yet. Click Add (or press N), pick an example in the gallery (E), or open a saved "
+                  "scene (F9).", t.textMuted);
+        Rectangle demo = col.row(30.0f);
+        if (ui::button(demo, "Demo scene", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) m_requests.loadDemo = true;
+        ui::tooltip(demo, "A matrix M, vectors a and b and a few vectors computed from them (both spaces). "
+                          "Ctrl+Z goes back.", "Demo scene");
+        ui::anchor("objects.demo", demo);
+        col.space(4.0f);
+    }
     Rectangle listArea = {col.x(), col.y(), col.width(), 0};
     bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
     for (const auto& obj : space.objects()) {
@@ -299,9 +309,6 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
         }
         ui::tooltip(eye, o.visible ? "Hide" : "Show");
         if (hasError) ui::tooltip(row, o.error().c_str(), o.name().c_str());
-    }
-    if (space.objects().empty()) {
-        note(col, "Nothing here yet. Use Add to create a vector, a matrix, a plot...", t.textMuted);
     }
     ui::anchor("objects.list", listArea);
     col.space(8.0f);
@@ -456,11 +463,14 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
             // Presets
             struct Preset { const char* label; const char* key; Matrix3D value; const char* tip; };
             const Preset presets[] = {
-                {"Identity", "I", Matrix3D::identity(), "Leaves every vector where it is. det = 1."},
-                {"Rotate 45°", "R", Matrix3D::rotation(kPi / 4), "45° about the z-axis. Lengths and angles are kept (det = 1)."},
-                {"Scale 2×", "S", Matrix3D::scale(2, 2), "Doubles x and y, keeps z (det = 4)."},
-                {"Shear", "X", Matrix3D::shear(0.5f, 0), "x' = x + 0.5 y: squares become parallelograms (det = 1)."},
-                {"Reflect", "F", Matrix3D::scale(-1, 1), "x' = −x: a mirror image (det = −1)."},
+                {"Identity", "I", Matrix3D::identity(), "Start over: back to the identity, which leaves every vector "
+                                                        "where it is."},
+                {"Rotate 45°", "R", Matrix3D::rotation(kPi / 4), "Adds a 45° turn about the z-axis on top of the "
+                                                                 "current matrix (det unchanged)."},
+                {"Scale 2×", "S", Matrix3D::scale(2, 2), "Then doubles x and y, keeping z (det × 4)."},
+                {"Shear", "X", Matrix3D::shear(0.5f, 0), "Then x' = x + 0.5 y: squares become parallelograms (det "
+                                                        "unchanged)."},
+                {"Reflect", "F", Matrix3D::scale(-1, 1), "Then x' = −x: a mirror image (det changes sign)."},
             };
             col.space(2.0f);
             Rectangle presetArea = {col.x(), col.y(), col.width(), 0};
@@ -472,13 +482,7 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
                     const Preset& p = presets[i + k];
                     if (ui::button(cells[k], p.label, ui::ButtonKind::Secondary, true, ui::Icon::None, p.key)) {
                         m_activeId = -1;
-                        m.setSize(3);
-                        for (int r = 0; r < 3; r++)
-                            for (int c = 0; c < 3; c++) {
-                                char buf[32];
-                                formatNumber(buf, sizeof(buf), p.value.m[r][c]);
-                                m.setField(scene::MatrixObject::cellKey(r, c), buf);
-                            }
+                        m.applyPreset(p.value);  // on top of the current matrix; Identity starts over
                         commit();
                     }
                     ui::tooltip(cells[k], p.tip, p.label);

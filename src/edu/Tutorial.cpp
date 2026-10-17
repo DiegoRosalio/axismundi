@@ -145,13 +145,22 @@ std::vector<Lesson> build() {
          "Top-left cell 0, the cell below it 1, the bottom-left cell 0.", "matrix.grid"},
         {"A rotation",
          "Rotations keep lengths and angles. Their columns are unit vectors at right angles to each other.",
-         nullptr, "Apply the Rotate 45° preset.",
+         nullptr, "Start over with Identity, then apply Rotate 45°.",
          [](App& app, const TutorialContext&) {
              Matrix4D m = app.matrix();
              return near(m.m[0][0], 0.7071f, 0.01f) && near(m.m[1][0], 0.7071f, 0.01f) &&
                     near(m.m[0][1], -0.7071f, 0.01f);
          },
-         "Click Rotate 45° in the inspector or press R.", "preset.rotate"},
+         "Identity (I) resets the matrix; Rotate 45° (R) then turns it.", "preset.rotate"},
+        {"Presets add up",
+         "Each preset is applied on top of the current matrix: rotate, then scale gives scale·rotate. Two 45° "
+         "turns make a quarter turn.",
+         nullptr, "Apply Rotate 45° once more, so the x-axis lands on the y-axis.",
+         [](App& app, const TutorialContext&) {
+             Matrix4D m = app.matrix();
+             return near(m.m[0][0], 0.0f, 0.01f) && near(m.m[1][0], 1.0f, 0.01f) && near(m.m[0][1], -1.0f, 0.01f);
+         },
+         "Press R again. Scale 2× (S) or Reflect (F) now would act on the turned matrix.", "preset.rotate"},
     }});
 
     list.push_back({"The determinant", "How volumes change", {

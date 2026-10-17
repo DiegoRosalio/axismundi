@@ -30,7 +30,7 @@ and worked calculations.
 ### Two spaces
 - **3D space** (key 1), with the math convention that z is up and the floor is the xy-plane. It holds:
   - vectors (by components or by formula, with an optional start point);
-  - 3×3 / 4×4 matrices (by cells with presets, or by formula) drawn as the moved basis;
+  - 3×3 / 4×4 matrices (by cells with presets that add up, or by formula) drawn as the moved basis;
   - eigenvector sets;
   - plots: `y = f(x)`, curves `(x(u), y(u), z(u))`, surfaces `z = f(x, y)` and implicit curves
     `f(x, y) = 0`, with heat maps. Detail is set **per unit** (e.g. 30 samples per unit), so a wider range
@@ -59,8 +59,9 @@ and worked calculations.
   embedded fonts and real math symbols.
 - Dark and light themes (T), floating panels you can drag, collapse and close, fullscreen (F11),
   screenshots (F12).
-- Preferences in `~/.config/axismundi/settings.txt`; scenes saved and loaded with F5 / F9 (`scene.txt`,
-  older scene files are converted automatically).
+- Preferences in `~/.config/axismundi/settings.txt`. Scenes are saved and opened through a file dialog
+  (folders, recent files, Save as); older scene files are converted automatically. The app starts with an
+  empty scene; **Demo scene** loads a ready-made one.
 
 | | |
 |---|---|
@@ -141,7 +142,7 @@ window to exit.
 | N | Add an object |
 | Del / Ctrl+D | Delete / duplicate the selection |
 | Ctrl+Z / Ctrl+Y | Undo / redo (UI mode) |
-| I / R / S / X / F | Presets for the selected matrix (S in UI mode) |
+| I / R / S / X / F | Presets for the selected matrix, applied on top of it (I starts over; S in UI mode) |
 | F1 / E / K / B / M | Tutorial / gallery / calculation steps / breakdown / analysis |
 | P | Play / pause the scene clock (Time panel) |
 | H | Help with all shortcuts |
@@ -149,7 +150,8 @@ window to exit.
 | Ctrl+= / Ctrl+− / Ctrl+0 | Bigger / smaller / default UI size |
 | F11 / F12 | Fullscreen / screenshot (Shift+F12: 3D view only) |
 | C / G / L | Reset camera / grid / labels |
-| F5 / F9 | Save / load `scene.txt` |
+| Ctrl+S or F5 / Ctrl+Shift+S | Save / save as |
+| Ctrl+O or F9 | Open a scene file |
 | Enter / Tab | Confirm field / next field |
 
 Shortcuts are ignored while a text field is being edited.

@@ -38,13 +38,13 @@ const Entry kPanels[] = {
     {"K", "Calculation steps"},
     {"B", "Transformation breakdown"},
     {"F12", "Screenshot (Shift: 3D view only)"},
-    {"F5|F9", "Save / load scene.txt"},
+    {"Ctrl+S|Ctrl+O", "Save / open a scene (F5 / F9)"},
 };
 
 const Entry kEdit[] = {
     {"N", "Add an object"},
     {"Del|Ctrl+D", "Delete / duplicate the selection"},
-    {"I|R|S|X|F", "Matrix presets (S in UI mode)"},
+    {"I|R|S|X|F", "Matrix presets, added on top (I resets)"},
     {"Ctrl+Z|Ctrl+Y", "Undo / redo (UI mode)"},
     {"P", "Play / pause the scene clock"},
     {"Click", "Select (Ctrl+click: add to selection)"},

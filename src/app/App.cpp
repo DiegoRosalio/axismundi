@@ -14,6 +14,7 @@
 #include <raymath.h>
 #include <rlgl.h>
 #include <algorithm>
+#include <filesystem>
 #include <sstream>
 #include <cmath>
 #include <ctime>
@@ -87,8 +88,12 @@ App::App(const AppOptions& options)
 
     if (!options.tourDir.empty()) m_tour = std::make_unique<Tour>(options.tourDir);
 
-    // Start in camera mode (cursor captured), except during the tour
-    if (!m_tour) DisableCursor();
+    // Start with an empty scene and the cursor free, ready to add objects. The
+    // tour keeps the demo scene so its screenshots stay reproducible.
+    if (!m_tour) {
+        m_scene.clearAll();
+        m_scene.clearHistory();
+    }
 }
 
 App::~App() {
@@ -136,7 +141,7 @@ void App::clearSpace(AppMode mode) {
 
 void App::resetScene() {
     m_scenePanel.cancelEditing();
-    m_scene.resetToDefault();
+    m_scene.loadDefaultScene();
 }
 
 void App::setMatrix3(const Matrix3D& m) {
@@ -193,14 +198,9 @@ void App::applyMatrixPreset(const Matrix3D& m) {
         setMatrix3(m);
         return;
     }
-    obj->setByFormula(false);
-    obj->setSize(3);
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++) {
-            char buf[32];
-            formatNumber(buf, sizeof(buf), m.m[i][j]);
-            obj->setField(scene::MatrixObject::cellKey(i, j), buf);
-        }
+    m_scene.evaluate();  // presets compose with the matrix's current value
+    obj->applyPreset(m);
+    m_scene.evaluate();
     m_scene.commit();
 }
 
@@ -328,6 +328,49 @@ EigenResult App::eigen() const {
 // --- Scenes ----------------------------------------------------------------------
 
 void App::saveScene() {
+    if (m_currentFile.empty()) {
+        saveSceneAs();
+        return;
+    }
+    writeScene(m_currentFile);
+}
+
+void App::saveSceneAs() {
+    closePopovers();
+    std::string name = m_currentFile.empty() ? std::string(kSceneFile)
+                                             : std::filesystem::path(m_currentFile).filename().string();
+    m_fileDialog.open(FileDialog::Mode::Save, currentFolder(), name, m_recentFiles);
+}
+
+void App::loadScene() {
+    closePopovers();
+    m_fileDialog.open(FileDialog::Mode::Open, currentFolder(), "", m_recentFiles);
+}
+
+std::string App::currentFolder() const {
+    if (!m_currentFile.empty()) return std::filesystem::path(m_currentFile).parent_path().string();
+    return m_lastFolder;
+}
+
+void App::rememberFile(const std::string& path) {
+    m_currentFile = path;
+    m_lastFolder = std::filesystem::path(path).parent_path().string();
+    m_recentFiles.erase(std::remove(m_recentFiles.begin(), m_recentFiles.end(), path), m_recentFiles.end());
+    m_recentFiles.insert(m_recentFiles.begin(), path);
+    if (m_recentFiles.size() > 6) m_recentFiles.resize(6);
+}
+
+void App::newScene() {
+    m_scenePanel.cancelEditing();
+    m_scene.timeline() = scene::Timeline{};
+    m_scene.clearAll();
+    m_scene.commit();  // undoable
+    m_currentFile.clear();
+    resetCamera();
+    toast("New scene (Ctrl+Z brings the previous one back)");
+}
+
+void App::writeScene(const std::string& path) {
     SceneData data;
     m_scene.save(data);
     putInt(data, "mode", static_cast<int>(m_mode));
@@ -341,8 +384,12 @@ void App::saveScene() {
     m_viewPanel.saveState(data);
 
     std::string error;
-    if (saveSceneFile(kSceneFile, data, error)) toast(std::string("Scene saved to ") + kSceneFile);
-    else toast("Save failed: " + error, true);
+    if (saveSceneFile(path, data, error)) {
+        rememberFile(path);
+        toast("Saved " + std::filesystem::path(path).filename().string());
+    } else {
+        toast("Save failed: " + error, true);
+    }
 }
 
 void App::convertOldKeyframes(const SceneData& data) {
@@ -394,11 +441,11 @@ void App::convertOldKeyframes(const SceneData& data) {
     toast("Old keyframes became the matrix " + k->name() + " = keys(" + s->name() + ", ...)");
 }
 
-void App::loadScene() {
+void App::readScene(const std::string& path) {
     SceneData data;
     std::string error;
-    if (!loadSceneFile(kSceneFile, data, error) || !m_scene.load(data, error)) {
-        toast("Load failed: " + error, true);
+    if (!loadSceneFile(path, data, error) || !m_scene.load(data, error)) {
+        toast("Could not open " + std::filesystem::path(path).filename().string() + ": " + error, true);
         return;
     }
     m_scenePanel.cancelEditing();
@@ -417,7 +464,8 @@ void App::loadScene() {
     m_camera.setView(p, t);
     convertOldKeyframes(data);
     m_viewPanel.loadState(data);
-    toast(std::string("Scene loaded from ") + kSceneFile);
+    rememberFile(path);
+    toast("Opened " + std::filesystem::path(path).filename().string() + " (Ctrl+Z goes back)");
 }
 
 // ---------------------------------------------------------------------------
@@ -440,6 +488,12 @@ void App::applyPreferences(const SceneData& prefs) {
     getBool(prefs, "ui.smooth_surfaces", m_uiSettings.smoothSurfaces);
     m_tutorialPanel.loadState(prefs);
     for (auto* p : m_panels.panels()) p->loadState(prefs);
+    getString(prefs, "files.folder", m_lastFolder);
+    m_recentFiles.clear();
+    for (int i = 0; i < 6; i++) {
+        std::string f;
+        if (getString(prefs, "files.recent." + std::to_string(i), f) && !f.empty()) m_recentFiles.push_back(f);
+    }
 }
 
 void App::savePreferences() {
@@ -455,6 +509,8 @@ void App::savePreferences() {
     }
     m_tutorialPanel.saveState(prefs);
     for (auto* p : m_panels.panels()) p->saveState(prefs);
+    if (!m_lastFolder.empty()) prefs["files.folder"] = m_lastFolder;
+    for (size_t i = 0; i < m_recentFiles.size(); i++) prefs["files.recent." + std::to_string(i)] = m_recentFiles[i];
     std::string error;
     Preferences::save(prefs, error);  // best effort: nothing useful to show while closing
 }
@@ -500,7 +556,7 @@ void App::takeScreenshot() {
 }
 
 bool App::isEditing() const {
-    return m_scenePanel.isEditing() || m_referencePanel.isEditing();
+    return m_scenePanel.isEditing() || m_referencePanel.isEditing() || m_fileDialog.isOpen();
 }
 
 void App::handleInput(float deltaTime) {
@@ -509,7 +565,10 @@ void App::handleInput(float deltaTime) {
     // Escape steps back one level: cancel an edit, close a popup or the help,
     // or leave camera mode (frees the mouse). It never quits the app.
     if (IsKeyPressed(KEY_ESCAPE)) {
-        if (editing) {
+        if (m_fileDialog.isOpen()) {
+            m_fileDialog.close();
+            editing = false;
+        } else if (editing) {
             m_scenePanel.cancelEditing();
             m_referencePanel.cancelEditing();
             editing = false;
@@ -567,7 +626,10 @@ void App::handleShortcuts(bool uiMode) {
     if (ctrl && IsKeyPressed(KEY_ZERO)) ui::setZoom(1.0f);
     if (IsKeyPressed(KEY_F11)) toggleFullscreen();
     if (IsKeyPressed(KEY_F12)) requestScreenshot(shift);
-    if (IsKeyPressed(KEY_F5)) saveScene();
+    if (IsKeyPressed(KEY_F5)) {
+        if (shift) saveSceneAs();
+        else saveScene();
+    }
     if (IsKeyPressed(KEY_F9)) loadScene();
     if (IsKeyPressed(KEY_F2)) {
         m_referenceWindow.toggle();
@@ -590,6 +652,11 @@ void App::handleShortcuts(bool uiMode) {
             m_scene.redo();
         }
         if (IsKeyPressed(KEY_D)) duplicateSelection();
+        if (IsKeyPressed(KEY_S)) {
+            if (shift) saveSceneAs();
+            else saveScene();
+        }
+        if (IsKeyPressed(KEY_O)) loadScene();
         return;
     }
 
@@ -647,7 +714,7 @@ void App::pickInViewport() {
     // Only clicks on the 3D view itself, not on panels or popovers
     if (mouse.x < SideBar::width() || mouse.y < TopBar::height()) return;
     if (m_panels.anyContains(mouse)) return;
-    if (m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen()) return;
+    if (m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen() || m_fileDialog.isOpen()) return;
 
     const Camera3D& cam = m_camera.camera();
     SpaceKind kind = spaceKind();
@@ -760,7 +827,8 @@ float App::viewportRight() const {
 void App::drawUi(float deltaTime) {
     // An open popover owns the mouse over its area
     Vector2 mouse = GetMousePosition();
-    bool popoverOwnsMouse = m_settingsPopover.contains(mouse) || m_colorPopover.contains(mouse) || m_addMenu.contains(mouse);
+    bool popoverOwnsMouse = m_fileDialog.isOpen() || m_settingsPopover.contains(mouse) ||
+                            m_colorPopover.contains(mouse) || m_addMenu.contains(mouse);
     bool wasLocked = GuiIsLocked();
     if (popoverOwnsMouse) GuiLock();
 
@@ -769,6 +837,7 @@ void App::drawUi(float deltaTime) {
     // Side bar: objects and inspector of the current space, then the view settings
     Rectangle area = m_sideBar.begin();
     float y = m_scenePanel.draw(area.x, area.y, area.width, m_scene, spaceKind(), m_sceneView);
+    m_viewPanel.setCurrentFile(m_currentFile);
     y = m_viewPanel.draw(area.x, y, area.width, m_mode);
     m_sideBar.end(y);
 
@@ -781,6 +850,10 @@ void App::drawUi(float deltaTime) {
         closePopovers();
         openColorPicker();
     }
+    if (requests.loadDemo) {
+        resetScene();
+        toast("Demo scene loaded (Ctrl+Z goes back)");
+    }
     if (requests.openReference) {
         m_referenceWindow.setVisible(true);
         m_panels.bringToFront(&m_referenceWindow);
@@ -792,7 +865,9 @@ void App::drawUi(float deltaTime) {
     if (!requests.message.empty()) toast(requests.message, requests.messageIsError);
     if (m_viewPanel.takeResetCameraRequest()) resetCamera();
     if (m_viewPanel.takeSaveRequest()) saveScene();
+    if (m_viewPanel.takeSaveAsRequest()) saveSceneAs();
     if (m_viewPanel.takeLoadRequest()) loadScene();
+    if (m_viewPanel.takeNewRequest()) newScene();
 
     drawFloatingPanels();
 
@@ -857,6 +932,10 @@ void App::drawUi(float deltaTime) {
     }
 
     drawTutorialHighlight();
+    if (m_fileDialog.draw()) {
+        if (m_fileDialog.mode() == FileDialog::Mode::Save) writeScene(m_fileDialog.path());
+        else readScene(m_fileDialog.path());
+    }
     drawToast(deltaTime);
     m_help.draw();
     ui::drawTooltip(m_uiSettings.tooltips && !m_help.visible());

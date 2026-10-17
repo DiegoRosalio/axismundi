@@ -71,7 +71,7 @@ Each space has its own list of objects. The side bar shows:
 | Type | Space | Inspector |
 |------|-------|-----------|
 | Vector | 3D | Components (x, y, z) or Formula; Starts at (tail point); length |
-| Matrix | 3D | Cells (3×3 / 4×4, presets) or Formula; determinant |
+| Matrix | 3D | Cells (3×3 / 4×4, presets that add up; Identity starts over) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
 | Function / Curve / Surface / Implicit | 3D | Expressions in x, y (u for curves) and t; ranges; Detail per unit; Heat map; Next example |
 | Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration, start delay |
@@ -176,7 +176,10 @@ reference. Each tab keeps its own camera.
 
 ## View section
 
-- Grid (G), Axes, Labels (L), Axis length, Grid size, Reset camera (C), Save (F5) / Load (F9) of `scene.txt`
+- Grid (G), Axes, Labels (L), Axis length, Grid size, Reset camera (C)
+- **New** (clear both spaces), **Open…** (Ctrl+O / F9), **Save** (Ctrl+S / F5; asks for a name the first time),
+  **Save as…** (Ctrl+Shift+S), and the current file name. The file dialog browses folders (scene files are
+  `.txt`), remembers recent files, and asks before replacing a file. Opening and New can be undone.
 - Object colors are set per object: click the color swatch next to the name in the inspector (presets, hex
   value, "Theme color" resets it).
 
@@ -205,4 +208,4 @@ color each, so the sample grid stays visible), tooltips, status overlay, reset p
 | Tutorial / gallery / steps / breakdown / analysis | F1 / E / K / B / M |
 | Theme / interface size | T / Ctrl+= Ctrl+− Ctrl+0 |
 | Help | H |
-| Save / load / screenshot | F5 / F9 / F12 |
+| Save / save as / open / screenshot | Ctrl+S (F5) / Ctrl+Shift+S / Ctrl+O (F9) / F12 |

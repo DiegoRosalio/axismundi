@@ -608,6 +608,63 @@ void testBlendFunctions() {
     CHECK(v.type == Type::Matrix);
 }
 
+void testUsability() {
+    using namespace scene;
+    Scene sc;
+    Space& d = sc.space(SpaceKind::Euclidean3D);
+    auto* m = static_cast<MatrixObject*>(d.find("M"));
+    sc.evaluate();
+    // Presets add up: rotate 45 twice = 90; then scale acts on the turned matrix
+    m->applyPreset(Matrix3D::rotation(3.14159265f / 4));
+    sc.evaluate();
+    m->applyPreset(Matrix3D::rotation(3.14159265f / 4));
+    sc.evaluate();
+    Matrix3D r = m->value().matrix3();
+    CHECK_NEAR(r.m[0][0], 0.0f, 1e-5f);
+    CHECK_NEAR(r.m[1][0], 1.0f, 1e-5f);
+    m->applyPreset(Matrix3D::scale(2, 2));
+    sc.evaluate();
+    r = m->value().matrix3();
+    CHECK_NEAR(r.m[1][0], 2.0f, 1e-5f);  // scale after rotate
+    CHECK_NEAR(r.m[2][2], 1.0f, 1e-6f);
+    // Identity starts over
+    m->applyPreset(Matrix3D::identity());
+    sc.evaluate();
+    CHECK_NEAR(m->value().matrix3().m[0][1], 0.0f, 1e-6f);
+    CHECK_NEAR(m->value().matrix3().m[1][1], 1.0f, 1e-6f);
+    // A formula matrix becomes cells holding the composed value
+    m->setByFormula(true);
+    m->setField("value", "scale(3)");
+    sc.evaluate();
+    m->applyPreset(Matrix3D::scale(-1, 1));
+    sc.evaluate();
+    CHECK(!m->byFormula());
+    CHECK_NEAR(m->value().matrix3().m[0][0], -3.0f, 1e-6f);
+    CHECK_NEAR(m->value().matrix3().m[1][1], 3.0f, 1e-6f);
+    // 4x4 matrices keep their translation
+    m->setByFormula(true);
+    m->setField("value", "translate(1, 2, 3)");
+    sc.evaluate();
+    m->applyPreset(Matrix3D::rotation(3.14159265f / 2));
+    sc.evaluate();
+    CHECK(m->value().size == 4);
+    CHECK_NEAR(m->value().matrix.m[0][3], -2.0f, 1e-5f);  // the rotation turns the translation too
+    CHECK_NEAR(m->value().matrix.m[2][3], 3.0f, 1e-5f);
+
+    // Empty start, clean history; the demo scene is one undo step
+    sc.clearAll();
+    sc.clearHistory();
+    CHECK(d.objects().empty() && !sc.canUndo());
+    sc.loadDefaultScene();
+    CHECK(d.find("M") && sc.canUndo());
+    sc.undo();
+    CHECK(d.objects().empty());
+    // New vectors have length 1
+    auto* v = sc.add(SpaceKind::Euclidean3D, "vector", "v");
+    sc.evaluate();
+    CHECK_NEAR(v->value().vector.magnitude(), 1.0f, 1e-6f);
+}
+
 void testReference() {
     using namespace expr;
     // Every example compiles; those that need no objects evaluate without errors
@@ -1050,6 +1107,7 @@ int main() {
         {"Blend functions", testBlendFunctions},
         {"Scene time", testSceneTime},
         {"Reference", testReference},
+        {"Usability", testUsability},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},

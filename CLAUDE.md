@@ -110,6 +110,11 @@ docs/screenshots/     images for the docs, produced by --tour
   parameter clocks (`playing`, `clock`, `period`, `speed`, `loop`, `anim.phase`) are dropped in
   `Scene::restore` and a playing parameter starts the timeline; old Animation-panel keyframes become
   `K = keys(s, ...)` (`App::convertOldKeyframes`).
+- **Startup**: App clears both spaces and the history (`Scene::clearAll/clearHistory`) except during the tour,
+  which keeps the demo scene (`Scene()` still builds it, and tests rely on that). `loadDefaultScene()` is the
+  undoable demo; `resetToDefault()` also resets the undo baseline.
+- **Matrix presets accumulate**: `MatrixObject::applyPreset(P)` writes P·(current value) into the cells
+  (identity starts over; 4×4 keeps its size). App re-evaluates before applying.
 - Morphs are formulas: `lerp(a, b, s)` (any value kind, `0` = zero of the other kind), `keys(s, ...)`.
   Add menu templates with `AddChoice::helperParameter` create a slider `s` first and substitute `$s`.
 - Plots: `density` prop = samples (cells) per unit; `PlotObject::samples()` gives capped counts, which
@@ -166,7 +171,8 @@ Saving/loading is automatic (fields and props are serialized generically).
 - **Anchors**: `ui::anchor("id", rect)` names a control so tutorial steps can highlight it.
 - **Theme colors** are read at draw time; the plot cache in SceneView rebuilds when the theme or an
   object's color changes.
-- Scenes (`scene.txt`, F5/F9) hold both spaces' objects (format v2; v1 files are converted), camera,
+- Scenes (saved through `ui/FileDialog`: Ctrl+S/F5, Ctrl+Shift+S, Ctrl+O/F9; current file and recent files in
+  App, recent list and last folder in preferences as `files.*`) hold both spaces' objects (format v2; v1 files are converted), camera,
   view and the timeline; preferences (`~/.config/axismundi/settings.txt`) hold theme, zoom, toggles, panel
   layout, finished lessons, window size. Both use the `key = value` format from `SceneIO`.
 

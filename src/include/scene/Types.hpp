@@ -65,6 +65,12 @@ public:
     void setByFormula(bool formula);
     bool fieldActive(const Field& f) const override;
     static std::string cellKey(int row, int col);
+    // Apply a preset on top of the current matrix (P·M), so presets add up:
+    // rotate, then scale gives scale·rotate. The identity starts over. The
+    // result is written as cells (a formula matrix becomes cells).
+    void applyPreset(const Matrix3D& preset);
+    // Write a matrix into the cells (size 3, or 4 with the full 4x4)
+    void setCells(const Matrix4D& m, int size);
 
 protected:
     expr::Value computeValue() const override;

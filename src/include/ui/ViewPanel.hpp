@@ -3,6 +3,7 @@
 #include "ui/AppMode.hpp"
 #include "ui/SceneIO.hpp"
 #include <raylib.h>
+#include <string>
 
 namespace linalg {
 
@@ -28,6 +29,10 @@ public:
     bool takeResetCameraRequest() { return take(m_resetCamera); }
     bool takeSaveRequest() { return take(m_save); }
     bool takeLoadRequest() { return take(m_load); }
+    bool takeSaveAsRequest() { return take(m_saveAs); }
+    bool takeNewRequest() { return take(m_new); }
+    // Shown under the file buttons ("" = not saved yet)
+    void setCurrentFile(const std::string& path) { m_currentFile = path; }
 
     void saveState(SceneData& data) const;
     void loadState(const SceneData& data);
@@ -39,6 +44,9 @@ private:
     bool m_resetCamera = false;
     bool m_save = false;
     bool m_load = false;
+    bool m_saveAs = false;
+    bool m_new = false;
+    std::string m_currentFile;
     bool m_expanded = true;
 };
 

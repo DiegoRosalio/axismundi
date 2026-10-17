@@ -135,6 +135,42 @@ void MatrixObject::setSize(int n) {
     setProp("size", static_cast<double>(n == 4 ? 4 : 3));
 }
 
+void MatrixObject::setCells(const Matrix4D& m, int n) {
+    setByFormula(false);
+    setSize(n);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+            float v = m.m[i][j];
+            if (std::fabs(v) < 1e-6f) v = 0.0f;  // no "-0" or float noise in the cells
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%.6g", v);
+            setField(cellKey(i, j), buf);
+        }
+}
+
+void MatrixObject::applyPreset(const Matrix3D& p) {
+    Matrix4D P = Matrix4D::identity();
+    bool identity = true;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) {
+            P.m[i][j] = p.m[i][j];
+            if (std::fabs(p.m[i][j] - (i == j ? 1.0f : 0.0f)) > 1e-9f) identity = false;
+        }
+    int n = size();
+    const expr::Value& v = value();
+    if (v.ok() && v.type == expr::Type::Matrix) n = v.size;
+    if (identity) {
+        setCells(Matrix4D::identity(), n);
+        return;
+    }
+    Matrix4D current = Matrix4D::identity();
+    if (v.ok() && v.type == expr::Type::Matrix) {
+        for (int i = 0; i < v.size; i++)
+            for (int j = 0; j < v.size; j++) current.m[i][j] = v.matrix.m[i][j];
+    }
+    setCells(P * current, n);
+}
+
 void MatrixObject::setByFormula(bool formula) {
     setProp("mode", std::string(formula ? "formula" : "cells"));
 }

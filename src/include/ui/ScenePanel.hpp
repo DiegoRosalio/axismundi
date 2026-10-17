@@ -17,6 +17,7 @@ struct ScenePanelRequests {
     Rectangle colorAnchor = {0, 0, 0, 0};
     bool openTime = false;       // "Time panel" link in a parameter's inspector
     bool openReference = false;  // formula reference button in the inspector header
+    bool loadDemo = false;       // "Demo scene" in the empty objects list
     std::string message;         // e.g. a rejected rename
     bool messageIsError = false;
 };

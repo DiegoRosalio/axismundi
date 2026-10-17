@@ -43,11 +43,23 @@ void Tour::buildSteps() {
     };
 
     // --- 3D space and objects ---------------------------------------------------
-    step("01_space_default", [](App& app) {
+    step("00_empty_start", [](App& app) {
         app.setUiMode(true);
         park();
         app.setMode(AppMode::Space3D);
+        app.newScene();
     });
+    step("00b_save_dialog", [](App& app) { app.saveSceneAs(); }, 15);
+    std::string dir = m_dir;
+    step("00c_save_and_open", [dir](App& app) {
+        // Round trip through a real file: save the demo scene, clear, open it again
+        app.fileDialog().close();
+        app.resetScene();
+        app.writeScene(dir + "/tour_scene.txt");
+        app.newScene();
+        app.readScene(dir + "/tour_scene.txt");
+    }, 15);
+    step("01_space_default", [](App& app) { app.resetScene(); });
     step("02_vector_inspector", [](App& app) { app.select("a"); });
     step("03_add_menu_templates", [](App& app) {
         app.select("a");
@@ -100,6 +112,12 @@ void Tour::buildSteps() {
         app.select("M");
         app.applyMatrixPreset(Matrix3D({{{{1, 1, 0}}, {{0, 1, 0}}, {{0, 0, 2}}}}));
     }, 30);
+    step("09a_presets_add_up", [](App& app) {
+        app.resetScene();
+        app.select("M");
+        app.applyMatrixPreset(Matrix3D::rotation(3.14159265f / 4));
+        app.applyMatrixPreset(Matrix3D::scale(2, 1));
+    }, 20);
     step("09b_static_morph", [](App& app) {
         // Add menu template: a static slider s and lerp(eye(3), M, s)
         app.clearSpace(AppMode::Space3D);

@@ -50,11 +50,23 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
     }
     ui::tooltip(reset, "Back to the default viewpoint for this mode.");
     auto cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
+    if (ui::button(cells[0], "New", ui::ButtonKind::Secondary, true, ui::Icon::Plus)) m_new = true;
+    if (ui::button(cells[1], "Open…", ui::ButtonKind::Secondary, true, ui::Icon::Load, "F9")) m_load = true;
+    ui::tooltip(cells[0], "Start an empty scene (both spaces). Ctrl+Z brings the previous one back.", "New scene");
+    ui::tooltip(cells[1], "Pick a scene file to open (Ctrl+O). Opening can be undone.", "Open scene");
+    ui::anchor("view.open", cells[1]);
+    cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
     if (ui::button(cells[0], "Save", ui::ButtonKind::Secondary, true, ui::Icon::Save, "F5")) m_save = true;
-    if (ui::button(cells[1], "Load", ui::ButtonKind::Secondary, true, ui::Icon::Load, "F9")) m_load = true;
-    ui::tooltip(cells[0], "Save matrices, vectors, plots, camera and keyframes to scene.txt in the current folder.",
-                "Save scene");
-    ui::tooltip(cells[1], "Load scene.txt from the current folder. Loading can be undone.", "Load scene");
+    if (ui::button(cells[1], "Save as…", ui::ButtonKind::Secondary, true)) m_saveAs = true;
+    ui::tooltip(cells[0], "Save objects, camera, view and the clock to the current file (Ctrl+S). The first time "
+                          "it asks for a name.", "Save scene");
+    ui::tooltip(cells[1], "Save under a new name or in another folder (Ctrl+Shift+S).", "Save as");
+    std::string file = m_currentFile.empty() ? std::string("Not saved yet")
+                                             : "File: " + m_currentFile.substr(m_currentFile.find_last_of("/\\") + 1);
+    Rectangle fileRow = col.row(18.0f);
+    ui::textIn(fileRow, ui::ellipsize(file.c_str(), ui::FontRole::Small, fileRow.width).c_str(), ui::FontRole::Small,
+               t.textFaint);
+    if (!m_currentFile.empty()) ui::tooltip(fileRow, m_currentFile.c_str(), "Current file");
     col.space(10.0f);
     return col.y();
 }
