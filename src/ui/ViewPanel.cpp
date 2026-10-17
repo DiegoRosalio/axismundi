@@ -3,6 +3,8 @@
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace linalg {
@@ -28,6 +30,18 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
     char lengthText[16];
     snprintf(lengthText, sizeof(lengthText), "%.1f", m_settings.axisLength);
     ui::textIn(value, lengthText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+
+    // Grid size
+    row = col.row(30);
+    label = ui::takeLeft(row, 92.0f, 8.0f);
+    value = ui::takeRight(row, 36.0f, 8.0f);
+    ui::textIn(label, "Grid size", ui::FontRole::Body, t.text);
+    if (ui::slider(row, m_settings.gridSize, 5.0f, 100.0f)) m_settings.gridSize = std::round(m_settings.gridSize);
+    ui::anchor("view.gridsize", row);
+    ui::tooltip({label.x, row.y, value.x + value.width - label.x, row.height},
+                "How far the grid reaches from the origin, in units. Lines every unit, stronger every 5.", "Grid size");
+    snprintf(lengthText, sizeof(lengthText), "±%.0f", m_settings.gridSize);
+    ui::textIn(value, lengthText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
     col.space(6.0f);
 
     Rectangle reset = col.row(ui::kRowHeight);
@@ -50,6 +64,7 @@ void ViewPanel::saveState(SceneData& data) const {
     putBool(data, "view.axes", m_settings.showAxes);
     putBool(data, "view.labels", m_settings.showLabels);
     putFloat(data, "view.axis_length", m_settings.axisLength);
+    putFloat(data, "view.grid_size", m_settings.gridSize);
 }
 
 void ViewPanel::loadState(const SceneData& data) {
@@ -60,6 +75,8 @@ void ViewPanel::loadState(const SceneData& data) {
         if (m_settings.axisLength < 1.0f) m_settings.axisLength = 1.0f;
         if (m_settings.axisLength > 20.0f) m_settings.axisLength = 20.0f;
     }
+    if (getFloat(data, "view.grid_size", m_settings.gridSize))
+        m_settings.gridSize = std::clamp(std::round(m_settings.gridSize), 5.0f, 100.0f);
 }
 
 } // namespace linalg

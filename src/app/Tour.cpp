@@ -130,7 +130,15 @@ void Tour::buildSteps() {
                       {{"density", "12"}});
         app.setCameraView({22, 18, 26}, {0, 0, 0});
     }, 40);
-    step("15_plot_implicit", [](App& app) { runExample(app, "Lemniscate"); });
+    step("14c_large_grid", [](App& app) {
+        app.view().gridSize = 60.0f;
+        app.select("S");
+        app.setCameraView({45, 30, 55}, {0, 0, 0});
+    }, 30);
+    step("15_plot_implicit", [](App& app) {
+        app.view().gridSize = 10.0f;
+        runExample(app, "Lemniscate");
+    });
     step("16_plot_curve", [](App& app) {
         runExample(app, "Trefoil knot");
         app.select("f");

@@ -11,6 +11,7 @@ struct ViewSettings {
     bool showAxes = true;
     bool showLabels = true;
     float axisLength = 5.0f;
+    float gridSize = 10.0f;  // the grid reaches from -gridSize to +gridSize
 };
 
 // "View" group in the side bar: grid/axes/labels toggles, axis length,
