@@ -5,7 +5,8 @@
 
 namespace linalg {
 
-void drawWorldLabel(const Camera3D& camera, Vector3 position, const char* text, Color color, Vector2 offset) {
+void drawWorldLabel(const Camera3D& camera, Vector3 position, const char* text, Color color, Vector2 offset,
+                    Color background) {
     Vector3 forward = Vector3Subtract(camera.target, camera.position);
     Vector3 toPoint = Vector3Subtract(position, camera.position);
     if (Vector3DotProduct(forward, toPoint) <= 0.0f) return;
@@ -18,7 +19,7 @@ void drawWorldLabel(const Camera3D& camera, Vector3 position, const char* text, 
     float y = screen.y + ui::px(offset.y) - size / 2.0f;
 
     Rectangle pill = {x - padX, y - padY, width + 2 * padX, size + 2 * padY};
-    ui::fillRounded(pill, pill.height / 2, ui::theme().labelBg);
+    ui::fillRounded(pill, pill.height / 2, background.a ? background : ui::theme().labelBg);
     ui::text(text, x, y, ui::FontRole::Label3D, color);
 }
 

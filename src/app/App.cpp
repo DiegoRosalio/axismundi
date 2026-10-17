@@ -111,6 +111,9 @@ App::~App() {
 
 void App::setMode(AppMode mode) {
     m_mode = mode;
+    // Swap cameras now: a camera reset right after (as gallery examples do) must apply to the
+    // new space, not be saved as the old space's view on the next frame
+    applyModeChange();
 }
 
 SceneObject* App::object(const std::string& name, AppMode mode) {
@@ -555,7 +558,7 @@ void App::run() {
         update(deltaTime);
 
         BeginDrawing();
-            ClearBackground(ui::theme().background);
+            ClearBackground(m_exportPanel.preview() ? Color{255, 255, 255, 255} : ui::theme().background);
             drawScene();
             drawSceneLabels();
             if (m_screenshotRequest != 2) drawUi(deltaTime);
@@ -623,21 +626,24 @@ void App::handleInput(float deltaTime) {
     if (!editing) handleShortcuts(ui);
     if (ui && !m_help.visible()) pickInViewport();
 
-    if (m_mode != m_lastMode) {
-        // A field in the hidden space would otherwise stay "active"
-        m_scenePanel.finishEditing(m_scene);
-        closePopovers();
-        // Remember the camera of the space we leave
-        int from = static_cast<int>(m_lastMode), to = static_cast<int>(m_mode);
-        m_savedPosition[from] = m_camera.position();
-        m_savedTarget[from] = m_camera.target();
-        m_hasSavedView[from] = true;
-        if (m_hasSavedView[to]) m_camera.setView(m_savedPosition[to], m_savedTarget[to]);
-        else m_camera.reset(m_mode);
-        m_lastMode = m_mode;
-    }
+    applyModeChange();  // tabs and keys 1/2 change m_mode directly
 
     m_camera.update(deltaTime);
+}
+
+void App::applyModeChange() {
+    if (m_mode == m_lastMode) return;
+    // A field in the hidden space would otherwise stay "active"
+    m_scenePanel.finishEditing(m_scene);
+    closePopovers();
+    // Remember the camera of the space we leave, restore the one of the space we enter
+    int from = static_cast<int>(m_lastMode), to = static_cast<int>(m_mode);
+    m_savedPosition[from] = m_camera.position();
+    m_savedTarget[from] = m_camera.target();
+    m_hasSavedView[from] = true;
+    if (m_hasSavedView[to]) m_camera.setView(m_savedPosition[to], m_savedTarget[to]);
+    else m_camera.reset(m_mode);
+    m_lastMode = m_mode;
 }
 
 void App::handleShortcuts(bool uiMode) {
@@ -819,6 +825,9 @@ view::DrawOptions App::drawOptions() const {
     view::DrawOptions o;
     o.view = &const_cast<ViewPanel&>(m_viewPanel).settings();
     o.selection = &const_cast<scene::Scene&>(m_scene).selection(spaceKind());
+    o.print = m_exportPanel.preview();
+    o.printScope = m_exportPanel.options().scope;
+    o.printGrayShading = m_exportPanel.options().grayShading;
     const SceneObject* target = targetMatrix();
     if (target && m_mode == AppMode::Space3D) {
         if (breakdownActive()) {
@@ -834,8 +843,13 @@ view::DrawOptions App::drawOptions() const {
 
 void App::drawScene() {
     BeginMode3D(m_camera.camera());
-    if (m_mode == AppMode::Space3D) m_grid.draw();
-    else m_grid.drawPlaneXY();
+    // The print preview shows the grid only when the export has one, in light gray
+    bool print = m_exportPanel.preview();
+    if (!print || m_exportPanel.options().grid) {
+        m_grid.setPaper(print);
+        if (m_mode == AppMode::Space3D) m_grid.draw();
+        else m_grid.drawPlaneXY();
+    }
     m_sceneView.draw3D(m_scene.space(spaceKind()), drawOptions());
     EndMode3D();
 }

@@ -52,6 +52,54 @@ void arcXY(float r, float a0, float a1, Color color) {
     }
 }
 
+// --- Print preview helpers (black and white, like the LaTeX export) ---------------
+
+Color grayOf(int styleIndex) {
+    if (styleIndex < 0) return {205, 205, 205, 255};  // not exported: faint
+    unsigned char v = static_cast<unsigned char>(255.0f * latex::styleFor(styleIndex).grayLevel);
+    return {v, v, v, 255};
+}
+
+int dashOf(int styleIndex) {
+    return styleIndex < 0 ? 0 : latex::styleFor(styleIndex).dashKind;
+}
+
+// A line with the export's dash pattern, drawn as thin cylinders
+void printLine(Vector3 a, Vector3 b, Color color, int dash, float radius) {
+    float len = Vector3Distance(a, b);
+    if (len < 1e-6f) return;
+    if (dash == 0) {
+        DrawCylinderEx(a, b, radius, radius, 6, color);
+        return;
+    }
+    float on1, off1, on2, off2;
+    switch (dash) {
+        case 1: on1 = 0.16f, off1 = 0.1f, on2 = 0.16f, off2 = 0.1f; break;
+        case 2: on1 = 0.035f, off1 = 0.07f, on2 = 0.035f, off2 = 0.07f; break;
+        case 3: on1 = 0.16f, off1 = 0.07f, on2 = 0.035f, off2 = 0.07f; break;
+        default: on1 = 0.16f, off1 = 0.22f, on2 = 0.16f, off2 = 0.22f; break;
+    }
+    float pos = 0.0f;
+    int k = 0;
+    while (pos < len) {
+        float on = (k % 2 == 0) ? on1 : on2, off = (k % 2 == 0) ? off1 : off2;
+        float e = std::fmin(pos + on, len);
+        DrawCylinderEx(Vector3Lerp(a, b, pos / len), Vector3Lerp(a, b, e / len), radius, radius, 6, color);
+        pos += on + off;
+        k++;
+    }
+}
+
+void printArrow(Vector3 from, Vector3 to, Color color, int dash, bool selected) {
+    float len = Vector3Distance(from, to);
+    if (len < 1e-6f) return;
+    float head = std::fmin(0.22f, len * 0.4f);
+    Vector3 base = Vector3Lerp(from, to, (len - head) / len);
+    if (selected) DrawCylinderEx(from, to, 0.06f, 0.06f, 10, Color{0, 0, 0, 30});  // soft gray halo on paper
+    printLine(from, base, color, dash, 0.016f);
+    DrawCylinderEx(base, to, 0.065f, 0.0f, 12, color);
+}
+
 Color paletteColor(const std::vector<Color>& palette, int index) {
     return palette[static_cast<size_t>(index) % palette.size()];
 }
@@ -136,8 +184,9 @@ void SceneView::updatePlots(scene::Space& space) {
         Color color = colorOf(*p);
         unsigned colorKey = static_cast<unsigned>(ColorToInt(color));
         bool dark = ui::theme().dark;
+        int printKey = m_print ? printStyleOf(p->id()) * 2 + (m_printGray ? 1 : 0) : -2;
         if (cache.builtAt == p->changedAt() && cache.builtAt != 0 && cache.dark == dark && cache.color == colorKey &&
-            cache.smooth == m_smoothSurfaces)
+            cache.smooth == m_smoothSurfaces && cache.printKey == printKey)
             continue;
 
         PlotSpec spec;
@@ -161,15 +210,37 @@ void SceneView::updatePlots(scene::Space& space) {
         spec.heatmap = p->heatmap();
         spec.smooth = m_smoothSurfaces;
         spec.color = (p->customColor || p->paletteIndex > 0) ? color : Color{0, 0, 0, 0};
+        if (m_print) {
+            int style = printStyleOf(p->id());
+            spec.print = true;
+            spec.heatmap = false;
+            spec.smooth = false;  // flat cells with a black mesh, like the export
+            spec.grayShading = m_printGray;
+            spec.color = grayOf(style);
+            spec.dash = dashOf(style);
+        }
         cache.renderer.rebuild(spec, &space);
         cache.builtAt = p->changedAt();
         cache.dark = dark;
         cache.color = colorKey;
         cache.smooth = m_smoothSurfaces;
+        cache.printKey = printKey;
     }
 }
 
+int SceneView::printStyleOf(scene::ObjectId id) const {
+    auto it = m_printStyle.find(id);
+    return it == m_printStyle.end() ? -1 : it->second;
+}
+
 void SceneView::draw3D(scene::Space& space, const DrawOptions& options) {
+    m_print = options.print;
+    m_printGray = options.printGrayShading;
+    m_printStyle.clear();
+    if (m_print && options.selection) {
+        auto list = latex::exportedObjects(space, *options.selection, options.printScope);
+        for (size_t k = 0; k < list.size(); k++) m_printStyle[list[k]->id()] = static_cast<int>(k);
+    }
     if (space.kind() == scene::SpaceKind::Euclidean3D) drawEuclidean(space, options);
     else drawComplex(space, options);
 }
@@ -179,13 +250,17 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
     const ViewSettings& view = *options.view;
     float len = view.axisLength;
 
-    if (view.showAxes) {
+    if (view.showAxes && !options.print) {
         DrawCylinderEx({0, 0, 0}, mathToWorld(len, 0, 0), 0.02f, 0.02f, 8, t.axisX);
         DrawCylinderEx({0, 0, 0}, mathToWorld(0, len, 0), 0.02f, 0.02f, 8, t.axisY);
         DrawCylinderEx({0, 0, 0}, mathToWorld(0, 0, len), 0.02f, 0.02f, 8, t.axisZ);
     }
 
     updatePlots(space);
+    if (options.print) {
+        drawEuclideanPrint(space, options);
+        return;
+    }
 
     // The untransformed basis, faint, once if any matrix is shown
     bool anyMatrix = false;
@@ -228,6 +303,10 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
     const ui::Theme& t = ui::theme();
     const ViewSettings& view = *options.view;
     float extent = view.axisLength;
+    if (options.print) {
+        drawComplexPrint(space, options);
+        return;
+    }
 
     if (view.showAxes) {
         DrawCylinderEx({-extent, 0, 0}, {extent, 0, 0}, 0.015f, 0.015f, 6, t.axisX);
@@ -309,11 +388,155 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
     }
 }
 
+void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& options) {
+    const ViewSettings& view = *options.view;
+    float len = view.axisLength;
+    const Color ink = {20, 20, 20, 255};
+    if (view.showAxes) {
+        for (int k = 0; k < 3; k++) {
+            Vector3 tip = mathToWorld(k == 0 ? len : 0, k == 1 ? len : 0, k == 2 ? len : 0);
+            Vector3 back = mathToWorld(k == 0 ? -len : 0, k == 1 ? -len : 0, k == 2 ? -len : 0);
+            DrawCylinderEx(back, tip, 0.008f, 0.008f, 6, ink);
+            Vector3 base = Vector3Lerp(back, tip, 1.0f - 0.18f / (2 * len));
+            DrawCylinderEx(base, tip, 0.04f, 0.0f, 10, ink);
+        }
+    }
+    const Color faintGray = {150, 150, 150, 255}, cubeGray = {185, 185, 185, 255};
+    for (const auto& obj : space.objects()) {
+        const SceneObject& o = *obj;
+        if (!o.visible) continue;
+        int style = printStyleOf(o.id());
+        Color c = grayOf(style);
+        int dash = dashOf(style);
+        bool selected = isSelected(options, o);
+        const expr::Value& v = o.value();
+        const std::string& type = o.typeId();
+        if (type == "vector" && v.type == expr::Type::Vector) {
+            Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
+            printArrow(mathToWorld(tail), mathToWorld(tail + v.vector), c, dash, selected);
+        } else if (type == "matrix" && v.type == expr::Type::Matrix) {
+            // Like the export: original basis dotted, image of the unit cube in light gray, moved basis
+            Matrix4D m = displayedMatrix(o, options);
+            Vector3D origin = m.transform(Vector3D::zero());
+            Vector3D cols[3] = {m.transformDirection({1, 0, 0}), m.transformDirection({0, 1, 0}),
+                                m.transformDirection({0, 0, 1})};
+            for (int k = 0; k < 3; k++)
+                printLine({0, 0, 0}, mathToWorld(k == 0 ? 1 : 0, k == 1 ? 1 : 0, k == 2 ? 1 : 0), faintGray, 2, 0.008f);
+            auto corner = [&](int a, int b, int cc) { return mathToWorld(origin + cols[0] * a + cols[1] * b + cols[2] * cc); };
+            for (int a = 0; a < 2; a++)
+                for (int b = 0; b < 2; b++)
+                    for (int cc = 0; cc < 2; cc++) {
+                        if (a == 0) DrawLine3D(corner(a, b, cc), corner(1, b, cc), cubeGray);
+                        if (b == 0) DrawLine3D(corner(a, b, cc), corner(a, 1, cc), cubeGray);
+                        if (cc == 0) DrawLine3D(corner(a, b, cc), corner(a, b, 1), cubeGray);
+                    }
+            for (int k = 0; k < 3; k++) printArrow(mathToWorld(origin), mathToWorld(origin + cols[k]), c, dash, selected);
+        } else if (type == "eigen" && v.type == expr::Type::Matrix) {
+            EigenResult e = eigen3(v.matrix3());
+            for (const auto& ev : e.values) {
+                if (!ev.isReal() || !ev.hasVector) continue;
+                float l = std::fmax(2.0f, std::fabs(ev.re) * 1.3f);
+                printLine(mathToWorld(ev.vector * -l), mathToWorld(ev.vector * l), c, 1, 0.008f);
+                DrawSphere(mathToWorld(ev.vector * ev.re), 0.05f, c);
+            }
+        } else if (dynamic_cast<const scene::PlotObject*>(&o)) {
+            auto it = m_plots.find(o.id());
+            if (it != m_plots.end() && it->second.renderer.error().empty()) it->second.renderer.draw();
+        }
+    }
+}
+
+void SceneView::drawComplexPrint(scene::Space& space, const DrawOptions& options) {
+    const ViewSettings& view = *options.view;
+    float extent = view.axisLength;
+    const Color ink = {20, 20, 20, 255}, light = {160, 160, 160, 255};
+    if (view.showAxes) {
+        DrawCylinderEx({-extent, 0, 0}, {extent, 0, 0}, 0.008f, 0.008f, 6, ink);
+        DrawCylinderEx({0, -extent, 0}, {0, extent, 0}, 0.008f, 0.008f, 6, ink);
+        DrawCylinderEx({extent - 0.18f, 0, 0}, {extent, 0, 0}, 0.04f, 0.0f, 10, ink);
+        DrawCylinderEx({0, extent - 0.18f, 0}, {0, extent, 0}, 0.04f, 0.0f, 10, ink);
+    }
+    for (int i = 0; i < 96; i++) {
+        float a0 = 2.0f * PI * i / 96, a1 = 2.0f * PI * (i + 1) / 96;
+        DrawLine3D({std::cos(a0), std::sin(a0), 0}, {std::cos(a1), std::sin(a1), 0}, light);
+    }
+    for (const auto& obj : space.objects()) {
+        const SceneObject& o = *obj;
+        if (!o.visible || !o.value().isNumber()) continue;
+        int style = printStyleOf(o.id());
+        Color c = grayOf(style);
+        const expr::Value& v = o.value();
+        float re = static_cast<float>(v.re), im = static_cast<float>(v.type == expr::Type::Complex ? v.im : 0.0);
+        if (o.typeId() == "product" && o.propBool("angles", true)) {
+            const expr::Value& a = o.field("a")->value;
+            const expr::Value& b = o.field("b")->value;
+            if (a.isNumber() && b.isNumber()) {
+                float argA = std::atan2(static_cast<float>(a.type == expr::Type::Complex ? a.im : 0), static_cast<float>(a.re));
+                float argB = std::atan2(static_cast<float>(b.type == expr::Type::Complex ? b.im : 0), static_cast<float>(b.re));
+                arcXY(0.35f, 0.0f, argA, Color{110, 110, 110, 255});
+                arcXY(0.5f, argA, argA + argB, Color{110, 110, 110, 255});
+            }
+        }
+        float r = std::hypot(re, im);
+        if (o.propBool("circle") && std::fabs(r - 1.0f) > 1e-3f) {
+            for (int i = 0; i < 96; i += 2) {
+                float a0 = 2.0f * PI * i / 96, a1 = 2.0f * PI * (i + 1) / 96;
+                DrawLine3D({r * std::cos(a0), r * std::sin(a0), 0}, {r * std::cos(a1), r * std::sin(a1), 0}, c);
+            }
+        }
+        if (o.propBool("projections")) {
+            printLine({re, 0, 0}, {re, im, 0}, c, 1, 0.006f);
+            printLine({0, im, 0}, {re, im, 0}, c, 1, 0.006f);
+        }
+        printArrow({0, 0, 0}, {re, im, 0}, c, dashOf(style), isSelected(options, o));
+    }
+}
+
+void SceneView::drawLabelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera) {
+    // Paper labels: names only (as in the export), dark text on a white pill
+    const ViewSettings& view = *options.view;
+    float len = view.axisLength;
+    const Color ink = {20, 20, 20, 255}, paper = {255, 255, 255, 220};
+    if (view.showAxes) {
+        if (space.kind() == scene::SpaceKind::Euclidean3D) {
+            drawWorldLabel(camera, mathToWorld(len, 0, 0), "x", ink, {8.0f, -8.0f}, paper);
+            drawWorldLabel(camera, mathToWorld(0, len, 0), "y", ink, {8.0f, -8.0f}, paper);
+            drawWorldLabel(camera, mathToWorld(0, 0, len), "z", ink, {8.0f, -8.0f}, paper);
+        } else {
+            drawWorldLabel(camera, {len, 0, 0}, "Re", ink, {8.0f, -8.0f}, paper);
+            drawWorldLabel(camera, {0, len, 0}, "Im", ink, {8.0f, -8.0f}, paper);
+        }
+    }
+    for (const auto& obj : space.objects()) {
+        const SceneObject& o = *obj;
+        if (!o.visible || !o.value().ok()) continue;
+        int style = printStyleOf(o.id());
+        Color c = style < 0 ? Color{170, 170, 170, 255} : grayOf(style);
+        if (o.typeId() == "eigen") {
+            EigenResult e = eigen3(o.value().matrix3());
+            for (const auto& ev : e.values) {
+                if (!ev.isReal() || !ev.hasVector) continue;
+                char text[48];
+                snprintf(text, sizeof(text), "λ = %.3g", ev.re);
+                drawWorldLabel(camera, mathToWorld(ev.vector * ev.re), text, c, {8.0f, 14.0f}, paper);
+            }
+            continue;
+        }
+        Vector3 at;
+        if (!anchorPoint(o, space.kind(), options, at)) continue;
+        drawWorldLabel(camera, at, o.name().c_str(), c, {8.0f, -8.0f}, paper);
+    }
+}
+
 void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, const Camera3D& camera) {
     const ViewSettings& view = *options.view;
     const ui::Theme& t = ui::theme();
     if (!view.showLabels) return;
     float len = view.axisLength;
+    if (options.print) {
+        drawLabelsPrint(space, options, camera);
+        return;
+    }
 
     if (space.kind() == scene::SpaceKind::Euclidean3D) {
         if (view.showAxes) {

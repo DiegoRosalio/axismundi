@@ -19,6 +19,7 @@ public:
     void setGridColor(Color color) { m_gridColor = color; }
     void setShowGrid(bool show) { m_showGrid = show; }
     void setShowAxes(bool show) { m_showAxes = show; }
+    void setPaper(bool paper) { m_paper = paper; }  // light gray lines for the white print preview
 
 private:
     int m_size;
@@ -26,6 +27,7 @@ private:
     Color m_gridColor;
     bool m_showGrid;
     bool m_showAxes;
+    bool m_paper = false;
 };
 
 } // namespace linalg

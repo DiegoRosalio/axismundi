@@ -233,7 +233,26 @@ bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver)
     MeshData tubes;
     tubes.positions.reserve(m_curve.size() * 36 * 3);
     tubes.colors.reserve(m_curve.size() * 36 * 4);
-    for (const auto& seg : m_curve) addTube(tubes, seg.a, seg.b, 0.03f, seg.color);
+    // Print preview: dash patterns along curves drawn in order (implicit curves stay solid)
+    bool dashing = spec.print && spec.dash != 0 && spec.type != PlotType::Implicit;
+    float pattern[4] = {1, 0, 0, 0};
+    switch (spec.dash) {
+        case 1: pattern[0] = 0.25f, pattern[1] = 0.15f, pattern[2] = 0.25f, pattern[3] = 0.15f; break;
+        case 2: pattern[0] = 0.06f, pattern[1] = 0.1f, pattern[2] = 0.06f, pattern[3] = 0.1f; break;
+        case 3: pattern[0] = 0.25f, pattern[1] = 0.1f, pattern[2] = 0.06f, pattern[3] = 0.1f; break;
+        default: pattern[0] = 0.25f, pattern[1] = 0.3f, pattern[2] = 0.25f, pattern[3] = 0.3f; break;
+    }
+    float period = pattern[0] + pattern[1] + pattern[2] + pattern[3], along = 0.0f;
+    for (const auto& seg : m_curve) {
+        float segLen = Vector3Distance(seg.a, seg.b);
+        float mid = std::fmod(along + segLen / 2, period);
+        along += segLen;
+        if (dashing) {
+            bool on = mid < pattern[0] || (mid >= pattern[0] + pattern[1] && mid < pattern[0] + pattern[1] + pattern[2]);
+            if (!on) continue;
+        }
+        addTube(tubes, seg.a, seg.b, spec.print ? 0.02f : 0.03f, seg.color);
+    }
     m_curve.clear();
     m_curve.shrink_to_fit();
     upload(tubes);
@@ -348,12 +367,13 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
 
     auto point = [&](int i, int j) { return mathToWorld(xAt(i), yAt(j), z[idx(i, j)]); };
     // About one wire line per unit, at most 60 per direction
-    auto wireStep = [](int n, float span) {
-        int lines = std::clamp(static_cast<int>(std::lround(span)), 8, 60);
+    auto wireStep = [&spec](int n, float span) {
+        // Print preview: the export's mesh (about 30 lines per direction); otherwise ~1 per unit
+        int lines = spec.print ? 30 : std::clamp(static_cast<int>(std::lround(span)), 8, 60);
         return std::max(1, n / lines);
     };
     const int stepX = wireStep(nx, spec.xMax - spec.xMin), stepY = wireStep(ny, spec.yMax - spec.yMin);
-    const Color wire = Fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
+    const Color wire = spec.print ? Color{0, 0, 0, 220} : Fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
     // Indexed meshes share each vertex between its cells. raylib indices are
     // 16-bit, so the grid is split into bands of rows under 65536 vertices.
     const int rowsPerBand = std::max(1, 65535 / (nx + 1) - 1);
@@ -386,6 +406,12 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
                 if (!cellOk) continue;
                 float avg = (z[idx(i, j)] + z[idx(i + 1, j)] + z[idx(i + 1, j + 1)] + z[idx(i, j + 1)]) / 4.0f;
                 Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : plain;
+                if (spec.print) {
+                    // Paper: white, or grays by height like the export's gray shading
+                    float g = spec.grayShading ? 0.55f + 0.42f * normalize(avg, m_minValue, m_maxValue) : 1.0f;
+                    unsigned char v = static_cast<unsigned char>(255.0f * g);
+                    c = {v, v, v, 255};
+                }
                 Vector3 p00 = point(i, j), p10 = point(i + 1, j), p11 = point(i + 1, j + 1), p01 = point(i, j + 1);
                 m_triangles.add(p00, c);
                 m_triangles.add(p10, c);
@@ -404,7 +430,19 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
         for (int k = 0; k < count; k += stride) {
             int k1 = std::min(k + stride, count);
             int ia = i0 + di * k, ja = j0 + dj * k, ib = i0 + di * k1, jb = j0 + dj * k1;
-            if (ok[idx(ia, ja)] && ok[idx(ib, jb)]) m_wireframe.push_back({point(ia, ja), point(ib, jb), wire});
+            if (!ok[idx(ia, ja)] || !ok[idx(ib, jb)]) continue;
+            if (spec.print) {
+                // Lift the mesh a little off both sides of the white faces, so the depth test
+                // does not hide half of it
+                for (float lift : {0.012f, -0.012f}) {
+                    Vector3 a = point(ia, ja), b = point(ib, jb);
+                    a.y += lift;
+                    b.y += lift;
+                    m_wireframe.push_back({a, b, wire});
+                }
+            } else {
+                m_wireframe.push_back({point(ia, ja), point(ib, jb), wire});
+            }
         }
     };
     for (int j = 0; j <= ny; j += stepY) wireLine(0, j, 1, 0, nx, alongX);

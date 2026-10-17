@@ -1,5 +1,6 @@
 #pragma once
 
+#include "export/LatexExport.hpp"
 #include "math/Matrix4D.hpp"
 #include "rendering/PlotRenderer.hpp"
 #include "scene/Scene.hpp"
@@ -17,6 +18,11 @@ struct DrawOptions {
     Matrix4D overrideValue = Matrix4D::identity();
     // Faded bases for completed breakdown steps
     std::vector<Matrix4D> ghosts;
+    // Black-and-white print preview: the LaTeX export's styles (gray levels, dash patterns) on
+    // white; objects outside the export scope are drawn faint
+    bool print = false;
+    latex::Scope printScope = latex::Scope::Visible;
+    bool printGrayShading = false;
 };
 
 // Draws the objects of a space. 3D space: math coordinates with z up (see
@@ -46,6 +52,9 @@ public:
 private:
     void drawEuclidean(scene::Space& space, const DrawOptions& options);
     void drawComplex(scene::Space& space, const DrawOptions& options);
+    void drawEuclideanPrint(scene::Space& space, const DrawOptions& options);
+    void drawComplexPrint(scene::Space& space, const DrawOptions& options);
+    void drawLabelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera);
     void updatePlots(scene::Space& space);
 
     struct PlotCache {
@@ -54,8 +63,14 @@ private:
         bool dark = true;
         unsigned color = 0;
         bool smooth = true;
+        int printKey = -2;  // print style the geometry was built with (-2: normal)
     };
     std::map<scene::ObjectId, PlotCache> m_plots;
+    // Print preview: style index of each exported object (-1: not exported)
+    std::map<scene::ObjectId, int> m_printStyle;
+    bool m_print = false;
+    bool m_printGray = false;
+    int printStyleOf(scene::ObjectId id) const;
     bool m_smoothSurfaces = true;
 };
 

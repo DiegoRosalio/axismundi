@@ -240,7 +240,16 @@ void Tour::buildSteps() {
         app.setMode(AppMode::Space3D);
         runExample(app, "Saddle");
     }, 25);
+    step("21a4_preview_3d", [](App& app) {
+        app.resetScene();
+        app.exportPanel().setPreview(true);
+        if (auto* p = app.panel("export")) p->setVisible(true);
+    }, 25);
+    step("21a5_preview_surface", [](App& app) { runExample(app, "Saddle"); }, 25);
+    step("21a6_preview_complex", [](App& app) { runExample(app, "Rotate and scale"); }, 25);
     step("21b_reference", [](App& app) {
+        app.exportPanel().setPreview(false);
+        app.setMode(AppMode::Space3D);
         if (auto* p = app.panel("export")) p->setVisible(false);
         if (auto* p = app.panel("gallery")) p->setVisible(false);
         app.resetScene();

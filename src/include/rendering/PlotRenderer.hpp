@@ -29,6 +29,12 @@ struct PlotSpec {
     int samplesY = 60;             // cells along y (surfaces, implicit curves)
     bool heatmap = true;
     bool smooth = true;            // surfaces: blended colors + shading, or flat-colored cells
+    // Black-and-white print preview (matches the LaTeX export): curves in `color` with a dash
+    // pattern (0 solid, 1 dashed, 2 dotted, 3 dash-dotted, 4 loosely dashed); surfaces white
+    // (or gray by height) with a black mesh
+    bool print = false;
+    int dash = 0;
+    bool grayShading = false;
     Color color = {0, 0, 0, 0};    // without heat map (alpha 0: theme color)
 };
 
