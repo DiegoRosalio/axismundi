@@ -36,6 +36,9 @@ Add a **Parameter**, give it a name like `theta`, and use it in any formula, for
 - **Animate**: follows the scene clock, once, loop or ping-pong, with an easing curve;
 - a **Formula** of time `t`, such as `pi/4*cos(2t)`.
 
+`t` (the scene time) also works directly in any formula: `rotz(t)`, `[cos(t), sin(t), 1]`, `sin(x - t)`.
+Curves use `u` for their own variable.
+
 The **Time panel** (P to play or pause) runs the clock for everything at once and can be scrubbed. To morph
 something by hand, select it and use Add → Morph from identity / Grow from zero: you get a slider `s` and a
 `lerp` formula.

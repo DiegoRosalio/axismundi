@@ -120,6 +120,19 @@ std::vector<Example> build() {
                         app.select("s");
                         app.restartTime(true);
                     }});
+    list.push_back({"Spinning vector", C::Matrices,
+                    "v = [2cos(t), 2sin(t), 1] uses the scene time t directly: no parameter needed. M = rotz(t/2) "
+                    "turns at half the speed, and Ma = M·a follows it.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "vector", "v", {{"value", "[2cos(t), 2sin(t), 1]"}},
+                                      {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "rotz(t/2)"}}, {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "vector", "a", {{"x", "0"}, {"y", "-2"}, {"z", "0.5"}});
+                        app.addObject(AppMode::Space3D, "vector", "Ma", {{"value", "M*a"}}, {{"mode", "formula"}});
+                        app.select("v");
+                        app.restartTime(true);
+                    }});
     list.push_back({"Non-uniform scale", C::Matrices,
                     "Stretches x by 2 and squeezes y to half. The axes are eigenvectors with λ = 2, 0.5 and 1.",
                     [](App& app) { matrixScene(app, Matrix3D({{{{2, 0, 0}}, {{0, 0.5f, 0}}, {{0, 0, 1}}}})); }});
@@ -248,6 +261,23 @@ std::vector<Example> build() {
                     [](App& app) {
                         plotScene(app, "function", {{"f", "3exp(-x^2/10) cos(3x)"}, {"xmin", "-8"}, {"xmax", "8"}},
                                   {{"density", "40"}});
+                    }});
+    list.push_back({"Travelling wave", C::Plots,
+                    "y = sin(2x − 3t): t is the scene time, so the wave moves right at speed 3/2 while the clock "
+                    "plays. Any formula can use t.",
+                    [](App& app) {
+                        plotScene(app, "function", {{"f", "sin(2x - 3t)"}, {"xmin", "-8"}, {"xmax", "8"}},
+                                  {{"density", "40"}});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Spinning curve", C::Plots,
+                    "A circle whose height ripples: z = sin(3u − 2t). u runs along the curve, t is the scene "
+                    "time, so the ripple travels around.",
+                    [](App& app) {
+                        plotScene(app, "curve",
+                                  {{"x", "3cos(u)"}, {"y", "3sin(u)"}, {"z", "sin(3u - 2t)"}, {"umin", "0"},
+                                   {"umax", "2pi"}});
+                        app.restartTime(true);
                     }});
     return list;
 }

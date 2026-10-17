@@ -224,7 +224,8 @@ std::vector<Lesson> build() {
          "parameter.mode"},
         {"A formula of time",
          "A parameter can also be a formula of t, the scene time in seconds. pi/4*sin(2t) swings back and forth "
-         "between ±45°; t/2 grows as long as the clock runs. Drag the Time panel's scrubber to see any moment.",
+         "between ±45°; t/2 grows as long as the clock runs. t works in every formula too: rotz(t), "
+         "[cos(t), sin(t), 1], sin(x - t). Drag the Time panel's scrubber to see any moment.",
          nullptr, "Switch theta to Formula and type a formula that uses t, e.g. pi/4*sin(2t).",
          [](App& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));

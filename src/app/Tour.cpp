@@ -159,6 +159,9 @@ void Tour::buildSteps() {
     });
 
     // --- Tools ----------------------------------------------------------------------
+    step("16b_travelling_wave", [](App& app) { runExample(app, "Travelling wave"); }, 30);
+    step("16c_travelling_wave_later", [](App&) {}, 30);
+    step("16d_spinning_vector", [](App& app) { runExample(app, "Spinning vector"); }, 40);
     step("17_help", [](App& app) {
         app.resetScene();
         app.setMode(AppMode::Space3D);

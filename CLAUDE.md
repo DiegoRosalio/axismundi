@@ -96,8 +96,14 @@ docs/screenshots/     images for the docs, produced by --tour
   animation) is the only clock. `Scene::advance(dt)` moves it; `Scene::evaluate()` calls
   `SceneObject::setTime()` on every object first. It is saved in files (`time.*`) but left out of undo
   snapshots (`save(data, false)`), so undo never rewinds time. There is no Animator any more.
-- `SceneObject::provideSlots(expr::Slots&)` lets an object feed x/y/t to its own (non-plot) fields;
-  ParameterObject uses it for t = scene time (Formula mode). Time-dependent objects can reuse it.
+- **`t` = scene time in every formula**: `SceneObject::provideSlots` fills `t` from `setTime` for all
+  fields (plot fields get sample x/y/u plus the real t). Objects whose active fields use t
+  (`usesTime()`) count as changed when the time changes, so plots using t rebuild while the clock plays.
+  `PlotSpec::time` carries it into `PlotRenderer` (`ExprVars{x, y, t, u}`).
+- **Curves use `u`**: the u slot exists only when compiling with `curveVariable` (`Field::curveVariable`,
+  set by `markCurveVariable` for curve x/y/z; `Expression::parse(..., curveVariable)` in the renderer).
+  Elsewhere `u` is a normal name, so objects named u keep their dependencies. Ranges are `umin/umax`;
+  old files (`tmin/tmax`, t in curve fields) are converted in `Scene::restore` and `loadV1`.
 - Parameters: `mode` prop slider|animate|formula. Slider is static. Animate is a pure function of the time
   (`animatedValue(t)` from props `anim.repeat/easing/duration/start`), so scrubbing works. Old files: per-
   parameter clocks (`playing`, `clock`, `period`, `speed`, `loop`, `anim.phase`) are dropped in

@@ -21,6 +21,7 @@ and worked calculations.
   - an **animation** that follows the scene clock from min to max: once, loop or ping-pong, with an easing
     curve (ease in/out, sine, back, elastic, bounce, steps), a duration and a start delay;
   - a **formula of time** `t`, such as `pi/4*cos(2t)`, which may use other objects.
+- **`t` is the scene time in every formula**: `[cos(t), sin(t), 1]`, `rotz(t)`, `exp(i*t)`, `sin(x - t)`.
 - One **Time panel** plays, pauses and scrubs the scene clock for everything at once.
 - The **Add menu** offers templates for the current selection: sum, difference, cross product and projection
   of two vectors, M·v, the eigenvectors, inverse or transpose of a matrix, A·B, z₁·z₂, conjugates…
@@ -31,7 +32,7 @@ and worked calculations.
   - vectors (by components or by formula, with an optional start point);
   - 3×3 / 4×4 matrices (by cells with presets, or by formula) drawn as the moved basis;
   - eigenvector sets;
-  - plots: `y = f(x)`, curves `(x(t), y(t), z(t))`, surfaces `z = f(x, y)` and implicit curves
+  - plots: `y = f(x)`, curves `(x(u), y(u), z(u))`, surfaces `z = f(x, y)` and implicit curves
     `f(x, y) = 0`, with heat maps. Detail is set **per unit** (e.g. 30 samples per unit), so a wider range
     stays just as smooth. Surfaces are shaded GPU meshes.
   - a floor grid from ±5 to ±100 units, with major lines every 5 units.
@@ -80,6 +81,7 @@ Fields accept:
   - blending: `lerp(a, b, s)` (any value kind), `keys(s, A, B, …)`, and `mod(a, b)`.
 
 `M*v` applies a matrix to a vector (4×4 matrices treat v as a point), and `M*N` composes matrices.
+`t` is the scene time (seconds) everywhere; plots use `x` and `y`, and curves use `u` for their own variable.
 
 ## Requirements
 

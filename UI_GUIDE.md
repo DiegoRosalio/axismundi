@@ -73,7 +73,7 @@ Each space has its own list of objects. The side bar shows:
 | Vector | 3D | Components (x, y, z) or Formula; Starts at (tail point); length |
 | Matrix | 3D | Cells (3×3 / 4×4, presets) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
-| Function / Curve / Surface / Implicit | 3D | Expressions in x, y, t; ranges; Detail per unit; Heat map; Next example |
+| Function / Curve / Surface / Implicit | 3D | Expressions in x, y (u for curves) and t; ranges; Detail per unit; Heat map; Next example |
 | Parameter | both | Slider / Animate / Formula; range; repeat style, easing, duration, start delay |
 | Complex number | complex | Value; circle, cos/sin projections, helix options; length and angle |
 | Product | complex | Two factors; rotation and scaling construction; length and angle breakdown |
@@ -90,7 +90,10 @@ Every field is a formula. It can use other objects in the same space by name. Av
 - blending: `lerp(a, b, s)`, `keys(s, A, B, …)`; and `mod(a, b)`.
 
 `M*v` applies a matrix to a vector (a 4×4 matrix treats v as a point); `M*N` composes; `M^-1` inverts.
-Plots use `x`, `y` and `t` as their variables. Names must start with a letter and cannot be built-in names.
+`t` is the **scene time** in seconds, in every formula: `[cos(t), sin(t), 1]`, `rotz(t)`, `exp(i*t)`,
+`sin(x - t)`. Objects that use it follow the Time panel (plots redraw while the clock plays). Plots use `x`
+and `y` as their variables; curves use `u` for theirs (an object named `u` can't be used inside a curve's
+formulas, but works everywhere else). Names must start with a letter and cannot be built-in names.
 Problems are shown live: a red outline while typing a broken formula, an error line under the field, and a
 red summary in the list for errors such as unknown names, wrong types or circular references.
 
@@ -117,8 +120,8 @@ One clock for the whole scene, shared by both spaces:
 - **Speed** (0.1× to 4×) and **Loop** (start again at the end, or stop there).
 - **Length**: Auto uses the longest Once or Ping-pong animation (start delay included), or 10 s; click Auto
   to set a length by hand.
-- The list of time-driven parameters in the current space, with their mode and current value; click one to
-  select it.
+- The list of everything in the current space that follows the clock (Animate and Formula parameters, and
+  any object whose formulas use `t`), with its current value; click one to select it.
 
 The clock is saved with the scene. Undo never moves it.
 
@@ -129,7 +132,7 @@ as s goes from 0 to 1. The Add menu builds these for the selection: **Morph from
 **Grow from zero** (a vector or complex number) and **Blend** (two objects), each with a new slider `s`.
 
 ### Plot detail
-**Detail** is set per unit of the range: samples per unit of x (functions) or t (curves), and grid cells per
+**Detail** is set per unit of the range: samples per unit of x (functions) or u (curves), and grid cells per
 unit for surfaces and implicit curves. Doubling the range doubles the samples, so the plot stays as smooth.
 The line under the slider shows the actual count. Counts are capped for speed (20 000 samples, 400 × 400
 surface cells, 800 × 800 implicit cells), and the line says so when the cap applies.
