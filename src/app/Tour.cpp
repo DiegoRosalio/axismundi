@@ -1,6 +1,7 @@
 #include "app/Tour.hpp"
 #include "app/App.hpp"
 #include "edu/Examples.hpp"
+#include "edu/Tutorial.hpp"
 #include "ui/AddMenu.hpp"
 #include <raylib.h>
 #include <rlgl.h>
@@ -271,6 +272,11 @@ void Tour::buildSteps() {
         app.select("q2", AppMode::Space3D, true);
     }, 20);
     step("16o_quaternion_templates", [](App& app) { app.openAddMenu(); }, 15);
+    step("16p_quaternion_order", [](App& app) {
+        app.closePopovers();
+        runExample(app, "Order matters (quaternions)");
+    }, 20);
+    step("16q_quaternion_slerp", [](App& app) { runExample(app, "Slerp between two rotations"); }, 70);
     step("17_help", [](App& app) {
         app.closePopovers();
         app.view().style = view::StyleId::Colorful;
@@ -364,6 +370,9 @@ void Tour::buildSteps() {
         app.tutorialPanel().goToStep(1);
     }, 20);
     step("24_tutorial_parameters", [](App& app) { app.tutorialPanel().startLesson(6); }, 20);
+    step("24b_tutorial_quaternions", [](App& app) {
+        app.tutorialPanel().startLesson(static_cast<int>(lessons().size()) - 1);
+    }, 20);
     step("25_settings", [](App& app) {
         if (auto* p = app.panel("tutorial")) p->setVisible(false);
         app.resetScene();

@@ -65,6 +65,64 @@ std::vector<Example> build() {
                     [](App& app) {
                         matrixScene(app, Quaternion::fromAxisAngle(Vector3D(1, 1, 1), kPi / 3).toMatrix());
                     }});
+    list.push_back({"Quarter turn (quaternion)", C::Matrices,
+                    "q = qaxis([0, 0, 1], π/2): a quarter turn about the z axis, stored in four numbers "
+                    "(0.707 + 0.707k). The gray vector v is turned into q v q⁻¹ along the dashed circle.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "quaternion", "q",
+                                      {{"value", "qaxis([0, 0, 1], pi/2)"}, {"v", "[1.5, 0, 1]"}},
+                                      {{"act", "1"}, {"basis", "0"}});
+                        app.select("q");
+                        app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+                    }});
+    list.push_back({"Order matters (quaternions)", C::Matrices,
+                    "q1 turns 90° about z, q2 turns 90° about x. The vector a turned by q1·q2 (q2 first) ends up "
+                    "somewhere else than by q2·q1: rotations don't commute.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "quaternion", "q1", {{"value", "qaxis([0, 0, 1], pi/2)"}},
+                                      {{"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "q2", {{"value", "qaxis([1, 0, 0], pi/2)"}},
+                                      {{"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "vector", "a", {{"x", "1.5"}, {"y", "0"}, {"z", "0"}});
+                        app.addObject(AppMode::Space3D, "vector", "u", {{"value", "rotate(q1*q2, a)"}},
+                                      {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "vector", "w", {{"value", "rotate(q2*q1, a)"}},
+                                      {{"mode", "formula"}});
+                        app.select("u");
+                        app.select("w", AppMode::Space3D, true);
+                        app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+                    }});
+    list.push_back({"Slerp between two rotations", C::Matrices,
+                    "q = slerp(a, b, s) turns smoothly from rotation a (none) to rotation b as s plays from 0 to "
+                    "1 and back: the shortest way, at constant speed.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0"}, {"min", "0"}, {"max", "1"}, {"mode", "animate"},
+                                       {"anim.repeat", "2"}, {"anim.duration", "3"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "a", {{"value", "quat(1, 0, 0, 0)"}},
+                                      {{"axis", "0"}, {"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "b", {{"value", "qaxis([1, 1, 0], 2.5)"}},
+                                      {{"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "q", {{"value", "slerp(a, b, s)"}});
+                        app.select("q");
+                        app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Quaternion from a matrix", C::Matrices,
+                    "M = rot([1, 1, 0], θ) is a rotation matrix and q = quat(M) the same rotation as a "
+                    "quaternion. Drag θ: q's axis stays (1, 1, 0)/√2 and its angle follows θ.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "theta", {},
+                                      {{"value", "1.2"}, {"min", "0"}, {"max", "3.1416"}});
+                        app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "rot([1, 1, 0], theta)"}},
+                                      {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "q", {{"value", "quat(M)"}}, {{"basis", "0"}});
+                        app.select("q");
+                    }});
     list.push_back({"Animated rotation", C::Matrices,
                     "A parameter θ plays from 0 to 2π and drives M = rotz(θ): every object that uses M moves "
                     "with it.",

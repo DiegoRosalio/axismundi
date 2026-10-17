@@ -278,7 +278,9 @@ bool SceneView::anchorPoint(const SceneObject& o, scene::SpaceKind kind, const D
         }
         if (o.typeId() == "quaternion") {
             expr::Rotation r;
-            if (!expr::rotationOf(v, r)) return false;
+            // The label and the picking handle sit at the axis tip, so only when the axis is drawn
+            if (!static_cast<const scene::QuaternionObject&>(o).showAxis() || !expr::rotationOf(v, r) || !r.hasAxis)
+                return false;
             out = mathToWorld(r.axis * kQuatAxisLength);
             return true;
         }

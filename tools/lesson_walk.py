@@ -28,6 +28,11 @@ walk = r'''    auto solve = [](App& app, size_t L, size_t K) -> bool {
         if (title == "Multiply by i") { if (auto* o = app.object("z2", AppMode::Complex)) o->setField("value", "i"); return true; }
         if (title == "Double it") { if (auto* o = app.object("z2", AppMode::Complex)) o->setField("value", "2i"); return true; }
         if (title == "Half a turn") { if (auto* p = param("theta", AppMode::Complex)) p->setNumber(3.14159265); return true; }
+        if (title == "Turn further") { if (auto* o = app.object("q")) o->setField("value", "qaxis([0, 0, 1], pi)"); return true; }
+        if (title == "Acting on a vector") { if (auto* o = app.object("q")) o->setProp("act", true); return true; }
+        if (title == "One after the other") { app.addObject(AppMode::Space3D, "quaternion", "p", {{"value", "qaxis([1, 0, 0], pi/2)"}}); app.addObject(AppMode::Space3D, "quaternion", "r", {{"value", "q*p"}}); return true; }
+        if (title == "Order matters") { app.select("q"); app.select("p", AppMode::Space3D, true); return true; }
+        if (title == "Blend with slerp") { app.addObject(AppMode::Space3D, "parameter", "s"); app.addObject(AppMode::Space3D, "quaternion", "b", {{"value", "slerp(q, p, s)"}}); return true; }
         if (title == "Add a surface") { app.addObject(AppMode::Space3D, "surface", "S"); return true; }
         if (title == "Use a parameter") { app.addObject(AppMode::Space3D, "parameter", "k"); if (auto* o = app.object("S")) o->setField("f", "sin(k*x)"); return true; }
         return false;

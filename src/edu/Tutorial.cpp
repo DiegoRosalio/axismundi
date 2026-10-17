@@ -346,6 +346,78 @@ std::vector<Lesson> build() {
          },
          "Add → Parameter, then set the surface to sin(k*x) or k*exp(-(x^2+y^2)/4).", "objects.add"},
     }});
+    list.push_back({"Quaternions", "Rotations in four numbers", {
+        // Appended last: finished lessons are saved as a bitmask by position
+        {"A rotation in four numbers",
+         "Every rotation in 3D turns by some angle about some axis. A quaternion stores exactly that in four "
+         "numbers w + xi + yj + zk: w = cos(angle/2) and (x, y, z) = the axis times sin(angle/2). q here is a "
+         "quarter turn about z: 0.707 + 0.707k. The arc shows the angle, the colored axes where x, y, z go.",
+         [](App& app) {
+             app.setMode(AppMode::Space3D);
+             app.restartTime(false);
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "quaternion", "q", {{"value", "qaxis([0, 0, 1], pi/2)"}});
+             app.select("q");
+             app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+             if (auto* p = app.panel("analysis")) p->setVisible(true);
+         },
+         nullptr, nullptr, nullptr, "quaternion.value"},
+        {"Turn further",
+         "qaxis(axis, angle) makes the rotation by angle (in radians) about the axis.",
+         nullptr, "Make q a half turn (180°) about the z axis.",
+         [](App& app, const TutorialContext&) {
+             auto* q = app.object("q");
+             expr::Rotation r;
+             return q && expr::rotationOf(q->value(), r) && near(static_cast<float>(r.angle), kPi, 0.01f) &&
+                    std::fabs(std::fabs(r.axis.z) - 1.0f) < 0.01f;
+         },
+         "Type qaxis([0, 0, 1], pi) in q's formula.", "quaternion.value"},
+        {"Acting on a vector",
+         "A quaternion turns vectors: rotate(q, v) = q v q⁻¹. The tip of v moves along a circle around the axis.",
+         nullptr, "Switch on \"Acts on a vector\" for q.",
+         [](App& app, const TutorialContext&) {
+             auto* q = app.object("q");
+             return q && q->propBool("act", false);
+         },
+         "It's a switch in q's inspector.", "quaternion.act"},
+        {"One after the other",
+         "Multiplying quaternions combines rotations: q·p means first p, then q (like matrices).",
+         nullptr, "Add a quaternion p (e.g. a quarter turn about x) and another one equal to q*p.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Space3D).objects())
+                 if (o->typeId() == "quaternion" && o->error().empty() && o->dependencies().size() >= 2) return true;
+             return false;
+         },
+         "Add → Quaternion, set it to qaxis([1, 0, 0], pi/2) and name it p. Then select q and p and pick Compose in "
+         "the Add menu, or type q*p in a new quaternion.",
+         "objects.add"},
+        {"Order matters",
+         "Turning about z then x is not the same as x then z. The Analysis panel compares q·p and p·q.",
+         nullptr, "Select two quaternions at once.",
+         [](App& app, const TutorialContext&) {
+             int n = 0;
+             for (auto id : app.scene().selection(scene::SpaceKind::Euclidean3D).ids) {
+                 auto* o = app.space(AppMode::Space3D).find(id);
+                 if (o && o->typeId() == "quaternion") n++;
+             }
+             return n >= 2;
+         },
+         "Click one in the objects list, then Ctrl+click another.", "objects.list"},
+        {"Blend with slerp",
+         "slerp(a, b, s) turns smoothly from a to b as s goes from 0 to 1: the shortest way, at constant "
+         "speed. This is why animations and games store rotations as quaternions.",
+         nullptr, "Add a quaternion that uses slerp.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Space3D).objects()) {
+                 const scene::Field* f = o->field("value");
+                 if (o->typeId() == "quaternion" && o->error().empty() && f && f->text.find("slerp") != std::string::npos)
+                     return true;
+             }
+             return false;
+         },
+         "Select two quaternions and pick \"Turn from … (slerp, slider)\" in the Add menu.", "objects.add"},
+    }});
+
     return list;
 }
 
