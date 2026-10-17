@@ -1352,6 +1352,44 @@ void testScene() {
         (void)e;
     }
 
+    // Quaternion objects: their value feeds other objects; the acts-on field only when switched on
+    {
+        Scene qs;
+        qs.clearAll();
+        auto* q = static_cast<QuaternionObject*>(qs.add(SpaceKind::Euclidean3D, "quaternion", "q"));
+        CHECK(q && q->name() == "q");
+        auto* w = static_cast<VectorObject*>(qs.add(SpaceKind::Euclidean3D, "vector", "w"));
+        w->setProp("mode", "formula");
+        w->setField("value", "rotate(q, [1, 0, 0])");
+        auto* M = qs.add(SpaceKind::Euclidean3D, "matrix", "M");
+        M->setProp("mode", "formula");
+        M->setField("value", "mat(q)");
+        qs.evaluate();
+        CHECK(q->error().empty() && q->value().type == expr::Type::Quaternion);
+        CHECK(w->error().empty());
+        CHECK_NEAR(w->value().vector.y, 1.0, 1e-6);  // a quarter turn about z sends x to y
+        CHECK(M->error().empty() && std::fabs(M->value().matrix.m[1][0] - 1.0f) < 1e-6f);
+        expr::Rotation r;
+        CHECK(expr::rotationOf(q->value(), r) && r.hasAxis && std::fabs(r.angle - 3.14159265358979 / 2) < 1e-9);
+        // "v" is inactive until "acts on" is switched on (a bad v is then reported)
+        q->setField("v", "[1, 2]");
+        qs.evaluate();
+        CHECK(q->error().empty());
+        q->setProp("act", true);
+        qs.evaluate();
+        CHECK(!q->error().empty());
+        q->setField("v", "[0, 1, 0]");
+        q->setField("value", "[1, 0, 0]");  // a vector is not a quaternion
+        qs.evaluate();
+        CHECK(q->error().find("should be a quaternion") != std::string::npos);
+        // Following the clock
+        q->setField("value", "qaxis([0, 0, 1], t)");
+        qs.timeline().time = 1.0;
+        qs.evaluate();
+        CHECK(q->followsClock());
+        CHECK(expr::rotationOf(q->value(), r) && std::fabs(r.angle - 1.0) < 1e-9);
+    }
+
     // Vector fields: formula of x, y, z using other objects, counts, ranges, saving
     {
         Scene fs;

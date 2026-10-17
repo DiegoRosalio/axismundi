@@ -46,6 +46,13 @@ std::string summaryOf(const SceneObject& o) {
     if (type == "implicit") return o.field("f")->text + " = 0";
     if (type == "curve") return "curve in u";
     if (type == "field") return "F = " + o.field("F")->text;
+    if (type == "quaternion") {
+        expr::Rotation r;
+        if (!expr::rotationOf(o.value(), r)) return o.value().summary();
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%.0f° rotation", r.angle * 180.0 / 3.14159265358979);
+        return buf;
+    }
     if (type == "product") return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
     if (type == "vector" && static_cast<const scene::VectorObject&>(o).byFormula()) {
         return o.field("value")->text + " = " + o.value().summary();
@@ -675,6 +682,65 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         }
         note(col, curve ? "u runs along the curve; t is the scene time. Parameters work by name too."
                         : "Use x, y, t (the scene time) and parameters by name, e.g. a*sin(x - t).",
+             t.textFaint);
+    } else if (type == "quaternion") {
+        auto& qo = static_cast<scene::QuaternionObject&>(o);
+        col.setY(fieldRow(col.x(), col.y(), col.width(), qo, "value", sc, 34.0f));
+        ui::anchor("quaternion.value", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+        expr::Rotation r;
+        if (qo.error().empty() && expr::rotationOf(qo.value(), r)) {
+            note(col, "= " + qo.value().summary(), t.textMuted);
+            char buf[128];
+            if (r.hasAxis)
+                snprintf(buf, sizeof(buf), "%.1f° about (%.2f, %.2f, %.2f)", r.angle * 180.0 / 3.14159265358979,
+                         r.axis.x, r.axis.y, r.axis.z);
+            else
+                snprintf(buf, sizeof(buf), "No rotation (angle 0)");
+            note(col, buf, t.text);
+            if (std::fabs(r.norm - 1.0) > 1e-3) {
+                snprintf(buf, sizeof(buf), "|q| = %.3f, not 1: drawn as the rotation of q/|q|. unit(q) makes it 1.", r.norm);
+                note(col, buf, t.warning);
+            } else {
+                note(col, "|q| = 1", t.textFaint);
+            }
+        } else if (qo.error().empty() && qo.value().type == expr::Type::Quaternion) {
+            note(col, "The zero quaternion is not a rotation.", t.warning);
+        }
+        auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
+            Rectangle tr = col.row(30);
+            bool v = current;
+            if (ui::toggleRow(tr, text, v)) {
+                qo.setProp(key, v);
+                commit();
+            }
+            ui::tooltip(tr, tip, text);
+            return v;
+        };
+        toggleProp("Axis and angle", "axis", qo.showAxis(),
+                   "The rotation axis through the origin, and an arc showing how far it turns (right-hand rule).");
+        toggleProp("Rotated basis", "basis", qo.showBasis(),
+                   "Where the rotation sends the x, y and z axes (the faint ones are the originals).");
+        bool acts = toggleProp("Acts on a vector", "act", qo.actsOnVector(),
+                               "Shows a vector v (gray) and the turned vector q v q⁻¹, with the circle its tip follows.");
+        ui::anchor("quaternion.act", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+        if (acts) col.setY(fieldRow(col.x(), col.y(), col.width(), qo, "v", sc, 64.0f));
+        if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
+            m_activeId = -1;
+            static const char* kQuats[] = {
+                "qaxis([0, 0, 1], pi/2)",      // a quarter turn about z
+                "qaxis([1, 0, 0], pi)",        // a half turn about x
+                "qaxis([1, 1, 1], 2pi/3)",     // 120° about the diagonal: x -> y -> z
+                "quat(1, 0, 0, 0)",            // no rotation
+                "quat(1, 1, 0, 0)",            // not unit: still a rotation (90° about x)
+                "qaxis([0, 0, 1], t)",         // turning with the clock
+            };
+            int n = static_cast<int>(sizeof(kQuats) / sizeof(kQuats[0]));
+            m_exampleIndex = (m_exampleIndex + 1) % n;
+            qo.setField("value", kQuats[m_exampleIndex]);
+            commit();
+        }
+        note(col, "qaxis(axis, angle) makes a rotation; q1*q2 does q2 first, then q1. The formula reference (F2) has "
+                  "the rest.",
              t.textFaint);
     } else if (type == "field") {
         auto& fo = static_cast<scene::VectorFieldObject&>(o);

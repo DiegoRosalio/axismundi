@@ -849,6 +849,9 @@ void App::pickInViewport() {
             if (o.typeId() == "vector") {
                 Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
                 consider(mathToWorld(tail), mathToWorld(tail + o.value().vector), o.id());
+            } else if (o.typeId() == "quaternion") {
+                expr::Rotation r;
+                if (expr::rotationOf(o.value(), r)) consider({0, 0, 0}, mathToWorld(r.axis * 2.0f), o.id());
             } else if (o.typeId() == "matrix") {
                 Matrix4D m = view::SceneView::displayedMatrix(o, options);
                 Vector3D origin = m.transform(Vector3D::zero());

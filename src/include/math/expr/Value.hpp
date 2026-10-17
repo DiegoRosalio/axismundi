@@ -47,4 +47,15 @@ struct Value {
 
 std::string typeName(Type type);
 
+// The rotation a quaternion stands for (of q/|q|): unit axis, angle in [0, π], 3×3 matrix and |q|.
+// False for anything else or the zero quaternion. With angle 0 the axis is (0, 0, 1) and hasAxis false.
+struct Rotation {
+    Vector3D axis{0, 0, 1};
+    double angle = 0.0;
+    bool hasAxis = false;
+    Matrix3D matrix = Matrix3D::identity();
+    double norm = 1.0;
+};
+bool rotationOf(const Value& q, Rotation& out);
+
 } // namespace linalg::expr

@@ -336,6 +336,20 @@ expr::Value PlotObject::computeValue() const {
     return expr::Value::fail("no value");  // plots are drawn, not used in formulas
 }
 
+// --- Quaternion -----------------------------------------------------------------------
+
+QuaternionObject::QuaternionObject() : SceneObject("quaternion") {
+    setProp("axis", true);
+    setProp("basis", true);
+    setProp("act", false);
+    addField("value", "q =", Expect::Quaternion, "qaxis([0, 0, 1], pi/2)");
+    addField("v", "Acts on", Expect::Vector, "[1, 0, 0]");
+}
+
+bool QuaternionObject::fieldActive(const Field& f) const {
+    return f.key != "v" || actsOnVector();
+}
+
 // --- Vector field ---------------------------------------------------------------------
 
 VectorFieldObject::VectorFieldObject() : SceneObject("field") {
@@ -450,6 +464,9 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"eigen", "Eigenvectors", "Linear algebra", "E", spaceBit(SpaceKind::Euclidean3D),
          "The directions a matrix only stretches",
          [] { return std::make_unique<EigenObject>(); }},
+        {"quaternion", "Quaternion (rotation)", "Linear algebra", "q", spaceBit(SpaceKind::Euclidean3D),
+         "A rotation in four numbers: an axis and an angle, e.g. qaxis([0, 0, 1], pi/2)",
+         [] { return std::make_unique<QuaternionObject>(); }},
         {"function", "Function y = f(x)", "Plots", "f", spaceBit(SpaceKind::Euclidean3D),
          "The graph of a function of x",
          [] { return std::make_unique<PlotObject>(PlotObject::Kind::Function); }},

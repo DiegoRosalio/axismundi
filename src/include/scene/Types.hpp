@@ -144,6 +144,20 @@ protected:
     std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<ProductObject>(); }
 };
 
+// A quaternion: a rotation in four numbers. Drawn as its axis and angle, the rotated basis, and
+// optionally a vector before and after the rotation. Its value is the quaternion.
+class QuaternionObject : public SceneObject {
+public:
+    QuaternionObject();
+    bool showAxis() const { return propBool("axis", true); }
+    bool showBasis() const { return propBool("basis", true); }
+    bool actsOnVector() const { return propBool("act", false); }
+
+protected:
+    bool fieldActive(const Field& f) const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<QuaternionObject>(); }
+};
+
 // A vector field F(x, y, z): arrows on a grid, optional flow lines and particles. Plane fields
 // live on the floor z = 0 (F's x and y are used); volume fields fill a box.
 class VectorFieldObject : public SceneObject {

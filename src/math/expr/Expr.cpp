@@ -444,6 +444,27 @@ Quat qslerp(Quat a, Quat b, double s) {
     return qscale(r, 1.0 / qnorm(r));
 }
 
+} // namespace
+
+bool rotationOf(const Value& v, Rotation& out) {
+    if (v.type != Type::Quaternion) return false;
+    Quat q = toQuat(v);
+    double n = qnorm(q);
+    if (n < 1e-12) return false;
+    q = qscale(q, 1.0 / n);
+    if (q.w < 0) q = qscale(q, -1.0);  // q and −q: the same rotation; the angle is then in [0, π]
+    double s = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z);
+    out.norm = n;
+    out.angle = 2 * std::atan2(s, q.w);
+    out.hasAxis = s > 1e-9;
+    out.axis = out.hasAxis ? Vector3D(static_cast<float>(q.x / s), static_cast<float>(q.y / s), static_cast<float>(q.z / s))
+                           : Vector3D(0, 0, 1);
+    out.matrix = qmatrix(q);
+    return true;
+}
+
+namespace {
+
 Value quaternionOp(char op, const Value& a, const Value& b) {
     bool qa = a.type == Type::Quaternion, qb = b.type == Type::Quaternion;
     // A real number is the quaternion w + 0i + 0j + 0k

@@ -196,13 +196,60 @@ void basis(const Matrix4D& m, float alpha, bool selected, bool fade = false) {
     DrawSphere(o, 0.06f, withAlpha(t.text, static_cast<unsigned char>(255 * alpha)));
 }
 
+// --- Quaternions: axis and angle, rotated basis, a vector before and after ----------------
+
+constexpr float kQuatAxisLength = 2.0f;  // the axis arrow (the label sits at its tip)
+
+Matrix4D embed3(const Matrix3D& m) {
+    Matrix4D r = Matrix4D::identity();
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) r.m[i][j] = m.m[i][j];
+    return r;
+}
+
+// A unit vector at right angles to the axis (where the angle arc starts)
+Vector3D perpendicular(const Vector3D& a) {
+    Vector3D e = std::fabs(a.x) < 0.9f ? Vector3D(1, 0, 0) : Vector3D(0, 1, 0);
+    return a.cross(e).normalized();
+}
+
+// Points of an arc around `axis` (through `center`), from `start` (relative to center) over `angle`
+std::vector<Vector3D> arcPoints(const Vector3D& center, const Vector3D& axis, const Vector3D& start, double angle) {
+    std::vector<Vector3D> pts;
+    int n = std::max(2, static_cast<int>(std::fabs(angle) / 0.06) + 2);
+    Vector3D side = axis.cross(start);
+    for (int i = 0; i <= n; i++) {
+        float a = static_cast<float>(angle * i / n);
+        pts.push_back(center + start * std::cos(a) + side * std::sin(a));
+    }
+    return pts;
+}
+
+void tubeAlong(const std::vector<Vector3D>& pts, float radius, Color color) {
+    for (size_t i = 1; i < pts.size(); i++)
+        DrawCylinderEx(mathToWorld(pts[i - 1]), mathToWorld(pts[i]), radius, radius, 6, color);
+}
+
+// An arc with an arrowhead at its end (the direction of turning)
+void angleArc(const std::vector<Vector3D>& pts, float radius, Color color) {
+    if (pts.size() < 2) return;
+    tubeAlong(pts, radius, color);
+    Vector3D end = pts.back(), before = pts[pts.size() - 2];
+    Vector3D d = end - before;
+    if (d.magnitude() < 1e-6f) return;
+    d = d.normalized();
+    float head = 0.14f * std::sqrt(activeStyle().lineScale);
+    DrawCylinderEx(mathToWorld(end - d * (head * 0.3f)), mathToWorld(end + d * (head * 0.7f)), head * 0.38f, 0.0f, 10,
+                   color);
+}
+
 } // namespace
 
 Color SceneView::colorOf(const SceneObject& o) {
     if (o.customColor) return {o.color.r, o.color.g, o.color.b, 255};
     const ViewStyle& s = activeStyle();
     const std::string& type = o.typeId();
-    if (type == "vector") return paletteColor(s.vectors, o.paletteIndex);
+    if (type == "vector" || type == "quaternion") return paletteColor(s.vectors, o.paletteIndex);
     if (type == "eigen") return s.eigen;
     if (type == "function" || type == "curve" || type == "surface" || type == "implicit" || type == "field")
         return paletteColor(s.plots, o.paletteIndex);
@@ -227,6 +274,12 @@ bool SceneView::anchorPoint(const SceneObject& o, scene::SpaceKind kind, const D
         if (o.typeId() == "matrix" && v.type == expr::Type::Matrix) {
             Matrix4D m = displayedMatrix(o, options);
             out = mathToWorld(m.transform(Vector3D(1, 0, 0)));
+            return true;
+        }
+        if (o.typeId() == "quaternion") {
+            expr::Rotation r;
+            if (!expr::rotationOf(v, r)) return false;
+            out = mathToWorld(r.axis * kQuatAxisLength);
             return true;
         }
         return false;
@@ -420,7 +473,10 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
     // The untransformed basis, faint, once if any matrix is shown
     bool anyMatrix = false;
     for (const auto& o : space.objects())
-        if (o->visible && o->typeId() == "matrix" && o->value().ok()) anyMatrix = true;
+        if (shown(options, *o) && o->value().ok() &&
+            (o->typeId() == "matrix" ||
+             (o->typeId() == "quaternion" && static_cast<const scene::QuaternionObject&>(*o).showBasis())))
+            anyMatrix = true;
     if (anyMatrix) basis(Matrix4D::identity(), 0.35f, false);
 
     for (const Matrix4D& g : options.ghosts) basis(g, 0.22f, false);
@@ -438,6 +494,9 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             arrow(mathToWorld(tail), mathToWorld(tail + v.vector), c, selected);
         } else if (type == "matrix" && v.type == expr::Type::Matrix) {
             basis(displayedMatrix(o, options), 1.0f, selected, dimmed(options, o));
+        } else if (type == "quaternion" && v.type == expr::Type::Quaternion) {
+            drawQuaternion(static_cast<const scene::QuaternionObject&>(o), selected,
+                           dimmed(options, o) ? faded(colorOf(o)) : colorOf(o), dimmed(options, o), false, -1);
         } else if (type == "eigen" && v.type == expr::Type::Matrix) {
             EigenResult e = eigen3(v.matrix3());
             Color c = dimmed(options, o) ? faded(colorOf(o)) : colorOf(o);
@@ -550,6 +609,66 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
     }
 }
 
+void SceneView::drawQuaternion(const scene::QuaternionObject& o, bool selected, Color c, bool fade, bool print,
+                               int printStyle) {
+    expr::Rotation r;
+    if (!expr::rotationOf(o.value(), r)) return;
+    const ViewStyle& st = activeStyle();
+    const float k = print ? 0.8f : st.lineScale;
+    const Color muted = print ? Color{150, 150, 150, 255} : (fade ? faded(st.muted) : st.muted);
+    if (o.showBasis()) {
+        if (print) {
+            for (int axisIndex = 0; axisIndex < 3; axisIndex++) {
+                Vector3D e(axisIndex == 0 ? 1.0f : 0.0f, axisIndex == 1 ? 1.0f : 0.0f, axisIndex == 2 ? 1.0f : 0.0f);
+                printArrow({0, 0, 0}, mathToWorld(r.matrix.transform(e)), c, dashOf(printStyle), selected);
+            }
+        } else {
+            basis(embed3(r.matrix), 1.0f, selected, fade);
+        }
+    }
+    if (o.showAxis() && r.hasAxis) {
+        // The axis: a dashed line through the origin, an arrow along +axis
+        Vector3D a = r.axis;
+        if (print) {
+            printLine(mathToWorld(a * -2.6f), mathToWorld(a * 2.6f), c, 1, 0.008f);
+            printArrow({0, 0, 0}, mathToWorld(a * kQuatAxisLength), c, 0, selected);
+        } else {
+            dashed(mathToWorld(a * -2.6f), mathToWorld(a * 2.6f), withAlpha(c, 200), 0.1f);
+            if (selected) DrawCylinderEx({0, 0, 0}, mathToWorld(a * kQuatAxisLength), 0.06f * k, 0.06f * k, 10, withAlpha(c, 60));
+            VectorRenderer::drawArrow(Vector3D::zero(), toVec(mathToWorld(a * kQuatAxisLength)), c, 0.02f * k, 0.17f);
+        }
+        // The angle: an arc around the axis, from a direction at right angles to the axis
+        Vector3D u = perpendicular(a) * 1.0f;
+        auto pts = arcPoints(Vector3D::zero(), a, u, r.angle);
+        Color arc = c;
+        if (print) {
+            for (size_t n = 1; n < pts.size(); n++) printLine(mathToWorld(pts[n - 1]), mathToWorld(pts[n]), arc, 0, 0.01f);
+        } else {
+            angleArc(pts, 0.018f * k, arc);
+            DrawLine3D({0, 0, 0}, mathToWorld(pts.front()), withAlpha(arc, 140));
+            DrawLine3D({0, 0, 0}, mathToWorld(pts.back()), withAlpha(arc, 140));
+        }
+    }
+    if (o.actsOnVector()) {
+        const scene::Field* vf = o.field("v");
+        if (vf && vf->value.type == expr::Type::Vector) {
+            Vector3D v = vf->value.vector, w = r.matrix.transform(v);
+            // v (before), q v q⁻¹ (after), and the circle its tip follows around the axis
+            Vector3D along = r.axis * r.axis.dot(v);
+            auto path = arcPoints(along, r.axis, v - along, r.angle);
+            if (print) {
+                printArrow({0, 0, 0}, mathToWorld(v), muted, 2, false);
+                printArrow({0, 0, 0}, mathToWorld(w), c, 0, false);
+                for (size_t n = 1; n < path.size(); n++) printLine(mathToWorld(path[n - 1]), mathToWorld(path[n]), muted, 2, 0.006f);
+            } else {
+                arrow({0, 0, 0}, mathToWorld(v), muted, false);
+                arrow({0, 0, 0}, mathToWorld(w), c, false);
+                for (size_t n = 1; n < path.size(); n += 2) DrawLine3D(mathToWorld(path[n - 1]), mathToWorld(path[n]), c);
+            }
+        }
+    }
+}
+
 void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& options) {
     const ViewSettings& view = *options.view;
     float len = view.axisLength;
@@ -593,6 +712,8 @@ void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& optio
                         if (cc == 0) DrawLine3D(corner(a, b, cc), corner(a, b, 1), cubeGray);
                     }
             for (int k = 0; k < 3; k++) printArrow(mathToWorld(origin), mathToWorld(origin + cols[k]), c, dash, selected);
+        } else if (type == "quaternion" && v.type == expr::Type::Quaternion) {
+            drawQuaternion(static_cast<const scene::QuaternionObject&>(o), selected, c, false, true, style);
         } else if (type == "eigen" && v.type == expr::Type::Matrix) {
             EigenResult e = eigen3(v.matrix3());
             for (const auto& ev : e.values) {
@@ -737,6 +858,15 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
         if (!anchorPoint(o, space.kind(), options, at)) continue;
         if (o.typeId() == "vector") {
             snprintf(text, sizeof(text), "%s  %.2f", o.name().c_str(), o.value().vector.magnitude());
+        } else if (o.typeId() == "quaternion") {
+            expr::Rotation r;
+            expr::rotationOf(o.value(), r);
+            auto c3 = [](float v) { return std::fabs(v) < 5e-3f ? 0.0f : v; };
+            if (r.hasAxis)
+                snprintf(text, sizeof(text), "%s  %.0f° about (%.2g, %.2g, %.2g)", o.name().c_str(),
+                         r.angle * 180.0 / 3.14159265358979, c3(r.axis.x), c3(r.axis.y), c3(r.axis.z));
+            else
+                snprintf(text, sizeof(text), "%s  no rotation", o.name().c_str());
         } else {
             snprintf(text, sizeof(text), "%s", o.name().c_str());
         }

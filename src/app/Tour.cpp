@@ -242,6 +242,26 @@ void Tour::buildSteps() {
         app.view().style = view::StyleId::Chalkboard;
     }, 25);
     step("16j_field_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 20);
+    // Quaternions: axis and angle with the rotated basis, then acting on a vector
+    step("16k_quaternion", [](App& app) {
+        app.view().style = view::StyleId::Colorful;
+        app.setMode(AppMode::Space3D);
+        app.clearSpace(AppMode::Space3D);
+        app.resetCamera();
+        app.addObject(AppMode::Space3D, "quaternion", "q", {{"value", "qaxis([1, 1, 1], 2pi/3)"}});
+        app.select("q");
+        app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+    }, 20);
+    step("16l_quaternion_acts", [](App& app) {
+        if (auto* q = app.object("q")) {
+            q->setField("value", "qaxis([0, 0, 1], pi/2)");
+            q->setProp("act", true);
+            q->setProp("basis", false);
+            q->setField("v", "[1.5, 0, 1]");
+        }
+        app.scene().commit();
+    }, 20);
+    step("16m_quaternion_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 20);
     step("17_help", [](App& app) {
         app.view().style = view::StyleId::Colorful;
         app.resetScene();
