@@ -38,6 +38,17 @@
 
 ## Medium Priority (Extended Features)
 
+### Usability upgrades
+- [ ] Matrix presets accumulate: applying Rotate and then Scale should give scale·rotate (compose with the
+      current matrix), not replace it with the last preset. Keep a way to start over (Identity).
+- [ ] Sensible defaults: new vectors start with length 1 (e.g. along an axis), and the app opens with an
+      empty scene the first time (no default objects); the current demo scene stays available (gallery /
+      reset)
+- [ ] Better file loading and saving: choose the file name and folder (save as, open, recent files)
+      instead of the fixed `scene.txt` in the current folder
+- [ ] Better visibility of objects: make vectors, matrices, plots and labels easier to see and tell apart
+      (to define: thickness, contrast, labels, highlight of the selection, show/hide controls)
+
 ### Complex Numbers
 - [x] Create Complex class
 - [x] Implement Argand diagram renderer
@@ -210,5 +221,5 @@ When implementing new features:
 - Medium: 1-4 hours
 - Hard: 4+ hours
 
-All High and Medium priority items are done.
+All High priority items are done; the Medium priority usability upgrades are open.
 Most items in "Advanced Math" are hard difficulty.
