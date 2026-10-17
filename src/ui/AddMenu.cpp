@@ -28,6 +28,16 @@ AddChoice matrixFormula(const std::string& name, const std::string& formula) {
     return c;
 }
 
+// lerp-based morph driven by a new slider s (0..1)
+AddChoice morph(const std::string& typeId, const std::string& formula) {
+    AddChoice c;
+    c.typeId = typeId;
+    if (typeId != "complex") c.props["mode"] = "formula";
+    c.fields["value"] = formula;
+    c.helperParameter = "s";
+    return c;
+}
+
 } // namespace
 
 std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& sc, scene::SpaceKind kind) {
@@ -51,11 +61,13 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             out.push_back({"Cross product " + a + " × " + b, vectorFormula("", "cross(" + a + ", " + b + ")")});
             out.push_back({"Projection of " + a + " on " + b,
                            vectorFormula("", "dot(" + a + ", " + b + ")/dot(" + b + ", " + b + ") * " + b)});
+            out.push_back({"Blend " + a + " → " + b + " (slider)", morph("vector", "lerp(" + a + ", " + b + ", $s)")});
         }
         if (vectors.size() == 1) {
             const std::string& a = vectors[0]->name();
             out.push_back({"Unit vector along " + a, vectorFormula("", "normalize(" + a + ")")});
             out.push_back({"Opposite −" + a, vectorFormula("", "-" + a)});
+            out.push_back({"Grow " + a + " from zero (slider)", morph("vector", "lerp(0, " + a + ", $s)")});
         }
         if (!matrices.empty() && !vectors.empty()) {
             const std::string& m = matrices[0]->name();
@@ -66,6 +78,7 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             const std::string& a = matrices[0]->name();
             const std::string& b = matrices[1]->name();
             out.push_back({"Product " + a + "·" + b, matrixFormula("", a + "*" + b)});
+            out.push_back({"Blend " + a + " → " + b + " (slider)", morph("matrix", "lerp(" + a + ", " + b + ", $s)")});
         }
         if (matrices.size() == 1) {
             const std::string& m = matrices[0]->name();
@@ -75,6 +88,9 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             out.push_back({"Eigenvectors of " + m, e});
             out.push_back({"Inverse " + m + "⁻¹", matrixFormula(m + "inv", "inv(" + m + ")")});
             out.push_back({"Transpose of " + m, matrixFormula(m + "T", "transpose(" + m + ")")});
+            bool big = matrices[0]->propNumber("size", 3) == 4;
+            out.push_back({"Morph from identity to " + m + " (slider)",
+                           morph("matrix", std::string("lerp(eye(") + (big ? "4" : "3") + "), " + m + ", $s)")});
         }
     } else {
         if (numbers.size() >= 2) {
@@ -93,6 +109,7 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             q.typeId = "complex";
             q.fields["value"] = a + " / " + b;
             out.push_back({"Quotient " + a + " / " + b, q});
+            out.push_back({"Blend " + a + " → " + b + " (slider)", morph("complex", "lerp(" + a + ", " + b + ", $s)")});
         }
         if (numbers.size() == 1) {
             const std::string& a = numbers[0]->name();
@@ -104,16 +121,32 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             sq.typeId = "complex";
             sq.fields["value"] = a + "^2";
             out.push_back({"Square " + a + "²", sq});
+            out.push_back({"Grow " + a + " from zero (slider)", morph("complex", "lerp(0, " + a + ", $s)")});
         }
     }
     return out;
 }
 
 scene::SceneObject* applyAddChoice(scene::Scene& sc, scene::SpaceKind kind, const AddChoice& choice) {
+    std::string helperName;
+    if (!choice.helperParameter.empty()) {
+        // A static slider from 0 to 1 that drives the new object
+        SceneObject* h = sc.add(kind, "parameter", choice.helperParameter);
+        if (!h) return nullptr;
+        h->setProp("min", 0.0);
+        h->setProp("max", 1.0);
+        h->setProp("value", 0.5);
+        helperName = h->name();
+    }
     SceneObject* o = sc.add(kind, choice.typeId, choice.name);
     if (!o) return nullptr;
     for (const auto& [k, v] : choice.props) o->setProp(k, v);
-    for (const auto& [k, v] : choice.fields) o->setField(k, v);
+    for (const auto& [k, v] : choice.fields) {
+        std::string text = v;
+        for (size_t at = text.find("$s"); !helperName.empty() && at != std::string::npos; at = text.find("$s", at))
+            text.replace(at, 2, helperName);
+        o->setField(k, text);
+    }
     sc.selection(kind).set(o->id());
     sc.commit();
     return o;

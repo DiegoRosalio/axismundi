@@ -14,7 +14,6 @@ bool near(float a, float b, float tol = 0.02f) { return std::fabs(a - b) <= tol;
 // The default picture in the 3D space, with M selected and the analysis open
 void fresh3D(App& app) {
     app.setMode(AppMode::Space3D);
-    app.stopAnimation();
     app.resetScene();
     app.select("M");
     if (auto* p = app.panel("analysis")) p->setVisible(true);

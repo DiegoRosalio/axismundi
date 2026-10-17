@@ -15,7 +15,6 @@ using Fields = std::map<std::string, std::string>;
 // Empty the space, show it, and hide panels that belong to another example
 void fresh(App& app, AppMode mode) {
     app.setMode(mode);
-    app.stopAnimation();
     app.restartTime(false);
     app.clearSpace(mode);
     if (auto* p = app.panel("breakdown")) p->setVisible(false);

@@ -14,6 +14,7 @@
 #include <raymath.h>
 #include <rlgl.h>
 #include <algorithm>
+#include <sstream>
 #include <cmath>
 #include <ctime>
 
@@ -47,7 +48,7 @@ SpaceKind App::kindOf(AppMode mode) {
 App::App(const AppOptions& options)
     : m_options(options), m_grid(10, 1.0f),
       m_analysisWindow("analysis", "Analysis", 356.0f, {1.0f, 0.0f}),
-      m_animationWindow("animation", "Animation", 640.0f, {0.5f, 1.0f}),
+      m_animationWindow("animation", "Time", 640.0f, {0.5f, 1.0f}),
       m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false),
       m_breakdownWindow("breakdown", "Transformation breakdown", 380.0f, {0.0f, 0.4f}, false),
       m_galleryWindow("gallery", "Example gallery", 700.0f, {0.5f, 0.2f}, false),
@@ -335,12 +336,60 @@ void App::saveScene() {
     putFloat(data, "camera.tx", t.x);
     putFloat(data, "camera.ty", t.y);
     putFloat(data, "camera.tz", t.z);
-    AnimationPanel::saveState(m_animator, data);
     m_viewPanel.saveState(data);
 
     std::string error;
     if (saveSceneFile(kSceneFile, data, error)) toast(std::string("Scene saved to ") + kSceneFile);
     else toast("Save failed: " + error, true);
+}
+
+void App::convertOldKeyframes(const SceneData& data) {
+    // Files from before the Time panel stored matrix keyframes for the old Animation
+    // panel; they become K = keys(s, ...) driven by an animated parameter s
+    int count = 0;
+    if (!getInt(data, "anim.keyframes", count) || count < 2) return;
+    std::vector<std::string> mats;
+    for (int k = 0; k < count; k++) {
+        auto it = data.find("anim.key" + std::to_string(k));
+        if (it == data.end()) continue;
+        std::istringstream in(it->second);
+        float m[4][4];
+        bool ok = true;
+        for (int i = 0; i < 4 && ok; i++)
+            for (int j = 0; j < 4 && ok; j++) ok = static_cast<bool>(in >> m[i][j]);
+        if (!ok) continue;
+        std::ostringstream text;
+        text << "[";
+        for (int i = 0; i < 4; i++) {
+            text << (i ? ", [" : "[");
+            for (int j = 0; j < 4; j++) text << (j ? ", " : "") << m[i][j];
+            text << "]";
+        }
+        text << "]";
+        mats.push_back(text.str());
+    }
+    if (mats.size() < 2) return;
+    scene::Space& sp = m_scene.space(SpaceKind::Euclidean3D);
+    SceneObject* s = m_scene.add(SpaceKind::Euclidean3D, "parameter", "s");
+    auto* p = static_cast<scene::ParameterObject*>(s);
+    p->setMode(scene::ParameterObject::Mode::Animate);
+    p->setProp("min", 0.0);
+    p->setProp("max", 1.0);
+    Playback pb = p->playback();
+    pb.repeat = Repeat::Loop;
+    pb.duration = 4.0f;
+    p->setPlayback(pb);
+    std::string formula = "keys(" + s->name();
+    for (const auto& m : mats) formula += ", " + m;
+    formula += ")";
+    SceneObject* k = m_scene.add(SpaceKind::Euclidean3D, "matrix", "K");
+    static_cast<scene::MatrixObject*>(k)->setSize(4);
+    static_cast<scene::MatrixObject*>(k)->setByFormula(true);
+    k->setField("value", formula);
+    (void)sp;
+    m_scene.evaluate();
+    m_scene.commit();
+    toast("Old keyframes became the matrix " + k->name() + " = keys(" + s->name() + ", ...)");
 }
 
 void App::loadScene() {
@@ -364,7 +413,7 @@ void App::loadScene() {
     getFloat(data, "camera.ty", t.y);
     getFloat(data, "camera.tz", t.z);
     m_camera.setView(p, t);
-    AnimationPanel::loadState(m_animator, data);
+    convertOldKeyframes(data);
     m_viewPanel.loadState(data);
     toast(std::string("Scene loaded from ") + kSceneFile);
 }
@@ -551,16 +600,13 @@ void App::handleShortcuts(bool uiMode) {
     }
     if (uiMode && (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_INSERT))) openAddMenu();
     if (uiMode && IsKeyPressed(KEY_DELETE)) deleteSelection();
+    if (IsKeyPressed(KEY_P)) TimePanel::togglePlay(m_scene);
 
     if (m_mode != AppMode::Space3D) return;
     if (IsKeyPressed(KEY_I)) applyMatrixPreset(Matrix3D::identity());
     if (IsKeyPressed(KEY_R)) applyMatrixPreset(Matrix3D::rotation(3.14159265f / 4));
     if (IsKeyPressed(KEY_X)) applyMatrixPreset(Matrix3D::shear(0.5f, 0.0f));
     if (IsKeyPressed(KEY_F)) applyMatrixPreset(Matrix3D::scale(-1.0f, 1.0f));
-    if (IsKeyPressed(KEY_P)) {
-        if (m_animator.active()) m_animator.togglePlay();
-        else m_animator.start(AnimationPreset::Morph);
-    }
     // S moves the camera backwards in camera mode
     if (uiMode && IsKeyPressed(KEY_S)) applyMatrixPreset(Matrix3D::scale(2.0f, 2.0f));
 }
@@ -644,18 +690,12 @@ void App::update(float deltaTime) {
     // Analysis follows the selection of the current space
     m_infoPanel.update(m_scene.space(spaceKind()), m_scene.selection(spaceKind()));
 
-    // Animation and breakdown act on the target matrix
-    Matrix4D target = matrix();
-    m_animator.setMorphTarget(target);
-    m_breakdownPanel.setMatrix(target);
+    // The breakdown acts on the target matrix
+    m_breakdownPanel.setMatrix(matrix());
     bool breakdown = breakdownActive();
-    if (breakdown && !m_breakdownWasVisible) {
-        m_animator.stop();
-        m_breakdownPanel.restart();
-    }
+    if (breakdown && !m_breakdownWasVisible) m_breakdownPanel.restart();
     m_breakdownWasVisible = breakdown;
     if (breakdown) m_breakdownPanel.update(deltaTime);
-    m_animator.update(deltaTime);
 
     ViewSettings& view = m_viewPanel.settings();
     m_grid.setShowGrid(view.showGrid);
@@ -679,9 +719,6 @@ view::DrawOptions App::drawOptions() const {
             int steps = static_cast<int>(m_breakdownPanel.breakdown().steps.size());
             int done = std::min(m_breakdownPanel.completedSteps(), steps);
             for (int k = 1; k <= done && k < steps; k++) o.ghosts.push_back(m_breakdownPanel.breakdown().after(k));
-        } else if (m_animator.active()) {
-            o.overrideMatrix = target->id();
-            o.overrideValue = m_animator.current();
         }
     }
     return o;
@@ -838,9 +875,8 @@ void App::drawFloatingPanels() {
                 p->end();
             }
         } else if (p == &m_animationWindow) {
-            if (!space3d) continue;
             if (p->begin(m_animationHeight, content)) {
-                m_animationHeight = m_animationPanel.drawContent(content, m_animator, matrix());
+                m_animationHeight = m_timePanel.drawContent(content, m_scene, spaceKind());
                 p->end();
             }
         } else if (p == &m_breakdownWindow) {

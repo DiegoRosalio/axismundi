@@ -14,6 +14,8 @@ struct AddChoice {
     std::string name;                           // "" = the type's default name
     std::map<std::string, std::string> fields;  // field key -> expression
     std::map<std::string, std::string> props;
+    // Optional static slider created first (0 to 1); "$s" in fields becomes its name
+    std::string helperParameter;
 };
 
 // Popover listing what can be added to a space. "From selection" templates

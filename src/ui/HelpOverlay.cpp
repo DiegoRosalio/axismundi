@@ -45,7 +45,7 @@ const Entry kEdit[] = {
     {"Del|Ctrl+D", "Delete / duplicate the selection"},
     {"I|R|S|X|F", "Matrix presets (S in UI mode)"},
     {"Ctrl+Z|Ctrl+Y", "Undo / redo (UI mode)"},
-    {"P", "Play / pause animation"},
+    {"P", "Play / pause the scene clock"},
     {"Click", "Select (Ctrl+click: add to selection)"},
     {"Enter|Tab", "Confirm a field / go to the next"},
     {"Esc", "Cancel the edit, close a popup"},

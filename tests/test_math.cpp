@@ -1,7 +1,6 @@
 // Unit tests for the math library (no graphics dependencies).
 // Build and run with: make test
 
-#include "animation/Animator.hpp"
 #include "animation/Playback.hpp"
 #include "math/Complex.hpp"
 #include "math/Decompositions.hpp"
@@ -326,57 +325,6 @@ void testPlayback() {
     q.load(data, "x.");
     CHECK(q.easing == Easing::Bounce && q.repeat == Repeat::PingPong);
     CHECK_NEAR(q.duration, 2.0f, 1e-5f);
-}
-
-void testAnimator() {
-    Animator a;
-    CHECK(!a.active());
-
-    // Morph: identity at t=0, target at t=1, halfway in between
-    Matrix4D target = Matrix4D::scale(3, 3, 3);
-    a.setMorphTarget(target);
-    a.start(AnimationPreset::Morph);
-    CHECK(a.active() && a.playing());
-    CHECK(near(a.matrixAt(0.0f), Matrix4D::identity()));
-    CHECK(near(a.matrixAt(1.0f), target));
-    CHECK_NEAR(a.matrixAt(0.5f).m[0][0], 2.0f, 1e-6f);
-
-    // Rotation stays a rotation (determinant 1) at every t
-    a.start(AnimationPreset::Rotation);
-    CHECK_NEAR(a.matrixAt(0.37f).determinant(), 1.0f, 1e-4f);
-    CHECK(near(a.matrixAt(1.0f), Matrix4D::identity()));
-
-    // Playback: one run takes kDuration seconds at 1x speed
-    a.setLoop(false);
-    a.update(Animator::kDuration / 2);
-    CHECK_NEAR(a.time(), 0.5f, 1e-5f);
-    a.update(Animator::kDuration);
-    CHECK_NEAR(a.time(), 1.0f, 1e-6f);
-    CHECK(!a.playing());
-    a.togglePlay();  // restarts from the beginning
-    CHECK(a.playing());
-    CHECK_NEAR(a.time(), 0.0f, 1e-6f);
-
-    // Looping wraps around
-    a.setLoop(true);
-    a.setSpeed(2.0f);
-    a.update(Animator::kDuration * 0.75f);  // 1.5 runs
-    CHECK_NEAR(a.time(), 0.5f, 1e-4f);
-
-    // Keyframes are evenly spaced
-    a.addKeyframe(Matrix4D::identity());
-    a.addKeyframe(Matrix4D::scale(2, 2, 2));
-    a.addKeyframe(Matrix4D::scale(4, 4, 4));
-    a.start(AnimationPreset::Keyframes);
-    CHECK_NEAR(a.matrixAt(0.25f).m[0][0], 1.5f, 1e-5f);
-    CHECK_NEAR(a.matrixAt(0.75f).m[0][0], 3.0f, 1e-5f);
-    CHECK_NEAR(a.matrixAt(1.0f).m[0][0], 4.0f, 1e-5f);
-    a.clearKeyframes();
-    CHECK(!a.active());
-
-    a.start(AnimationPreset::Scaling);
-    a.stop();
-    CHECK(!a.active() && !a.playing());
 }
 
 // Text of the last Result line in an explanation
@@ -958,7 +906,6 @@ int main() {
         {"Expression", testExpression},
         {"Playback", testPlayback},
         {"Blend functions", testBlendFunctions},
-        {"Animator", testAnimator},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},

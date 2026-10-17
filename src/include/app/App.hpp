@@ -1,6 +1,6 @@
 #pragma once
 
-#include "animation/Animator.hpp"
+#include "animation/Playback.hpp"
 #include "math/Complex.hpp"
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
@@ -9,7 +9,6 @@
 #include "rendering/Grid.hpp"
 #include "scene/Scene.hpp"
 #include "ui/AddMenu.hpp"
-#include "ui/AnimationPanel.hpp"
 #include "ui/AppMode.hpp"
 #include "ui/BreakdownPanel.hpp"
 #include "ui/ColorPopover.hpp"
@@ -22,6 +21,7 @@
 #include "ui/SideBar.hpp"
 #include "ui/StepsPanel.hpp"
 #include "ui/TopBar.hpp"
+#include "ui/TimePanel.hpp"
 #include "ui/TutorialPanel.hpp"
 #include "ui/ViewPanel.hpp"
 #include "ui/core/FloatingPanel.hpp"
@@ -79,17 +79,10 @@ public:
     // --- View --------------------------------------------------------------------
     void setCameraView(Vector3 position, Vector3 target) { m_camera.setView(position, target); }
     void resetCamera();
-    void startAnimation(AnimationPreset preset) { m_animator.start(preset); }
-    void stopAnimation() { m_animator.stop(); }
     // Scene clock: back to t = 0, then play or stay paused
     void restartTime(bool play) {
         m_scene.timeline().time = 0.0;
         m_scene.timeline().playing = play;
-    }
-    void setAnimationStyle(Repeat repeat, Easing easing, bool showEasings = false) {
-        m_animator.setRepeat(repeat);
-        m_animator.setEasing(easing);
-        m_animationPanel.setEasingOpen(showEasings);
     }
     void setUiMode(bool ui);  // true: cursor visible, panels active
     void showHelp(bool show);
@@ -100,11 +93,11 @@ public:
     void setTheme(bool dark);
     void toast(const std::string& message, bool error = false);
 
-    // Floating panels by id ("analysis", "animation", ...)
+    // Floating panels by id ("analysis", "animation" (the Time panel), ...)
     ui::FloatingPanel* panel(const std::string& id);
 
     // --- Read-only state (tutorial checks) ----------------------------------
-    // The matrix the animation, breakdown and steps use: the selected matrix, else the first one
+    // The matrix the breakdown and steps use: the selected matrix, else the first one
     const scene::SceneObject* targetMatrix() const;
     Matrix4D matrix() const;
     bool using4x4() const;
@@ -114,7 +107,6 @@ public:
     Complex complexValue(const std::string& name) const;
     double parameterValue(const std::string& name, AppMode mode) const;
     EigenResult eigen() const;
-    const Animator& animator() const { return m_animator; }
     ViewSettings& view() { return m_viewPanel.settings(); }
     const view::SceneView& sceneView() const { return m_sceneView; }
     bool uiMode() const;
@@ -156,6 +148,7 @@ private:
     StepsInput stepsInput() const;
     view::DrawOptions drawOptions() const;
 
+    void convertOldKeyframes(const SceneData& data);
     void loadPreferences(SceneData& prefs);
     void applyPreferences(const SceneData& prefs);
     void savePreferences();
@@ -169,8 +162,7 @@ private:
     view::SceneView m_sceneView;
     CameraController m_camera;
     Grid m_grid;
-    Animator m_animator;
-    AnimationPanel m_animationPanel;
+    TimePanel m_timePanel;
     InfoPanel m_infoPanel;
     ViewPanel m_viewPanel;
     ScenePanel m_scenePanel;

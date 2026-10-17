@@ -1,6 +1,7 @@
 #include "app/Tour.hpp"
 #include "app/App.hpp"
 #include "edu/Examples.hpp"
+#include "ui/AddMenu.hpp"
 #include <raylib.h>
 #include <rlgl.h>
 #include <cstdio>
@@ -98,18 +99,22 @@ void Tour::buildSteps() {
         app.resetScene();
         app.select("M");
         app.applyMatrixPreset(Matrix3D({{{{1, 1, 0}}, {{0, 1, 0}}, {{0, 0, 2}}}}));
-        app.startAnimation(AnimationPreset::Morph);
-    }, 50);
-    step("09b_animation_easing", [](App& app) {
-        app.setAnimationStyle(Repeat::PingPong, Easing::Elastic, true);
-    }, 40);
-    step("09c_pendulum", [](App& app) {
-        app.setAnimationStyle(Repeat::Loop, Easing::Linear, false);
+    }, 30);
+    step("09b_static_morph", [](App& app) {
+        // Add menu template: a static slider s and lerp(eye(3), M, s)
+        app.clearSpace(AppMode::Space3D);
+        app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "[[1, 1, 0], [0, 1, 0], [0, 0, 2]]"}},
+                      {{"mode", "formula"}});
+        app.select("M");
+        for (const auto& [label, choice] : AddMenu::templates(app.scene(), scene::SpaceKind::Euclidean3D))
+            if (label.rfind("Morph from identity", 0) == 0) applyAddChoice(app.scene(), scene::SpaceKind::Euclidean3D, choice);
+        app.select("s");
+    }, 30);
+    step("09c_pendulum_time_panel", [](App& app) {
         runExample(app, "Pendulum (formula of time)");
+        if (auto* p = app.panel("animation")) p->setVisible(true);
     }, 50);
     step("10_projection_example", [](App& app) {
-        app.setAnimationStyle(Repeat::Loop, Easing::Linear, false);
-        app.stopAnimation();
         runExample(app, "Projection of a vector");
     });
 
