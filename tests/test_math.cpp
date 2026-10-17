@@ -7,6 +7,7 @@
 #include "export/LatexExport.hpp"
 #include "export/PdfCompile.hpp"
 #include "math/VectorField.hpp"
+#include "math/Integrals.hpp"
 #include "text/LabelLayout.hpp"
 #include "text/TextLayout.hpp"
 #include <fstream>
@@ -563,6 +564,52 @@ void testVectorField() {
     CHECK_NEAR(particleTime(circle, 1, 3, 0.0, 1.0), T / 3, 1e-9);
     CHECK_NEAR(particleTime(circle, 0, 3, T + 0.25, 1.0), 0.25, 1e-9);
     CHECK_NEAR(particleTime(circle, 0, 3, 0.25, 2.0), 0.5, 1e-9);
+}
+
+void testIntegrals() {
+    using namespace integrals;
+    constexpr double pi = 3.14159265358979;
+    Surface xy = [](double x, double y, double& z) { z = x * y; return true; };
+    Rect unit{0, 1, 0, 1};
+    bool ok = false;
+    CHECK_NEAR(simpson2D(xy, unit, 10, ok), 0.25, 1e-12);
+    CHECK(ok);
+    // Midpoint boxes are exact for x·y; left boxes undershoot
+    RiemannSum mid = riemann2D(xy, unit, 4, 4, Rule::Middle);
+    CHECK(mid.boxes.size() == 16);
+    CHECK_NEAR(mid.sum, 0.25, 1e-12);
+    CHECK(riemann2D(xy, unit, 4, 4, Rule::Left).sum < 0.25);
+    CHECK(riemann2D(xy, unit, 4, 4, Rule::Right).sum > 0.25);
+    // The midpoint error shrinks about 4x when the boxes double (second order)
+    Surface bowl = [](double x, double y, double& z) { z = x * x + y * y; return true; };
+    Rect sq{-1, 1, -1, 1};
+    double exact = 8.0 / 3.0;
+    double e4 = std::fabs(riemann2D(bowl, sq, 4, 4, Rule::Middle).sum - exact);
+    double e8 = std::fabs(riemann2D(bowl, sq, 8, 8, Rule::Middle).sum - exact);
+    CHECK(e8 > 0 && e4 / e8 > 3.5 && e4 / e8 < 4.5);
+    CHECK_NEAR(simpson2D(bowl, sq, 20, ok), exact, 1e-9);
+    // Sign change: x over [−1, 1] integrates to 0 (boxes below the floor count negative)
+    Surface lin = [](double x, double, double& z) { z = x; return true; };
+    CHECK_NEAR(riemann2D(lin, sq, 6, 6, Rule::Middle).sum, 0.0, 1e-12);
+    // Undefined cells are skipped (and reported)
+    Surface hole = [](double x, double y, double& z) { z = 1.0; return x * x + y * y > 0.1; };
+    RiemannSum h = riemann2D(hole, sq, 4, 4, Rule::Middle);
+    CHECK(h.skipped == 0);  // centers ±0.25, ±0.75: none within the hole
+    simpson2D(hole, sq, 4, ok);
+    CHECK(!ok);  // the grid hits (0, 0)
+
+    // Line integrals: circulation of a rotation around the unit circle = 2π
+    Field rot = [](const D3& p, D3& o) { o = {-p.y, p.x, 0}; return true; };
+    Path circle = [](double u, D3& o) { o = {std::cos(u), std::sin(u), 0}; return true; };
+    CHECK_NEAR(lineIntegral(rot, circle, 0, 2 * pi, 1.0, 200, ok), 2 * pi, 1e-6);
+    CHECK(ok);
+    CHECK_NEAR(lineIntegral(rot, circle, 0, 2 * pi, 0.5, 200, ok), pi, 1e-6);  // halfway: half
+    // A gradient field ∇(x·y·z) = [yz, xz, xy]: the work is the endpoint difference, on any path
+    Field grad = [](const D3& p, D3& o) { o = {p.y * p.z, p.x * p.z, p.x * p.y}; return true; };
+    Path straight = [](double u, D3& o) { o = {u, u, u}; return true; };
+    Path wiggly = [](double u, D3& o) { o = {u, u * u, u + std::sin(pi * u)}; return true; };
+    CHECK_NEAR(lineIntegral(grad, straight, 0, 1, 1.0, 100, ok), 1.0, 1e-8);
+    CHECK_NEAR(lineIntegral(grad, wiggly, 0, 1, 1.0, 200, ok), 1.0, 1e-6);
 }
 
 void testQuaternions() {
@@ -1697,6 +1744,7 @@ int main() {
         {"Text layout", testTextLayout},
         {"Field variable z", testFieldVariable},
         {"Quaternions", testQuaternions},
+        {"Integrals", testIntegrals},
         {"Vector field", testVectorField},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},
