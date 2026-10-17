@@ -27,7 +27,7 @@ make fonts   # regenerate src/ui/generated/fonts.inc from assets/fonts
 - Compiler: `clang++ -Wall -Wextra -O2 -std=c++20`. Keep the build **warning-free**
   (multi-line string literals inside arrays need parentheses for -Wstring-concatenation).
 - `SRCS` globs every `src/**/*.cpp`; the test target builds `src/math/**`, `src/animation/*`,
-  `src/scene/*`, `src/ui/SceneIO.cpp` and `tests/*`.
+  `src/scene/*`, `src/export/*`, `src/ui/SceneIO.cpp` and `tests/*`.
 - **raylib 5.5 is required**: the bundled raygui 5.1-dev calls `TextToFloat` (new in 5.5), and the UI
   uses `DrawRectangleRoundedLinesEx` and `ToggleBorderlessWindowed`. Alpine's `raylib-dev` is 5.0: too old.
 
@@ -47,7 +47,8 @@ written during the tour). On this machine (Alpine, no display) the workflow is:
 4. Check 800×600, 1600×900, 1920×1080 (light) and 2560×1440 before committing UI work.
 
 Installed packages that make this possible: xvfb, xvfb-run, mesa-dri-gallium, mesa-dev, libxcursor-dev,
-libxrandr-dev, libxinerama-dev, libxi-dev. Frame captures must flush the render batch first
+libxrandr-dev, libxinerama-dev, libxi-dev; for LaTeX export checks: texlive, texlive-pictures,
+texlive-latexextra, poppler-utils (installed by the user; I cannot use sudo). Frame captures must flush the render batch first
 (`rlDrawRenderBatchActive()` before `LoadImageFromScreen()`), or the last draw calls are missing.
 
 ## Architecture
@@ -66,7 +67,9 @@ src/
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
-  view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache
+  export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table)
+  view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache,
+                      black-and-white print preview (DrawOptions.print)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
   rendering/          Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
@@ -76,7 +79,8 @@ src/
                       Layout, Icons, FloatingPanel + PanelManager
   ui/                 ScenePanel (objects list + inspector), AddMenu (types + templates from the
                       selection), Widgets, TopBar, SideBar, ViewPanel, InfoPanel (analysis of the
-                      selection), TimePanel (scene clock), ReferencePanel (formula cheat sheet, F2), StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
+                      selection), TimePanel (scene clock), ReferencePanel (formula cheat sheet, F2),
+                      ExportPanel (LaTeX export, Ctrl+E), FileDialog (open/save .txt scenes, .tex figures), StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
                       SettingsPopover, ColorPopover, HelpOverlay, SceneIO, Preferences, RayguiImpl.cpp
   ui/generated/       fonts.inc (embedded fonts, subset; codepoint list)
   include/<area>/     headers mirror the folders above
@@ -124,6 +128,28 @@ docs/screenshots/     images for the docs, produced by --tour
   `PlotSpec::smooth` picks smooth surfaces (per-vertex color + slope shading) or faceted ones (flat cells,
   plain triangle list); it comes from the Settings preference `UiSettings::smoothSurfaces`
   (`ui.smooth_surfaces`) through `SceneView::setSmoothSurfaces`, and is part of the plot cache key.
+
+### LaTeX export
+- `latex::exportLatex(space, selection, options)` writes a `tikzpicture` + PGFPlots `axis`.
+  - 2D or 3D: Auto picks 2D for the complex plane or when everything lies in z = 0.
+  - `view` comes from the camera via `viewFromDirection`.
+  - Plots are sampled with `Expression` (resolver = the space, t = the object's time) at capped counts.
+  - Implicit curves use `math/Contour` (marching squares + chaining, shared with `PlotRenderer`).
+- **Style table:** `styleFor(index)` / `styleIndexOf` give each exported object a dash pattern and gray. The
+  print preview uses the same table (`DrawOptions.print`, `PlotSpec.print/dash/grayShading`), so the preview
+  matches the export.
+- **PGFPlots quirks handled:**
+  - set `height` as well as `width` (otherwise a small default height shrinks equal-aspect and 3D figures);
+  - 3D axes with `axis lines=center` are sized by their hidden bounding box, so width and height are
+    enlarged by the box/axes projected ratio (a comment in the output explains it);
+  - labels at the same point are stacked;
+  - surfaces use `axis lines=left`.
+- **Adding export support for a new object type:** a branch in `exportLatex` (plus a helper like
+  `exportVector`), a decision in the Auto 2D/3D rule, and print-preview drawing in
+  `SceneView::drawEuclideanPrint`/`drawComplexPrint`.
+- **Verification:** `LATEX_OUT=<dir> make test` writes example standalone figures. The tour writes figures of
+  nine gallery scenes to `<shots>/latex/`. Compile them with `pdflatex` (TeX Live + poppler-utils are
+  installed) and view them with `pdftoppm -png`.
 
 ### Formula reference
 `math/expr/Reference.cpp` holds the cheat sheet shown by `ui/ReferencePanel` (F2). `testReference` checks that
@@ -199,6 +225,8 @@ Lesson steps have `setup`/`check`; App calls `TutorialPanel::update` every frame
 visible (this call was lost once, silently disabling every lesson). After changing lessons, walk them: a
 temporary tour loop that enters each step, applies a scripted solution through the App API and logs
 whether `check` passes (and does not pass before the solution) caught that regression.
+`tools/lesson_walk.py src/app/Tour.cpp` inserts that loop (solutions are matched by step title; add one for
+a new step), then build, run the tour, grep `WALK`/`SOLVED` in stderr, and restore Tour.cpp.
 
 ## Not yet verified
 

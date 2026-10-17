@@ -556,6 +556,9 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
         if (aw > 1e-9) fx = std::clamp(bw / aw, 1.0, 2.5);
         if (ah > 1e-9) fy = std::clamp(bh / ah, 1.0, 2.5);
     }
+    if (fx > 1.0 || fy > 1.0)
+        out << "  % larger than the drawing: PGFPlots sizes a 3D axis by its hidden bounding box;\n"
+               "  % the drawing itself is about " << num(w) << (opt.standalone ? " x 14cm" : "\\linewidth") << " wide\n";
     if (opt.standalone) {
         out << "  width=" << num(14.0 * w * fx) << "cm, height=" << num(14.0 * w * hRatio * fy) << "cm,\n";
     } else {

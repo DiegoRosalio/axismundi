@@ -39,7 +39,7 @@
 ## Roadmap after the usability upgrades
 
 In this order (each item below has its own section):
-1. LaTeX export of graphs (TikZ / PGFPlots, black and white): see "LaTeX export" under Medium Priority
+1. ~~LaTeX export of graphs~~ (done; follow-ups in "LaTeX export" under Medium Priority)
 2. Vector fields: the first advanced-math object type (tests the "add an object type" recipe)
 3. Quaternions: a new value kind in the expression engine
 4. CI: `make test` and the headless tour on every push
@@ -67,45 +67,47 @@ Goal: build a graph in the app, then get LaTeX code that drops into a normal doc
 textbook figure: black and white, thin lines, math labels, the document's own fonts. Not a screenshot.
 
 Output
-- [ ] A `tikzpicture` with a PGFPlots `axis` (2D) or 3D axis, copied to the clipboard and/or saved as `.tex`
-- [ ] Needed preamble listed in a comment (`\usepackage{pgfplots}`, `\pgfplotsset{compat=1.18}`,
+- [x] A `tikzpicture` with a PGFPlots `axis` (2D) or 3D axis, copied to the clipboard and/or saved as `.tex`
+- [x] Needed preamble listed in a comment (`\usepackage{pgfplots}`, `\pgfplotsset{compat=1.18}`,
       `\usetikzlibrary{arrows.meta}`); no font commands, so the figure uses the document's fonts
-- [ ] Width as a fraction of `\linewidth` (option), so it fits columns; optional complete `standalone`
+- [x] Width as a fraction of `\linewidth` (option), so it fits columns; optional complete `standalone`
       document to compile on its own
-- [ ] Plot data as sampled coordinates (faithful for parameters, objects and complex values; PGF math lacks
+- [x] Plot data as sampled coordinates (faithful for parameters, objects and complex values; PGF math lacks
       many functions); optional symbolic `\addplot {sin(deg(x))}` for simple functions. Export detail is
       separate from screen detail and capped (e.g. 200 points per curve, 30 × 30 surface) so LaTeX compiles
       quickly
 
 Black-and-white style
-- [ ] Objects told apart by line style instead of color: solid, dashed, dotted, dash-dotted; gray levels
+- [x] Objects told apart by line style instead of color: solid, dashed, dotted, dash-dotted; gray levels
       as a second cue; a legend with object names in math (`$\theta$`, `$z_1$`, `$\vec a$`)
-- [ ] Vectors as arrows (`-{Stealth}`), labelled at the tip; eigenvectors as dashed lines
-- [ ] Matrices as the moved basis plus the image of the unit square/cube (light gray), with the
+- [x] Vectors as arrows (`-{Stealth}`), labelled at the tip; eigenvectors as dashed lines
+- [x] Matrices as the moved basis plus the image of the unit square/cube (light gray), with the
       original basis dotted
-- [ ] Functions and curves as thin black lines; implicit curves as contours
-- [ ] Surfaces as a black mesh on white (`mesh`/`surf` with `faceted color=black`, white or light-gray
+- [x] Functions and curves as thin black lines; implicit curves as contours
+- [x] Surfaces as a black mesh on white (`mesh`/`surf` with `faceted color=black`, white or light-gray
       fill, `z buffer=sort`), optionally gray shading by height
-- [ ] Complex plane: unit circle, points and arrows for complex numbers, labels `$z_1$`, angle arcs for
+- [x] Complex plane: unit circle, points and arrows for complex numbers, labels `$z_1$`, angle arcs for
       products
-- [ ] Axes in the usual style: thin, arrow tips, `$x$ $y$ $z$` labels, few ticks; grid off by default
+- [x] Axes in the usual style: thin, arrow tips, `$x$ $y$ $z$` labels, few ticks; grid off by default
 
 Scope and view
-- [ ] Export the visible objects of the current space, or only the selection
-- [ ] 3D view taken from the current camera (`view={azimuth}{elevation}`); 2D axis when only floor
+- [x] Export the visible objects of the current space, or only the selection
+- [x] 3D view taken from the current camera (`view={azimuth}{elevation}`); 2D axis when only floor
       objects (functions, implicit curves) are shown or for the complex plane
-- [ ] A snapshot at the current scene time `t`; later, a frame series for the `animate` package
-- [ ] Names to math: Greek names (`theta` → `\theta`), trailing digits as subscripts (`z1` → `z_1`)
+- [x] A snapshot at the current scene time `t`
+- [ ] A frame series for the `animate` package
+- [x] Names to math: Greek names (`theta` → `\theta`), trailing digits as subscripts (`z1` → `z_1`)
 
 In the app
-- [ ] Export dialog (top bar / File): scope, width, 2D/3D, axes, legend, symbolic vs sampled, preamble
-- [ ] Print preview: draw the scene in the same black-and-white styles inside the app, so you design the
+- [x] Export panel (top bar, Ctrl+E): scope, width, 2D/3D, axes, legend, grid, gray surfaces, standalone
+- [ ] Option for symbolic plots (`\addplot {sin(deg(x))}`) instead of sampled coordinates
+- [x] Print preview: draw the scene in the same black-and-white styles inside the app, so you design the
       figure while looking at it
 
 Code and tests
-- [ ] Exporter as a graphics-free module (scene → text) with unit tests on the generated code
-- [ ] Compile check of exported examples with pdflatex/lualatex (install TeX Live on the dev machine;
-      later in CI)
+- [x] Exporter as a graphics-free module (scene → text) with unit tests on the generated code
+- [x] Compile check of exported examples with pdflatex (TeX Live on the dev machine; tour writes figures)
+- [ ] The same compile check in CI
 
 ### Complex Numbers
 - [x] Create Complex class
@@ -182,7 +184,7 @@ Code and tests
 - [ ] Export scene as image (PNG, JPG) (PNG screenshots exist: F12; no JPG or size options yet)
 - [ ] Export animation as video (roadmap step 5: record the Time panel to PNGs, then video)
 - [ ] Import matrices from CSV
-- [ ] Export to LaTeX (TikZ): see "LaTeX export" under Medium Priority
+- [x] Export to LaTeX (PGFPlots): see "LaTeX export" under Medium Priority
 
 ### Platform Support
 - [ ] Test on other Linux distributions

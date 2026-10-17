@@ -189,6 +189,43 @@ Theme, interface size, **Surfaces** (Smooth: colors blend with soft shading by s
 color each, so the sample grid stays visible), tooltips, status overlay, reset panel layout. Preferences are saved in
 `$XDG_CONFIG_HOME/axismundi/settings.txt` (usually `~/.config/axismundi/settings.txt`) when the app closes.
 
+## Export to LaTeX
+
+**Ctrl+E**, or the export button (a page with an arrow) in the top bar, opens the export panel. The panel isn't
+modal: you can keep adjusting the scene while it's open, and the code updates live.
+
+- **Visible objects / Selection**: what goes into the figure. Parameters are numbers and are not drawn;
+  objects with errors are left out. The panel says what was left out and why.
+- **Auto / 2D / 3D**: Auto makes a 2D figure when everything lies in the floor plane (functions, implicit
+  curves, flat vectors and matrices) or for the complex plane. Otherwise the figure is 3D, seen from the
+  current camera angle (rotate the view to choose it).
+- **Width**: a fraction of `\linewidth`, so the figure fits your columns.
+- **Axes, Legend, Grid, Gray surfaces, Standalone**:
+  - Plots get legend entries; vectors and points are labelled at their tips.
+  - Surfaces are white with a black mesh, or shaded in grays by height.
+  - Standalone gives a complete document to compile on its own.
+- **B/W preview** draws the 3D view on white in the export's styles: the same line styles, grays and labels,
+  so what you see is what you get. Objects outside the export are drawn faint.
+- **Copy LaTeX** puts the code on the clipboard; **Save .tex…** writes a file to `\input`.
+
+**Style.**
+- Objects are told apart by line style: solid, dashed, dotted, dash-dotted, loosely dashed. After five
+  objects the gray level changes as well.
+- A matrix is drawn as its moved basis plus the light-gray image of the unit square or cube, with the
+  original basis dotted. Eigenvectors are dashed lines with their λ.
+- The complex plane gets a unit circle, arrows, cos/sin projections and angle arcs when those options are on
+  for an object.
+- Plots are sampled at a capped resolution (200 points per curve, 30 × 30 for surfaces), so documents compile
+  quickly.
+
+To use the figure, add to your preamble (the first comment of the code lists these too):
+
+```latex
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta}
+```
+
 ## Screenshots and fullscreen
 
 - **F12** or the camera icon saves `axismundi_YYYYMMDD_HHMMSS.png` in the current folder. **Shift+F12** leaves the
@@ -208,4 +245,5 @@ color each, so the sample grid stays visible), tooltips, status overlay, reset p
 | Tutorial / gallery / steps / breakdown / analysis | F1 / E / K / B / M |
 | Theme / interface size | T / Ctrl+= Ctrl+− Ctrl+0 |
 | Help | H |
+| Formula reference / export to LaTeX | F2 / Ctrl+E |
 | Save / save as / open / screenshot | Ctrl+S (F5) / Ctrl+Shift+S / Ctrl+O (F9) / F12 |

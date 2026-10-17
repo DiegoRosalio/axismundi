@@ -54,6 +54,20 @@ and worked calculations.
   with a live example, and a box to try any formula against your objects.
 - **Tooltips** everywhere.
 
+### LaTeX export
+- **Export to LaTeX** (Ctrl+E, the export button in the top bar): turns the current space into a
+  black-and-white PGFPlots figure that drops into any LaTeX document, like a textbook figure. It uses thin
+  lines, line styles instead of colors, math labels (`$\vec a$`, `$z_1$`, `$\theta$`) and your document's
+  fonts.
+  - Choose the visible objects or only the selection, 2D / 3D / auto, the width (a fraction of
+    `\linewidth`), axes, legend, grid, gray surface shading, and a standalone document.
+  - **Copy LaTeX** to the clipboard or **Save .tex**. The 3D view follows the camera angle.
+- **B/W preview**: the 3D view is drawn on white in the export's styles while you design the figure.
+
+| | |
+|---|---|
+| ![Black-and-white print preview](docs/screenshots/export-preview.png) | ![Exported saddle, compiled with pdflatex](docs/screenshots/latex-saddle.png) |
+
 ### Interface
 - Resolution independent (design reference 1600×900) with a user size setting (Ctrl+= / Ctrl+− / Ctrl+0),
   embedded fonts and real math symbols.
@@ -145,6 +159,7 @@ window to exit.
 | I / R / S / X / F | Presets for the selected matrix, applied on top of it (I starts over; S in UI mode) |
 | F1 / E / K / B / M | Tutorial / gallery / calculation steps / breakdown / analysis |
 | P | Play / pause the scene clock (Time panel) |
+| F2 / Ctrl+E | Formula reference / export to LaTeX |
 | H | Help with all shortcuts |
 | T | Dark / light theme |
 | Ctrl+= / Ctrl+− / Ctrl+0 | Bigger / smaller / default UI size |
@@ -166,12 +181,14 @@ Shortcuts are ignored while a text field is being edited.
 ├── include/raygui.h          # raygui (single header)
 ├── tests/test_math.cpp       # unit tests
 ├── tools/fonts.py            # font subsetting and embedding
+├── tools/lesson_walk.py      # temporary tour patch that checks every tutorial step
 └── src/
     ├── main.cpp              # command-line options
     ├── app/                  # App (main loop, shortcuts, files, preferences) and Tour
     ├── math/                 # vectors, matrices, decompositions, complex, quaternions,
     │   └── expr/             #   breakdown, worked explanations; typed expression engine
     ├── scene/                # object model: objects, spaces, dependencies, undo, files
+    ├── export/               # LaTeX (PGFPlots) export, black and white
     ├── view/                 # SceneView: draws the objects of a space
     ├── animation/            # Playback (repeat styles, easing)
     ├── edu/                  # tutorial lessons and gallery examples
@@ -182,7 +199,8 @@ Shortcuts are ignored while a text field is being edited.
     └── include/              # headers, mirroring the folders above
 ```
 
-`src/math`, `src/scene` and `src/animation` have no raylib dependency, which keeps them unit-testable.
+`src/math`, `src/scene`, `src/animation` and `src/export` have no raylib dependency, which keeps them
+unit-testable.
 
 ## Development
 
