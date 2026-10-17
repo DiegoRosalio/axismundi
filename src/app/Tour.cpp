@@ -63,6 +63,12 @@ void Tour::buildSteps() {
     }, 15);
     step("01_space_default", [](App& app) { app.resetScene(); });
     step("02_vector_inspector", [](App& app) { app.select("a"); });
+    step("02b_long_formula", [](App& app) {
+        app.addObject(AppMode::Space3D, "vector", "w",
+                      {{"value", "normalize(cross(a, b) + 2*a - b/3) * (1 + 0.5*sin(t)) + rotz(pi/6)*[1, 0, 0]"}},
+                      {{"mode", "formula"}});
+        app.select("w");
+    });
     step("03_add_menu_templates", [](App& app) {
         app.select("a");
         app.select("b", AppMode::Space3D, true);

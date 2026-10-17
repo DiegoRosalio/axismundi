@@ -18,6 +18,12 @@ struct ScenePanelRequests {
     bool openTime = false;       // "Time panel" link in a parameter's inspector
     bool openReference = false;  // formula reference button in the inspector header
     bool loadDemo = false;       // "Demo scene" in the empty objects list
+    // Open the big formula editor for an object field (the expand button or Ctrl+Enter)
+    bool openFormula = false;
+    scene::ObjectId formulaObject = scene::kNoObject;
+    std::string formulaKey;      // field key
+    std::string formulaText;     // text to start from (the unsaved edit, if any)
+    std::function<bool(const std::string&)> formulaCommit;
     std::string message;         // e.g. a rejected rename
     bool messageIsError = false;
 };
@@ -55,14 +61,17 @@ private:
     // Text field bound to a string; returns its height used (design units handled inside)
     void editText(Rectangle r, int id, const std::string& current, bool invalid,
                   std::function<bool(const std::string&)> commit);
-    // "label [field]" row for an object field, with the field's error underneath; returns the bottom y
+    // Wrapping multi-line field for formulas (with Ctrl+Enter = big editor)
+    void editFormula(Rectangle r, int id, const std::string& current, bool invalid,
+                     std::function<bool(const std::string&)> commit, scene::ObjectId object, const std::string& key);
+    // "label [field ⤢]" row for an object field, with the field's error underneath; returns the bottom y
     float fieldRow(float x, float y, float width, scene::SceneObject& obj, const std::string& key, scene::Scene& scene,
                    float labelWidth = 74.0f);
     static int fieldId(const scene::SceneObject& obj, const std::string& key);
 
     scene::SpaceKind m_kind = scene::SpaceKind::Euclidean3D;
     int m_activeId = -1;
-    char m_buffer[256] = {};
+    char m_buffer[1024] = {};  // the text being edited (formulas can be long)
     std::vector<Editable> m_editables;      // drawn this frame, in order (for Tab)
     std::vector<Editable> m_lastEditables;  // from the previous frame
     ScenePanelRequests m_requests;

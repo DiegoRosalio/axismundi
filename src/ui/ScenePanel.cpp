@@ -1,6 +1,7 @@
 #include "ui/ScenePanel.hpp"
 #include "math/Decompositions.hpp"
 #include "ui/Widgets.hpp"
+#include "ui/core/TextEditor.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
 #include <algorithm>
@@ -143,7 +144,7 @@ void ScenePanel::update(scene::Scene&) {
 void ScenePanel::editText(Rectangle r, int id, const std::string& current, bool invalid,
                           std::function<bool(const std::string&)> commit) {
     m_editables.push_back({id, current, commit});
-    char tmp[256];
+    char tmp[1024];
     bool active = (m_activeId == id);
     char* buf = active ? m_buffer : tmp;
     if (!active) snprintf(tmp, sizeof(tmp), "%s", current.c_str());
@@ -177,28 +178,94 @@ void ScenePanel::editText(Rectangle r, int id, const std::string& current, bool 
     if (finished) commit(m_buffer);
 }
 
+void ScenePanel::editFormula(Rectangle r, int id, const std::string& current, bool invalid,
+                             std::function<bool(const std::string&)> commit, scene::ObjectId object,
+                             const std::string& key) {
+    m_editables.push_back({id, current, commit});
+    bool active = (m_activeId == id);
+    std::string text = active ? std::string(m_buffer) : current;
+    bool showInvalid = invalid && !active;
+    if (active) {
+        expr::Program probe;  // live syntax check while typing
+        showInvalid = !probe.compile(text);
+    }
+    ui::EditorEvent ev = ui::textEditor(r, id, text, active, showInvalid, ui::inlineEditorState());
+    if (ev == ui::EditorEvent::Activated) {
+        // Commit the field that was being edited, then take over
+        int before = m_activeId;
+        if (before >= 0 && before != id) {
+            for (const auto* list : {&m_editables, &m_lastEditables}) {
+                bool done = false;
+                for (const auto& e : *list) {
+                    if (e.id == before) {
+                        e.commit(m_buffer);
+                        done = true;
+                        break;
+                    }
+                }
+                if (done) break;
+            }
+        }
+        m_activeId = id;
+        snprintf(m_buffer, sizeof(m_buffer), "%s", current.c_str());
+        return;
+    }
+    if (!active) return;
+    snprintf(m_buffer, sizeof(m_buffer), "%s", text.c_str());
+    if (ev == ui::EditorEvent::Commit) {
+        m_activeId = -1;
+        commit(m_buffer);
+    } else if (ev == ui::EditorEvent::Expand) {
+        // The big editor takes over the unsaved text
+        m_activeId = -1;
+        m_requests.openFormula = true;
+        m_requests.formulaObject = object;
+        m_requests.formulaKey = key;
+        m_requests.formulaText = m_buffer;
+        m_requests.formulaCommit = commit;
+    }
+}
+
 float ScenePanel::fieldRow(float x, float y, float width, SceneObject& obj, const std::string& key, scene::Scene& sc,
                            float labelWidth) {
     const ui::Theme& t = ui::theme();
     scene::Field* f = obj.field(key);
     if (!f) return y;
     ui::Column col(x, y, width, 6.0f);
-    Rectangle r = col.row(34.0f);
+    int id = fieldId(obj, key);
+    // The field grows to up to 4 lines for long formulas (measured on the text shown)
+    float fieldW = width - (labelWidth > 0 ? ui::px(labelWidth + 6.0f) : 0.0f) - ui::px(30.0f);
+    std::string shown = m_activeId == id ? std::string(m_buffer) : f->text;
+    float h = std::max(ui::px(34.0f), ui::editorHeight(shown, fieldW, 4));
+    Rectangle r = col.row(h / ui::scale());
     if (labelWidth > 0) {
         Rectangle l = ui::takeLeft(r, labelWidth, 6.0f);
+        l.height = ui::px(34.0f);
         ui::textIn(l, ui::ellipsize(f->label.c_str(), ui::FontRole::Body, l.width).c_str(), ui::FontRole::Body,
                    t.textMuted);
     }
-    int id = fieldId(obj, key);
+    Rectangle expand = ui::takeRight(r, 26.0f, 4.0f);
+    expand.height = ui::px(26.0f);
+    expand.y = r.y + ui::px(4.0f);
     scene::ObjectId oid = obj.id();
     SpaceKind kind = m_kind;
-    editText(r, id, f->text, !f->error.empty(), [&sc, kind, oid, key](const std::string& text) {
+    auto commit = [&sc, kind, oid, key](const std::string& text) {
         SceneObject* o = sc.space(kind).find(oid);
         if (!o) return false;
         o->setField(key, text);
         sc.commit();
         return true;
-    });
+    };
+    editFormula(r, id, f->text, !f->error.empty(), commit, oid, key);
+    if (ui::iconButton(expand, ui::Icon::Fullscreen)) {
+        m_requests.openFormula = true;
+        m_requests.formulaObject = oid;
+        m_requests.formulaKey = key;
+        m_requests.formulaText = m_activeId == id ? std::string(m_buffer) : f->text;
+        m_requests.formulaCommit = commit;
+        if (m_activeId == id) m_activeId = -1;
+    }
+    ui::tooltip(expand, "Edit in a big editor with the live result (Ctrl+Enter while typing)", "Expand");
     if (!f->error.empty() && m_activeId != id) {
         col.removeGap();
         col.space(2.0f);
