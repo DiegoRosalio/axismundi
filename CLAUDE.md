@@ -5,9 +5,11 @@ architecture, workflow or environment changes.
 
 ## What this is
 
-A C++20 / raylib 5.5 + raygui interactive visualizer with three modes (Matrices, Complex, Plots),
-a resolution-independent themed UI with floating panels, and learning tools (tutorial, example
-gallery, worked calculation steps, transformation breakdown, tooltips).
+A C++20 / raylib 5.5 + raygui interactive visualizer. Users build scenes from any number of
+objects (vectors, matrices, eigenvector sets, plots, parameters, complex numbers) whose fields
+are named formulas that can reference each other, in two spaces: a 3D space (z up) and the
+complex plane. Resolution-independent themed UI with floating panels, plus learning tools
+(tutorial, example gallery, worked calculation steps, transformation breakdown, tooltips).
 
 User docs: `README.md`, `QUICKSTART.md`, `UI_GUIDE.md`. Roadmap: `TODO.md` (High, Medium, UI
 Improvements and Educational Features are done; Advanced Math, Performance, Export/Import,
@@ -18,13 +20,14 @@ Platform, Code quality and Research items remain).
 ```bash
 make build   # bin/linalg_viz (needs raylib 5.5 dev headers)
 make run
-make test    # bin/run_tests: math + animation + explanation tests, no raylib needed
+make test    # bin/run_tests: math, expression engine, scene, animation, explanations (no raylib)
 make fonts   # regenerate src/ui/generated/fonts.inc from assets/fonts
 ```
 
 - Compiler: `clang++ -Wall -Wextra -O2 -std=c++20`. Keep the build **warning-free**
   (multi-line string literals inside arrays need parentheses for -Wstring-concatenation).
-- `SRCS` globs every `src/**/*.cpp`; the test target builds `src/math/*` + `src/animation/*` + `tests/*`.
+- `SRCS` globs every `src/**/*.cpp`; the test target builds `src/math/**`, `src/animation/*`,
+  `src/scene/*`, `src/ui/SceneIO.cpp` and `tests/*`.
 - **raylib 5.5 is required**: the bundled raygui 5.1-dev calls `TextToFloat` (new in 5.5), and the UI
   uses `DrawRectangleRoundedLinesEx` and `ToggleBorderlessWindowed`. Alpine's `raylib-dev` is 5.0: too old.
 
@@ -52,28 +55,54 @@ libxrandr-dev, libxinerama-dev, libxi-dev. Frame captures must flush the render 
 ```
 src/
   main.cpp            option parsing (--size, --theme, --tour)
-  app/App             owns everything: main loop, input/shortcuts, update, scene drawing, UI drawing,
-                      scene save/load, preferences, screenshots; public API used by edu/ and Tour
-  app/Tour            scripted screenshot tour
+  app/App             owns everything: Scene, SceneView, main loop, input/shortcuts, picking, panels,
+                      files, preferences, screenshots; public API used by edu/ and Tour
+  app/Tour            scripted screenshot tour (mouse positions come from ui anchors)
   math/               NO raylib: Vector3D, Matrix3D/4D, Decompositions (LU/QR/eigen3/svd3), Complex,
-                      Expression parser, Quaternion, Breakdown (SVD steps), Explain (worked steps)
+                      Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper)
+  math/expr/          NO raylib: typed expression engine — Value (number, complex, vector, 3x3/4x4
+                      matrix, error), Program (compile once, names used, eval with Resolver + x/y/t slots)
+  scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
+                      names, rename with reference rewrite, dependency-ordered evaluation, cycles),
+                      Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
+  view/SceneView      draws a space's objects (per-type), labels, colors, selection halo, plot cache
   animation/          NO raylib: Animator
-  edu/                Tutorial lessons (steps with setup/check/anchor), Examples (gallery entries)
-  rendering/          Grid, VectorRenderer, TransformVisualizer (+eigen lines, ghost bases), ArgandRenderer,
-                      PlotRenderer, CameraController, Labels (world-anchored text pills)
-  ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips),
-                      Theme (dark/light tokens), Layout (Column, splitRow, takeLeft/Right), Icons (vector),
-                      FloatingPanel + PanelManager (drag, collapse, z-order, input ownership)
-  ui/                 Widgets (button, iconButton, segmented, toggleRow, slider, sectionHeader, textField,
-                      card, keycap, swatch), TopBar, SideBar, InputPanel, ComplexPanel, PlotPanel, ViewPanel,
-                      InfoPanel, AnimationPanel, StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
+  edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
+  rendering/          Grid, VectorRenderer::drawArrow, PlotRenderer (geometry from expressions + resolver),
+                      CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
+  ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips), Theme,
+                      Layout, Icons, FloatingPanel + PanelManager
+  ui/                 ScenePanel (objects list + inspector), AddMenu (types + templates from the
+                      selection), Widgets, TopBar, SideBar, ViewPanel, InfoPanel (analysis of the
+                      selection), AnimationPanel, StepsPanel, BreakdownPanel, GalleryPanel, TutorialPanel,
                       SettingsPopover, ColorPopover, HelpOverlay, SceneIO, Preferences, RayguiImpl.cpp
-  ui/generated/       fonts.inc (embedded Inter Regular/SemiBold + JetBrains Mono, subset; codepoint list)
+  ui/generated/       fonts.inc (embedded fonts, subset; codepoint list)
   include/<area>/     headers mirror the folders above
 tests/test_math.cpp   assert-style runner (CHECK / CHECK_NEAR)
 assets/fonts/         subset TTFs + OFL licenses; tools/fonts.py subsets (fonttools) and embeds
 docs/screenshots/     images for the docs, produced by --tour
 ```
+
+### Scene model (the extension point for new math)
+- An object = expression **fields** (`Field`: key, label, `Expect` type, text, compiled program, error,
+  value) + string **props** (flags, sizes, modes) + a computed **value** (`expr::Value`) that other
+  objects use by name. Objects without a value (plots) return the marker `fail("no value")`.
+- `Space::evaluate()` runs every frame: dependencies come from the names in active fields, evaluation is
+  topological, cycles and missing names become object errors, `changedAt()` tells views what to redraw.
+- `Scene::commit()` after each user change pushes an undo snapshot (the whole scene serialized).
+- 3D space uses math coordinates with z up; draw with `mathToWorld()` (rendering/WorldMapping.hpp).
+
+### Adding a new object type (e.g. quaternion, vector field, tensor)
+1. Model in `src/scene/Types.{hpp,cpp}`: subclass `SceneObject`; in the constructor `addField(...)` and
+   `setProp(...)`; override `computeValue()` (and `fieldActive()` if fields depend on a mode); implement
+   `makeEmpty()`. Register it in `objectTypes()` (id, label, category, base name, spaces, description).
+2. New value kinds go in `expr::Value` (+ operators/functions in `src/math/expr/Expr.cpp`).
+3. Drawing: a branch in `view/SceneView.cpp` (`drawEuclidean` / `drawComplex`, labels, `anchorPoint`
+   for picking, `colorOf` palette).
+4. Inspector: a branch in `ScenePanel::drawInspector` (reuse `fieldRow`/`editText`; commit with
+   `sc.commit()`); optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
+5. Tests in `tests/test_math.cpp` (model + evaluation), tour step + screenshots for the UI.
+Saving/loading is automatic (fields and props are serialized generically).
 
 ## UI conventions
 
@@ -86,19 +115,23 @@ docs/screenshots/     images for the docs, produced by --tour
 - **Panels** are content functions `float drawContent(Rectangle area, ...)` returning their height; App
   wraps them in `ui::FloatingPanel` (`begin(height, content)` / `end()`), registered with the
   `PanelManager`. Side-bar panels use `draw(x, y, width)` and return the bottom y.
+- **Inspector fields** use `ScenePanel::editText` (an edit buffer for the active field; commits on
+  Enter/Tab/click-away, Esc cancels). Commit lambdas capture the object id, never a pointer.
 - **Input ownership**: widgets check `ui::hovered()`, which respects `GuiLock` (camera mode, overlays,
   panels not on top), the clip rectangle (scroll containers) and popovers. raygui is only used for
   text boxes (drawn transparent inside our rounded box) and the color picker.
-- **Text fields**: `ui::textField(rect, buf, size, id, activeId, invalid)`; panels expose
-  `isEditing/finishEditing/cancelEditing`. Esc never quits (`SetExitKey(KEY_NULL)`): it cancels an edit,
-  closes a popover or the help, or leaves camera mode, in that order.
+- **Text fields**: `ui::textField(rect, buf, size, id, activeId, invalid)`. Esc never quits
+  (`SetExitKey(KEY_NULL)`): it cancels an edit, closes a popover (add menu, color, settings) or the help,
+  or leaves camera mode, in that order.
+- **Section headers** uppercase their title; pass `keepCase = true` when it contains object names
+  (names are case-sensitive).
 - **Tooltips**: `ui::tooltip(rect, body, title)` after drawing a widget; `segmented()` takes per-segment tips.
 - **Anchors**: `ui::anchor("id", rect)` names a control so tutorial steps can highlight it.
-- **Theme colors** are read at draw time; plot geometry bakes colors, so theme changes call
-  `PlotPanel::markChanged()`.
-- Scenes (`scene.txt`, F5/F9) hold matrices/vectors/plots/camera/keyframes; preferences
-  (`~/.config/axismundi/settings.txt`) hold theme, zoom, toggles, panel layout, vector colors,
-  finished lessons, window size. Both use the `key = value` format from `SceneIO`.
+- **Theme colors** are read at draw time; the plot cache in SceneView rebuilds when the theme or an
+  object's color changes.
+- Scenes (`scene.txt`, F5/F9) hold both spaces' objects (format v2; v1 files are converted), camera,
+  view and keyframes; preferences (`~/.config/axismundi/settings.txt`) hold theme, zoom, toggles, panel
+  layout, finished lessons, window size. Both use the `key = value` format from `SceneIO`.
 
 ## Git workflow
 
@@ -112,5 +145,6 @@ docs/screenshots/     images for the docs, produced by --tour
 
 ## Not yet verified
 
-The tour exercises everything visually, but real mouse dragging, typing feel, fullscreen toggling and
-the preferences round trip (written on normal exit) have only been checked in code, not interactively.
+The tour exercises everything visually, but real mouse dragging, typing feel, viewport picking with a
+real mouse, fullscreen toggling and the preferences round trip (written on normal exit) have only been
+checked in code, not interactively.

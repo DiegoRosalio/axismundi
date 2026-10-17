@@ -12,38 +12,45 @@ make run
 
 1. The app starts in **camera mode**: move the mouse to look around, W A S D to move.
 2. Press **Esc** (or **Tab**) to get the cursor back (**UI mode**). Esc never closes the app.
-3. Press **F1** (or the book icon in the top bar) and pick **Getting around**: the tutorial walks you through
+3. Press **F1** (or the book icon in the top bar) and pick **Getting around**. The tutorial walks you through
    the rest, one small task at a time.
 4. Press **E** for the example gallery and click any card.
 5. Press **H** at any time for every shortcut.
 
-## Matrices (1)
+## Objects
 
-- Click a matrix cell, type a value or an expression like `cos(pi/6)`, press **Enter** (**Tab** moves to the
-  next cell, **Esc** cancels).
-- Presets: **I** identity, **R** rotate, **S** scale, **X** shear, **F** reflect. **Ctrl+Z / Ctrl+Y** undo and redo.
-- The **Analysis** panel shows det, trace, inverse, eigenvalues and factorizations. Hover a line to see what it
-  means.
-- **B** opens the transformation breakdown: your matrix as rotate → stretch → rotate, played step by step.
-- **K** opens the calculation steps: the determinant, inverse or eigenvalues worked out with your numbers.
-- **P** animates from the identity to your matrix. The Animation panel also has presets and keyframes.
+- The side bar lists the objects of the current space: in the 3D space, the matrix `M`, the vectors `a` and
+  `b`, and vectors computed from them (`s = a + b`, `c = cross(a, b)`, `Ma = M*a`, …).
+- Click an object (in the list or in the view) to select it. The **inspector** below the list edits it.
+- **Add** (or N) creates new objects. Select objects first to get templates: with `a` and `b` selected you
+  can add `a + b`, `cross(a, b)` or the projection of `a` on `b` in one click.
+- Fields are formulas: type `2a - b`, `normalize(a)`, `cos(theta)`, `rotz(theta)` … and the object follows
+  its inputs. A red outline or a red badge in the list means a formula has a problem; hover it to see why.
+- **Del** deletes, **Ctrl+D** duplicates, **Ctrl+Z / Ctrl+Y** undo and redo.
 
-## Complex (2)
+## Parameters
 
-- Enter z₁ and z₂. The orange arrow is z₁z₂: z₁ turned by the angle of z₂ and stretched by its length.
-- Turn on "Animate θ" under Euler's formula to watch e^(iθ) go around the circle.
+Add a **Parameter** (a slider), give it a name like `theta`, and use it in any formula, for example a matrix
+`rotz(theta)` or a surface `sin(theta*x)`. Press its **Play** button to animate it.
 
-## Plots (3)
+## The two spaces
 
-- Choose a plot type, type an expression, press **Enter**. **Next example** cycles through samples.
-- Surfaces and 3D curves use z as the up axis.
+- **3D space** (key 1): z points up and the floor is the xy-plane. It holds vectors, matrices, eigenvectors
+  and plots (`y = f(x)`, curves, surfaces `z = f(x, y)`, implicit curves).
+- **Complex plane** (key 2): complex numbers (`2 + i`, `z1*z2`, `exp(i*theta)`) and products drawn as a
+  rotation plus a scaling.
+
+## Tools
+
+- **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form).
+- **B** Breakdown: the selected matrix as rotate → stretch → rotate, step by step.
+- **K** Calculation steps: worked calculations with your numbers.
+- **P** animates from the identity to the selected matrix.
 
 ## Make it yours
 
-- **T** switches between the dark and light theme.
-- **Ctrl+=** / **Ctrl+−** make the whole interface bigger or smaller.
+- **T** switches between the dark and light theme; **Ctrl+=** / **Ctrl+−** change the interface size.
 - Drag panels by their title bar; collapse or close them with the buttons on the right.
-- The gear icon opens the settings: theme, interface size, tooltips, and a reset for the panel layout.
 - **F5** saves the scene to `scene.txt`, **F9** loads it. **F12** saves a screenshot.
 
 See [UI_GUIDE.md](UI_GUIDE.md) for details.

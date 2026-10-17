@@ -3,57 +3,76 @@
 An interactive 3D tool for exploring linear algebra, complex numbers and functions, with guided lessons
 and worked calculations.
 
-![Matrices mode](docs/screenshots/matrices.png)
+![Objects in the 3D space](docs/screenshots/matrices.png)
 
 ## Features
 
-The app has three modes, selected with the tabs in the top bar (or keys **1**, **2**, **3**).
+### Objects, formulas and parameters
+- Build a scene from **any number of objects**: vectors, matrices, eigenvector sets, plots, parameters and
+  complex numbers. Add them with **Add** (or N), select them in the list or by clicking them in the view
+  (Ctrl+click for several), edit them in the inspector, hide, duplicate (Ctrl+D) or delete (Del) them.
+- **Every field is a formula** that can use other objects by name: `s = a + b`, `c = cross(a, b)`,
+  `Ma = M*a`, a matrix cell `cos(theta)`, a whole matrix `rotz(theta)` or `[u, v, w]` (vectors as columns).
+  When an input changes, everything that depends on it updates. Circular references and missing names are
+  reported on the objects involved.
+- **Parameters** are named sliders (θ, k, t, …) that can be used in any formula and **played** like an
+  animation, so a slider can turn a rotation matrix, reshape a surface or move e^(iθ) around the circle.
+- The **Add menu** offers templates for the current selection: sum, difference, cross product and projection
+  of two vectors, M·v, the eigenvectors, inverse or transpose of a matrix, A·B, z₁·z₂, conjugates…
+- Undo/redo covers every change (Ctrl+Z / Ctrl+Y).
 
-### Matrices
-- **3×3 and 4×4 transformations** applied live to the coordinate basis, with undo/redo
-- **Editable fields** that accept numbers or expressions (`cos(pi/4)`, `sqrt(2)/2`); invalid input is outlined
-  in red and rejected
-- **Presets** (identity, 45° rotation, 2× scale, shear, reflection) with keyboard shortcuts
-- **Vectors** A, B, A+B, A×B and the transformed vectors MA, MB, labeled with their lengths; colors can be changed
-- **Analysis panel**: dot and cross products, angle, determinant (and what it means), trace, inverse,
-  eigenvalues and eigenvectors (also drawn in the scene), LU, QR and SVD
-- **Animations**: rotation, scaling, morph (identity → your matrix) or your own keyframes, with a timeline
-- **Transformation breakdown**: any matrix shown as *rotate → stretch → rotate (→ move)*, played step by step
-  with faded copies of the finished steps
+### Two spaces
+- **3D space** (key 1), with the math convention that z is up and the floor is the xy-plane. It holds:
+  - vectors (by components or by formula, with an optional start point);
+  - 3×3 / 4×4 matrices (by cells with presets, or by formula) drawn as the moved basis;
+  - eigenvector sets;
+  - plots: `y = f(x)`, curves `(x(t), y(t), z(t))`, surfaces `z = f(x, y)` and implicit curves
+    `f(x, y) = 0`, with heat maps.
+- **Complex plane** (key 2): complex numbers (e.g. `2 + i`, `z1*z2`, `exp(i*theta)`), with optional circle,
+  cos/sin projections and the helix of e^(it), and products drawn as a rotation plus a scaling.
 
-### Complex numbers
-- Argand diagram with z₁, z₂ and z₁z₂ in rectangular and polar form
-- Multiplication shown as a rotation plus a scaling, with the angles adding up
-- Euler's formula: e^(iθ) on the unit circle, its cos/sin projections and the helix e^(it)
-
-### Plots
-- `y = f(x)`, parametric curves, surfaces `z = f(x, y)` and implicit curves `f(x, y) = 0`
-- Heat-map coloring, adjustable ranges and detail, built-in examples
-
-### Learning tools
-- **Tutorial** (F1): 9 short lessons. Each step sets up the scene, highlights the control it talks about and gives
-  a small task that is checked as you work.
-- **Example gallery** (E): 20 ready-made scenes, each with a note on what to look at.
-- **Calculation steps** (K): worked, step-by-step calculations for the current inputs, such as the determinant by
-  cofactor expansion, the inverse via the adjugate, the characteristic polynomial, or complex multiplication.
-- **Tooltips** on controls and results explain what each one means.
+### Analysis and learning tools
+- **Analysis panel** (M): follows the selection.
+  - One vector: its length and unit vector. Two vectors: dot product, angle and cross product.
+  - A matrix: determinant, trace, inverse, eigenvalues, LU, QR and SVD.
+  - Complex numbers: polar form, product and quotient.
+- **Transformation breakdown** (B): the selected matrix as *rotate → stretch → rotate (→ move)*, played step
+  by step.
+- **Calculation steps** (K): worked calculations with the selected objects' numbers.
+- **Animation**: morph from the identity to the selected matrix, rotation and scaling presets, keyframes.
+- **Tutorial** (F1): 11 lessons with tasks that are checked as you work, including adding objects, formulas
+  and parameters.
+- **Example gallery** (E): about 20 ready-made scenes.
+- **Tooltips** everywhere.
 
 ### Interface
-- **Resolution independent**: the whole UI scales with the window (design reference 1600×900) and has a user
-  size setting (Ctrl+= / Ctrl+− / Ctrl+0). Text uses embedded fonts rendered at the exact pixel size, with real
-  math symbols (λ, θ, ×, ·, ², ₁).
-- **Dark and light themes** (T), dark by default
-- **Floating panels** you can drag, collapse and close; their layout is remembered
-- **Fullscreen** (F11) and **screenshots** (F12 for the window, Shift+F12 for the 3D view only)
-- **Preferences** saved in `~/.config/axismundi/settings.txt`: theme, size, tooltips, panel layout, vector
-  colors, finished lessons, window size
-- **Scenes** saved and loaded with F5 / F9 (`scene.txt`)
+- Resolution independent (design reference 1600×900) with a user size setting (Ctrl+= / Ctrl+− / Ctrl+0),
+  embedded fonts and real math symbols.
+- Dark and light themes (T), floating panels you can drag, collapse and close, fullscreen (F11),
+  screenshots (F12).
+- Preferences in `~/.config/axismundi/settings.txt`; scenes saved and loaded with F5 / F9 (`scene.txt`,
+  older scene files are converted automatically).
 
 | | |
 |---|---|
-| ![Light theme](docs/screenshots/matrices-light.png) | ![Breakdown](docs/screenshots/breakdown.png) |
-| ![Tutorial](docs/screenshots/tutorial.png) | ![Gallery](docs/screenshots/gallery.png) |
-| ![Complex numbers with worked steps](docs/screenshots/complex-steps.png) | ![Surface plot](docs/screenshots/plot-surface.png) |
+| ![Objects and formulas](docs/screenshots/matrices.png) | ![Add menu with templates](docs/screenshots/add-menu.png) |
+| ![A parameter driving rotz(theta)](docs/screenshots/parameters.png) | ![Roots of unity](docs/screenshots/complex-roots.png) |
+| ![Surface with a slider](docs/screenshots/plot-surface.png) | ![Light theme](docs/screenshots/matrices-light.png) |
+| ![Breakdown](docs/screenshots/breakdown.png) | ![Tutorial](docs/screenshots/tutorial.png) |
+
+### Formulas
+
+Fields accept:
+- numbers and the operators `+ - * / ^`, with implicit multiplication (`2x`, `3(a + b)`);
+- vectors `[x, y, z]`, matrices `[[…], […], […]]` (3×3 or 4×4), and `[u, v, w]` to use vectors as columns;
+- components `v.x`, the constants `pi`, `e` and `i`;
+- functions:
+  - `sin cos tan exp log sqrt abs …` (complex-aware);
+  - vectors: `dot cross norm normalize`;
+  - matrices: `det tr inv transpose rotx roty rotz rot(axis, angle) scale translate eye`;
+  - complex numbers: `conj re im arg polar`.
+
+`M*v` applies a matrix to a vector (4×4 matrices treat v as a point), and `M*N` composes matrices.
 
 ## Requirements
 
@@ -98,24 +117,27 @@ make test                      # math, animation and explanation unit tests (no 
 ### Controls
 
 The app has two input states. In **camera mode** (cursor hidden) the mouse looks around, WASD move,
-Space/Ctrl go up and down, and Shift moves faster. In **UI mode** (cursor visible) you click fields, buttons
-and panels. Press **Tab** to switch; **Esc** always gives the mouse back. Esc never quits: close the window
-to exit.
+Space/Ctrl go up and down, and Shift moves faster. In **UI mode** (cursor visible) you click objects, fields,
+buttons and panels. Press **Tab** to switch; **Esc** always gives the mouse back. Esc never quits: close the
+window to exit.
 
 | Key | Action |
 |-----|--------|
 | Tab | Camera mode ⟷ UI mode |
 | Esc | Leave camera mode, close a popup or the help, cancel an edit |
-| 1 / 2 / 3 | Matrices / Complex / Plots |
+| 1 / 2 | 3D space / complex plane |
+| Click / Ctrl+click | Select an object / add it to the selection |
+| N | Add an object |
+| Del / Ctrl+D | Delete / duplicate the selection |
+| Ctrl+Z / Ctrl+Y | Undo / redo (UI mode) |
+| I / R / S / X / F | Presets for the selected matrix (S in UI mode) |
 | F1 / E / K / B / M | Tutorial / gallery / calculation steps / breakdown / analysis |
+| P | Play / pause the matrix animation |
 | H | Help with all shortcuts |
 | T | Dark / light theme |
 | Ctrl+= / Ctrl+− / Ctrl+0 | Bigger / smaller / default UI size |
 | F11 / F12 | Fullscreen / screenshot (Shift+F12: 3D view only) |
 | C / G / L | Reset camera / grid / labels |
-| I / R / S / X / F | Presets (S in UI mode) |
-| Ctrl+Z / Ctrl+Y | Undo / redo (UI mode) |
-| P | Play / pause animation |
 | F5 / F9 | Save / load `scene.txt` |
 | Enter / Tab | Confirm field / next field |
 
@@ -133,19 +155,21 @@ Shortcuts are ignored while a text field is being edited.
 ├── tools/fonts.py            # font subsetting and embedding
 └── src/
     ├── main.cpp              # command-line options
-    ├── app/                  # App (main loop, shortcuts, save/load, preferences) and Tour
-    ├── math/                 # vectors, matrices, decompositions, complex, expressions,
-    │                         #   quaternions, breakdown, worked explanations
+    ├── app/                  # App (main loop, shortcuts, files, preferences) and Tour
+    ├── math/                 # vectors, matrices, decompositions, complex, quaternions,
+    │   └── expr/             #   breakdown, worked explanations; typed expression engine
+    ├── scene/                # object model: objects, spaces, dependencies, undo, files
+    ├── view/                 # SceneView: draws the objects of a space
     ├── animation/            # Animator
     ├── edu/                  # tutorial lessons and gallery examples
-    ├── rendering/            # grid, vectors, transforms, Argand, plots, camera, labels
-    ├── ui/                   # panels, top bar, side bar, popovers, widgets
+    ├── rendering/            # grid, arrows, plots, camera, labels
+    ├── ui/                   # side bar (objects + inspector), panels, popovers, widgets
     │   ├── core/             # scaling, fonts, theme, layout, icons, floating panels
     │   └── generated/        # fonts.inc (embedded font data)
     └── include/              # headers, mirroring the folders above
 ```
 
-`src/math` and `src/animation` have no raylib dependency, which keeps them unit-testable.
+`src/math`, `src/scene` and `src/animation` have no raylib dependency, which keeps them unit-testable.
 
 ## Development
 

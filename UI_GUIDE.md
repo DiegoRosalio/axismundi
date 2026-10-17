@@ -4,11 +4,11 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ ▣ axismundi  [Matrices|Complex|Plots]        ⛶ 📷 │ ≡ ▦ 📖 ⧉ │ ☀ ? ⚙           │  top bar
+│ ▣ axismundi  [3D space|Complex plane]        ⛶ 📷 │ ≡ ▦ 📖 ⧉ │ ☀ ? ⚙           │  top bar
 ├──────────────┬───────────────────────────────────────────────────────────────────┤
-│ ▾ MATRIX     │                                         ┌──────────────┐          │
-│ ▾ VECTORS    │            3D view                      │ Analysis     │          │
-│ ▾ PRESETS    │                                         │  ...         │          │
+│ ▾ OBJECTS  + │                                         ┌──────────────┐          │
+│  M  a  b  s  │            3D view                      │ Analysis     │          │
+│ ▾ Inspector  │                                         │  ...         │          │
 │ ▾ VIEW       │    floating panels: Tutorial, Gallery,  └──────────────┘          │
 │              │    Calculation steps, Breakdown, ...                              │
 │  side bar    │  ● UI mode · status        ┌── Animation ──────────────┐          │
@@ -41,55 +41,92 @@ Layout is written for a 1600×900 reference and scaled to the window, so the int
 everything from 70% to 200%. Fonts are rasterized at the exact pixel size they are drawn at and rebuilt when the
 size changes, so text stays sharp. Small text never drops below a readable minimum.
 
+## Objects
+
+Each space has its own list of objects. The side bar shows:
+
+- **Objects list**: a color dot, the name, a short value (e.g. `(1, 0, 0)` or `a + b = (1, 1, 0)`), and an
+  eye button to show or hide the object. Red text means the object has a problem; hover the row to read it.
+  Click to select, Ctrl+click to add to the selection; clicking an object in the 3D view does the same, and
+  clicking empty space clears the selection. Undo / redo and **Add** sit in the header.
+- **Inspector**: the selected object's type, name (rename it here; formulas that use it are updated), color,
+  its fields, and Duplicate / Delete.
+
+### Add menu
+**Add** (or N) lists every object type for the current space, grouped by category. When objects are selected,
+**From selection** offers ready formulas:
+- two vectors: sum, difference, cross product, projection;
+- one vector: its unit vector, its opposite;
+- a matrix and vectors: M·v;
+- a matrix: its eigenvectors, inverse, transpose;
+- two matrices: their product;
+- complex numbers: product, sum, quotient, conjugate, square.
+
+### Object types
+
+| Type | Space | Inspector |
+|------|-------|-----------|
+| Vector | 3D | Components (x, y, z) or Formula; Starts at (tail point); length |
+| Matrix | 3D | Cells (3×3 / 4×4, presets) or Formula; determinant |
+| Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
+| Function / Curve / Surface / Implicit | 3D | Expressions in x, y, t; ranges; Detail; Heat map; Next example |
+| Parameter | both | Slider, range, play / loop / speed |
+| Complex number | complex | Value; circle, cos/sin projections, helix options; length and angle |
+| Product | complex | Two factors; rotation and scaling construction; length and angle breakdown |
+
+### Formulas
+Every field is a formula. It can use other objects in the same space by name. Available:
+- numbers, `+ - * / ^`, implicit multiplication (`2x`, `3(a + b)`);
+- vectors `[x, y, z]`, matrices `[[…], […], […]]` (3×3 or 4×4), `[u, v, w]` with vectors as columns;
+- components `v.x`, the constants `pi e i`;
+- `sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil atan2 min max`;
+- vectors: `dot cross norm normalize`;
+- matrices: `det tr inv transpose rotx roty rotz rot(axis, angle) scale translate eye`;
+- complex numbers: `conj re im arg polar`.
+
+`M*v` applies a matrix to a vector (a 4×4 matrix treats v as a point); `M*N` composes; `M^-1` inverts.
+Plots use `x`, `y` and `t` as their variables. Names must start with a letter and cannot be built-in names.
+Problems are shown live: a red outline while typing a broken formula, an error line under the field, and a
+red summary in the list for errors such as unknown names, wrong types or circular references.
+
+### Parameters
+A parameter is a named number with a slider. Use it in any formula; press **Play** to run it through its
+range (Loop restarts it at the end, Speed sets how fast). Several parameters can play at once.
+
 ## Text fields
 
 1. Click a field to edit it.
-2. Type a number or an expression: `2`, `-0.5`, `1e-3`, `sqrt(2)/2`, `cos(pi/4)`, `2pi/3`.
+2. Type a number or a formula.
 3. **Enter** or clicking elsewhere confirms, **Tab** / **Shift+Tab** confirms and moves on, **Esc** cancels.
-4. A red outline means the text can't be read. Invalid numbers are rejected. In Plots mode the expression is
-   kept and the error appears below.
+4. Each confirmed edit is one undo step.
 
-Expressions support `+ - * / ^`, parentheses, implicit multiplication (`2x`, `3(x+1)`), the variables
-`x y t`, the constants `pi e`, and `sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil`.
+## The 3D space
 
-## Matrices mode
+z points up and the floor grid is the xy-plane, the usual math convention, so vectors and surfaces
+`z = f(x, y)` agree. The axes are x (red), y (green), z (blue). Matrices are drawn as their moved basis on top
+of the faint original basis. The Animation panel morphs the selected matrix (or the first one) from the
+identity.
 
-- **Matrix**: 3×3 or 4×4 (the 4th column is a translation), undo/redo. Hover a cell to see what its column
-  means.
-- **Vectors**: A and B. Their colors are set in View → Vector colors.
-- **Presets**: each button shows its shortcut, and its tooltip gives the formula and determinant.
-- **Analysis** (M): vectors, matrix properties, eigenvalues, LU/QR/SVD. Hover any line for an explanation.
-- **Animation**: play/pause (P), stop, loop, timeline, Rotate/Scale/Morph presets, keyframes, speed.
-- **Transformation breakdown** (B): the matrix as numbered steps (rotate, stretch, rotate, move). Use
-  restart / previous / play / next or click a step. While the panel is open, the 3D view shows the matrix part
-  way through, with faded copies of the finished steps.
+## The complex plane
 
-## Complex mode
-
-- z₁ and z₂ with their rectangular and polar forms and the product z₁z₂.
-- "Show product and angles" draws the rotation step (faint arrow), the scaling step (dashed) and the angle arcs.
-- Euler's formula: show or animate e^(iθ), or drag θ.
-
-## Plots mode
-
-- Tabs: y = f(x), Curve (parametric), Surface (z = f(x, y)), Implicit (f(x, y) = 0).
-- Ranges, Detail (sampling), Heat map, Next example. The value range or the parse error is shown below.
+The real part runs along the red axis and the imaginary part along the green one, with the unit circle for
+reference. Each tab keeps its own camera.
 
 ## Learning tools
 
 - **Tutorial** (F1): pick a lesson. Each step explains one idea and usually asks for a small change, which is
   checked automatically. The control it talks about pulses with an outline. Next unlocks when the task is done,
   or press Skip. Finished lessons get a checkmark and are remembered.
-- **Example gallery** (E): filter by mode and click a card to load it.
+- **Example gallery** (E): filter by topic and click a card; it replaces the objects of that space.
 - **Calculation steps** (K): pick a topic (A·B, A×B, M·A, det M, M⁻¹, eigenvalues; or z₁·z₂, polar forms, Euler).
-  The formula, the numbers filled in and the result follow your inputs live.
+  It uses the selected matrix, vectors and complex numbers (or M, a, b, z1, z2), live.
 - **Tooltips**: hover almost anything. They can be turned off in Settings.
 
 ## View section
 
-- Grid (G), Axes, Labels (L), Eigenvectors and Transformed A, B (Matrices only)
-- Vector colors: click a swatch for the color picker (presets, hex value, "Theme color" resets it)
-- Axis length, Reset camera (C), Save (F5) / Load (F9) of `scene.txt`
+- Grid (G), Axes, Labels (L), Axis length, Reset camera (C), Save (F5) / Load (F9) of `scene.txt`
+- Object colors are set per object: click the color swatch next to the name in the inspector (presets, hex
+  value, "Theme color" resets it).
 
 ## Settings (gear icon)
 
@@ -107,7 +144,9 @@ Theme, interface size, tooltips, status overlay, reset panel layout. Preferences
 | Action | How |
 |--------|-----|
 | Camera ⟷ UI mode | Tab |
-| Switch mode | 1 / 2 / 3 or the tabs |
+| Switch space | 1 / 2 or the tabs |
+| Select / add to selection | Click / Ctrl+click (list or view) |
+| Add / delete / duplicate | N or Add / Del / Ctrl+D |
 | Edit a value | Click, type, Enter |
 | Undo / redo | Ctrl+Z / Ctrl+Y |
 | Tutorial / gallery / steps / breakdown / analysis | F1 / E / K / B / M |

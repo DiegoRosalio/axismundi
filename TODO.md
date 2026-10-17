@@ -115,6 +115,7 @@
 
 ### Refactoring
 - [x] Extract UI components into separate files
+- [x] Scene object model: any number of objects, named formulas, parameters (src/scene, src/math/expr)
 - [ ] Create preset system (JSON-based)
 - [ ] Implement event system for better decoupling
 - [ ] Add configuration file support
