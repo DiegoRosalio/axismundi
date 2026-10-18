@@ -568,6 +568,47 @@ void testVectorField() {
     CHECK_NEAR(particleTime(circle, 0, 3, 0.25, 2.0), 0.5, 1e-9);
 }
 
+void testAllObjectTypes() {
+    using namespace scene;
+    // Every registered type: created in each space it allows, its defaults evaluate without errors, and
+    // saving + loading (and cloning) keep its type, fields and properties
+    for (const ObjectTypeInfo& info : objectTypes()) {
+        for (SpaceKind kind : {SpaceKind::Euclidean3D, SpaceKind::Complex}) {
+            if (!(info.spaces & spaceBit(kind))) continue;
+            Scene sc;
+            sc.clearAll();
+            SceneObject* o = sc.add(kind, info.id, "");
+            CHECK(o != nullptr);
+            if (!o) continue;
+            CHECK(o->typeId() == info.id);
+            CHECK(o->name() == info.baseName);
+            sc.evaluate();
+            // Some defaults name other objects (eigenvectors of M, z1·z2): only that may fail in an empty scene
+            auto fine = [](const std::string& e) { return e.empty() || e.find("unknown name") != std::string::npos; };
+            if (!fine(o->error())) fprintf(stderr, "  %s: default has an error: %s\n", info.id, o->error().c_str());
+            CHECK(fine(o->error()));
+            std::unique_ptr<SceneObject> copy = o->clone();
+            CHECK(copy && copy->typeId() == info.id && copy->fields().size() == o->fields().size());
+            SceneData data;
+            sc.save(data);
+            Scene back;
+            std::string err;
+            CHECK(back.load(data, err));
+            SceneObject* b = back.space(kind).find(info.baseName);
+            CHECK(b != nullptr);
+            if (!b) continue;
+            CHECK(b->typeId() == info.id);
+            CHECK(b->props() == o->props());
+            for (const Field& f : o->fields()) {
+                const Field* g = b->field(f.key);
+                CHECK(g && g->text == f.text);
+            }
+            back.evaluate();
+            CHECK(fine(b->error()));
+        }
+    }
+}
+
 void testFourier() {
     using namespace fourier;
     constexpr double pi = 3.14159265358979;
@@ -2031,6 +2072,7 @@ int main() {
         {"Integrals", testIntegrals},
         {"Curve geometry", testCurveGeometry},
         {"Fourier", testFourier},
+        {"All object types", testAllObjectTypes},
         {"Vector field", testVectorField},
         {"Label layout", testLabelLayout},
         {"LaTeX export", testLatexExport},
