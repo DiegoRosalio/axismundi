@@ -106,7 +106,7 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
             auto* fo = static_cast<const scene::FrameObject*>(o);
             const geometry::Frame& f = fo->frame();
             auto v3 = [](const geometry::D3& d) {
-                return vecStr(Vector3D(static_cast<float>(d.x), static_cast<float>(d.y), static_cast<float>(d.z)));
+                return vecStr(integrals::toVector(d));
             };
             s.tip = "The Frenet frame at the point: how the curve moves, turns and twists there.";
             body(s, fmt("at u = %.3f: r = %s", fo->u0(), v3(f.p).c_str()));
@@ -151,7 +151,7 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
         if (o->typeId() == "velocity") {
             auto* r = static_cast<const scene::VelocityObject*>(o);
             auto v3 = [](const integrals::D3& d) {
-                return vecStr(Vector3D(static_cast<float>(d.x), static_cast<float>(d.y), static_cast<float>(d.z)));
+                return vecStr(integrals::toVector(d));
             };
             s.tip = "Derivatives of a moving point: velocity r' and acceleration r''.";
             body(s, fmt("at u = %.3f: r = %s", r->u0(), v3(r->point()).c_str()));

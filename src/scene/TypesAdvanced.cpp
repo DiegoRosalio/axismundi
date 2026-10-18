@@ -131,6 +131,15 @@ std::string rangeError(const SceneObject& o, const char* lo, const char* hi) {
     return "";
 }
 
+// r(u) = (x(u), y(u), z(u)) from three curve fields (the pointers and values are copied into the lambda,
+// so the Path stays valid after this function returns)
+integrals::Path curvePath(const Field* fx, const Field* fy, const Field* fz, const expr::Resolver* res, double t) {
+    return [=](double u, integrals::D3& o) {
+        return evalNumber(fx, res, t, 0, 0, 0, u, o.x) && evalNumber(fy, res, t, 0, 0, 0, u, o.y) &&
+               evalNumber(fz, res, t, 0, 0, 0, u, o.z);
+    };
+}
+
 // A number for messages: 1, 0.5, 3.14159 (up to 6 significant digits)
 std::string fmtNumber(double v) {
     char buf[32];
@@ -223,10 +232,7 @@ expr::Value LineIntegralObject::computeValue() const {
     const expr::Resolver* res = evaluationResolver();
     double t = time();
     const Field *fx = field("x"), *fy = field("y"), *fz = field("z"), *fF = field("F");
-    integrals::Path r = [&](double u, integrals::D3& o) {
-        return evalNumber(fx, res, t, 0, 0, 0, u, o.x) && evalNumber(fy, res, t, 0, 0, 0, u, o.y) &&
-               evalNumber(fz, res, t, 0, 0, 0, u, o.z);
-    };
+    integrals::Path r = curvePath(fx, fy, fz, res, t);
     integrals::Field F = [&](const integrals::D3& p, integrals::D3& o) { return evalVector(fF, res, t, p.x, p.y, p.z, o); };
     double a = numberOf(*this, "umin", 0), b = numberOf(*this, "umax", 6.28);
     m_upto = std::clamp(numberOf(*this, "upto", 1), 0.0, 1.0);
@@ -277,10 +283,7 @@ expr::Value FrameObject::computeValue() const {
     const expr::Resolver* res = evaluationResolver();
     double t = time();
     const Field *fx = field("x"), *fy = field("y"), *fz = field("z");
-    integrals::Path r = [&](double u, integrals::D3& o) {
-        return evalNumber(fx, res, t, 0, 0, 0, u, o.x) && evalNumber(fy, res, t, 0, 0, 0, u, o.y) &&
-               evalNumber(fz, res, t, 0, 0, 0, u, o.z);
-    };
+    integrals::Path r = curvePath(fx, fy, fz, res, t);
     double a = numberOf(*this, "umin", 0), b = numberOf(*this, "umax", 6.28);
     m_u0 = std::clamp(numberOf(*this, "u0", a), a, b);
     double h = std::max(1e-6, (b - a) * 2e-4);
@@ -307,8 +310,7 @@ expr::Value FrameObject::computeValue() const {
     m_version++;
     if (!geometry::frenet(r, m_u0, h, m_frame))
         return expr::Value::fail("the curve stops (r'(u) = 0) or is undefined at u = " + std::to_string(m_u0));
-    return expr::Value::vec(Vector3D(static_cast<float>(m_frame.p.x), static_cast<float>(m_frame.p.y),
-                                     static_cast<float>(m_frame.p.z)));
+    return expr::Value::vec(integrals::toVector(m_frame.p));
 }
 
 // --- Tangent line on y = f(x) --------------------------------------------------------------
@@ -441,10 +443,7 @@ expr::Value VelocityObject::computeValue() const {
     const expr::Resolver* res = evaluationResolver();
     double t = time();
     const Field *fx = field("x"), *fy = field("y"), *fz = field("z");
-    integrals::Path r = [&](double u, integrals::D3& o) {
-        return evalNumber(fx, res, t, 0, 0, 0, u, o.x) && evalNumber(fy, res, t, 0, 0, 0, u, o.y) &&
-               evalNumber(fz, res, t, 0, 0, 0, u, o.z);
-    };
+    integrals::Path r = curvePath(fx, fy, fz, res, t);
     double a = numberOf(*this, "umin", 0), b = numberOf(*this, "umax", 6.28);
     m_curve.clear();
     const int n = 240;
@@ -460,7 +459,7 @@ expr::Value VelocityObject::computeValue() const {
     double vv = geometry::dot(m_v, m_v);
     m_at = vv > 1e-18 ? geometry::scale(m_v, geometry::dot(m_a, m_v) / vv) : integrals::D3{};
     m_an = geometry::sub(m_a, m_at);
-    return expr::Value::vec(Vector3D(static_cast<float>(m_v.x), static_cast<float>(m_v.y), static_cast<float>(m_v.z)));
+    return expr::Value::vec(integrals::toVector(m_v));
 }
 
 // --- Fourier epicycles ---------------------------------------------------------------

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "math/Vector3D.hpp"
 #include <functional>
 #include <vector>
 
@@ -11,6 +12,11 @@ namespace linalg::integrals {
 struct D3 {
     double x = 0, y = 0, z = 0;
 };
+
+// The same point as a Vector3D (floats), e.g. to return it as an object's value
+inline Vector3D toVector(const D3& p) {
+    return {static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z)};
+}
 
 // z = f(x, y); false where f is undefined (the box is then left out)
 using Surface = std::function<bool(double x, double y, double& z)>;
