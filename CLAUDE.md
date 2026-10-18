@@ -87,8 +87,10 @@ texlive-latexextra, poppler-utils (installed by the user; I cannot use sudo). Fr
 ```
 src/
   main.cpp            option parsing (--size, --theme, --tour)
-  app/App             owns everything: Scene, SceneView, main loop, input/shortcuts, picking, panels,
-                      files, preferences, screenshots; public API used by edu/ and Tour
+  app/App             owns everything: Scene, SceneView, main loop, panels, screenshots; public API used by
+                      edu/ and Tour. One class in four files: App.cpp (construction, scripting API, run,
+                      update), AppInput.cpp (keys, shortcuts, picking), AppDraw.cpp (scene, UI, panels, HUD),
+                      AppFiles.cpp (scene/LaTeX files, preferences)
   app/Tour            scripted screenshot tour (mouse positions come from ui anchors)
   math/               NO raylib: Vector3D, Matrix3D/4D, Decompositions (LU/QR/eigen3/svd3), Complex,
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
@@ -100,12 +102,14 @@ src/
                       Reference (the in-app formula cheat sheet as data: sections, entries, examples)
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
-                      Types (object classes + registry), Scene (2 spaces, selection, undo, files v2 + v1 import)
+                      Types (basic object classes + registry), TypesAdvanced (quaternions, fields, integrals,
+                      frames, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import)
   text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
                       LabelLayout (placing screen labels without overlaps)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table)
   view/SceneView      draws a space's objects (per-type), labels (laid out, no overlaps), colors, selection
-                      halo + fading, solo filter (`shown`), plot cache, Paper = the print path (DrawOptions.print)
+                      halo + fading, solo filter (`shown`), plot cache, Paper = the print path (DrawOptions.print);
+                      SceneViewObjects.cpp draws the richer types, SceneViewDraw.{hpp,cpp} the shared helpers
   view/ViewStyle      view styles as data (Colorful, Paper, High contrast, Chalkboard): `styleFor(id, theme)`,
                       `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
@@ -117,7 +121,8 @@ src/
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
                       latch), TextEditor (wrapping multi-line editor), Theme, Layout, Icons,
                       FloatingPanel + PanelManager
-  ui/                 ScenePanel (objects list + inspector), AddMenu (types + templates from the
+  ui/                 ScenePanel (objects list + inspector; ScenePanelInspectors.cpp has one inspect<Type>
+                      method per object type, with rangeRow/toggleProp helpers), AddMenu (types + templates from the
                       selection), Widgets, TopBar, SideBar, ViewPanel, InfoPanel (analysis of the
                       selection), TimePanel (scene clock), ReferencePanel (formula cheat sheet, F2),
                       ExportPanel (LaTeX export, Ctrl+E), FormulaEditor (big
@@ -125,7 +130,8 @@ src/
                       SettingsPopover, ColorPopover, HelpOverlay, SceneIO, Preferences, RayguiImpl.cpp
   ui/generated/       fonts.inc (embedded fonts, subset; codepoint list)
   include/<area>/     headers mirror the folders above
-tests/test_math.cpp   assert-style runner (CHECK / CHECK_NEAR)
+tests/test_math.cpp   assert-style runner (CHECK / CHECK_NEAR); includes a check over every registered type
+docs/architecture.md  how the pieces fit together (data flow per frame, where to add things)
 assets/fonts/         subset TTFs + OFL licenses; tools/fonts.py subsets (fonttools) and embeds
 docs/screenshots/     images for the docs, produced by --tour
 ```
@@ -238,8 +244,9 @@ section order.
 2. New value kinds go in `expr::Value` (+ operators/functions in `src/math/expr/Expr.cpp`).
 3. Drawing: a branch in `view/SceneView.cpp` (`drawEuclidean` / `drawComplex`, labels, `anchorPoint`
    for picking, `colorOf` palette).
-4. Inspector: a branch in `ScenePanel::drawInspector` (reuse `fieldRow`/`editText`; commit with
-   `sc.commit()`); optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
+4. Inspector: an `inspect<Type>` method in `ScenePanelInspectors.cpp` plus its dispatch line in
+   `ScenePanel::drawInspector` (reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
+   optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
 5. Tests in `tests/test_math.cpp` (model + evaluation), tour step + screenshots for the UI.
 6. LaTeX export: a branch in `exportLatex` + the Auto 2D rule + Paper drawing (see LaTeX export).
 Saving/loading is automatic (fields and props are serialized generically).
