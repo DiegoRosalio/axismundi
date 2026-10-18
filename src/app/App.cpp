@@ -74,7 +74,10 @@ App::App(const AppOptions& options)
     else if (options.theme == "dark") ui::setTheme(ui::ThemeKind::Dark);
     ui::init();
 
-    if (!options.tourDir.empty()) m_tour = std::make_unique<Tour>(options.tourDir);
+    if (!options.tourDir.empty()) {
+        m_tour = std::make_unique<Tour>(options.tourDir);
+        ui::setFixedStep(1.0f / 60.0f);  // the same clock every run, so screenshots can be compared
+    }
 
     // Start with an empty scene and the cursor free, ready to add objects. The
     // tour keeps the demo scene so its screenshots stay reproducible.
@@ -359,7 +362,7 @@ void App::run() {
 #endif
     int signalShots = 0;
     while (!WindowShouldClose()) {
-        float deltaTime = GetFrameTime();
+        float deltaTime = ui::frameStep(GetFrameTime());
         bool signalShot = g_shotSignal != 0;
         g_shotSignal = 0;
 

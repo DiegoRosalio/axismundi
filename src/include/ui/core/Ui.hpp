@@ -30,6 +30,11 @@ constexpr float kDesignHeight = 900.0f;
 // --- Lifecycle (call after InitWindow / once per frame / before CloseWindow)
 void init();
 void beginFrame();
+// Seconds for animations (cursor blink, highlight pulse, tooltip delay). Normally the real clock; with a
+// fixed step (the screenshot tour) it advances exactly `step` per frame, so screenshots repeat run to run.
+double now();
+void setFixedStep(float step);  // 0: the real clock
+float frameStep(float real);    // the frame's duration: `real`, or the fixed step
 void shutdown();
 
 // --- Scale -------------------------------------------------------------------

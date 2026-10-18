@@ -336,7 +336,7 @@ void App::drawTutorialHighlight() {
     Rectangle r;
     if (id.empty() || !ui::findAnchor(id, r)) return;
     // Pulsing outline around the control the current step is about
-    float pulse = 0.5f + 0.5f * std::sin(static_cast<float>(GetTime()) * 4.0f);
+    float pulse = 0.5f + 0.5f * std::sin(static_cast<float>(ui::now()) * 4.0f);
     float grow = ui::px(4.0f + 2.0f * pulse);
     Rectangle ring = {r.x - grow, r.y - grow, r.width + 2 * grow, r.height + 2 * grow};
     Color c = ui::theme().accent;

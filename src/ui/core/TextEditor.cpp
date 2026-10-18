@@ -194,7 +194,7 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
             if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) event = EditorEvent::Commit;
         }
         if (changed) {
-            st.lastInput = GetTime();
+            st.lastInput = ui::now();
             starts = text::wrapLines(s, perLine);
         }
     }
@@ -242,7 +242,7 @@ EditorEvent textEditor(Rectangle r, int id, std::string& s, bool active, bool in
     }
     if (active) {
         // Blinking cursor (solid right after typing)
-        bool on = std::fmod(GetTime() - st.lastInput, 1.0) < 0.6;
+        bool on = std::fmod(ui::now() - st.lastInput, 1.0) < 0.6;
         float x = left + curCol * cw;
         float y = top + curLine * lh - scroll;
         if (on && lineVisible(y)) DrawRectangleRec({x, y + px(2), std::max(1.0f, px(1.5f)), lh - px(4)}, t.accent);

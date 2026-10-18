@@ -172,7 +172,17 @@ bool mouseReleased(int button) {
     return IsMouseButtonReleased(button) || (button >= 0 && button < 3 && g_releasedLatch[button]);
 }
 
+namespace {
+float g_fixedStep = 0.0f;
+double g_fixedNow = 0.0;
+}  // namespace
+
+double now() { return g_fixedStep > 0.0f ? g_fixedNow : GetTime(); }
+void setFixedStep(float step) { g_fixedStep = step; }
+float frameStep(float real) { return g_fixedStep > 0.0f ? g_fixedStep : real; }
+
 void beginFrame() {
+    if (g_fixedStep > 0.0f) g_fixedNow += g_fixedStep;
     // Events of the frame just polled (callbacks ran inside raylib's EndDrawing)
     for (int b = 0; b < 3; b++) {
         g_pressedLatch[b] = g_pressEvents[b] > 0;
@@ -496,7 +506,7 @@ void drawTooltip(bool enabled) {
         g_tip.lastRect = {0, 0, 0, 0};
         return;
     }
-    double now = GetTime();
+    double now = ui::now();
     if (!sameRect(g_tip.rect, g_tip.lastRect) || g_tip.body != g_tip.shownBody) {
         g_tip.lastRect = g_tip.rect;
         g_tip.shownBody = g_tip.body;
