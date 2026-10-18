@@ -59,7 +59,7 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
     for (const auto* o : picked) {
         if (!o->value().ok()) continue;
         const std::string& ty = o->typeId();
-        if (ty == "frame" || ty == "tangent" || ty == "tangentplane" || ty == "velocity") {  // own sections
+        if (ty == "frame" || ty == "tangent" || ty == "tangentplane" || ty == "velocity" || ty == "newton") {
             integralObjs.push_back(o);
         } else if (o->value().type == expr::Type::Quaternion) {
             if (quats.size() < 2) quats.push_back(o);
@@ -68,7 +68,7 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
         } else if (o->value().type == expr::Type::Vector && vectors.size() < 2) vectors.push_back(o);
         else if (o->value().isNumber() && (o->typeId() == "complex" || o->typeId() == "product") && numbers.size() < 2)
             numbers.push_back(o);
-        else if (o->typeId() == "doubleintegral" || o->typeId() == "lineintegral")
+        else if (o->typeId() == "doubleintegral" || o->typeId() == "lineintegral" || o->typeId() == "taylor")
             integralObjs.push_back(o);
     }
 
@@ -146,6 +146,25 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
             tipped(s, fmt("grad f = (%.4f, %.4f)", g->fx(), g->fy()),
                    "Points the way the surface climbs fastest; its length is that climb rate.");
             note(s, fmt("steepest climb %.4f per unit", std::hypot(g->fx(), g->fy())));
+            continue;
+        }
+        if (o->typeId() == "taylor") {
+            auto* tp = static_cast<const scene::TaylorObject*>(o);
+            const auto& se = tp->series();
+            s.tip = "f(x) ≈ c0 + c1 (x − a) + c2 (x − a)² + …, with c_k = f⁽ᵏ⁾(a) / k!";
+            body(s, fmt("about a = %.4g, degree %d", se.center, static_cast<int>(se.coeffs.size()) - 1));
+            for (size_t j = 0; j < se.coeffs.size() && j < 8; j++)
+                tipped(s, fmt("c%zu = %.6g", j, std::fabs(se.coeffs[j]) < 1e-12 ? 0.0 : se.coeffs[j]),
+                       "The k-th derivative of f at the center, divided by k!.");
+            if (std::isfinite(tp->maxError())) note(s, fmt("largest gap to f on the range: %.3g", tp->maxError()));
+            continue;
+        }
+        if (o->typeId() == "newton") {
+            auto* nw = static_cast<const scene::NewtonObject*>(o);
+            s.tip = "x_{k+1} = x_k − f(x_k) / f'(x_k): follow the tangent down to the x axis.";
+            const auto& steps = nw->run().steps;
+            for (size_t j = 0; j < steps.size() && j < 8; j++)
+                body(s, fmt("x%zu = %.10g", j, steps[j].x), j + 1 == steps.size() ? Tone::Normal : Tone::Muted);
             continue;
         }
         if (o->typeId() == "velocity") {

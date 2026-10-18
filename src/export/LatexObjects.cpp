@@ -608,6 +608,65 @@ void exportComplex(Figure& f, const scene::SceneObject& o, const Style& s) {
     arrow(f, {0, 0, 0}, {re, im, 0}, styleOptions(s, "thick"), name);
 }
 
+// The Taylor polynomial: f (dashed gray), T_N (the object's style, in the legend), the center point
+void exportTaylor(Figure& f, const scene::TaylorObject& o, const Style& s, const Options& opt) {
+    f.plots = true;
+    auto curve = [&](const scene::TaylorObject::Samples& pts, const std::string& style) {
+        f.body << "\\addplot[" << style << "] coordinates {";
+        int k = 0;
+        for (size_t i = 0; i < pts.size(); i += 2, k++) {
+            double x = pts[i].first, y = pts[i].second;
+            bool ok = usable(y) && std::fabs(y) <= 12;
+            f.body << (k % 6 == 0 ? "\n  " : " ") << (ok ? f.coord(x, y, 0) : f.coord(NAN, NAN, NAN));
+            if (ok) f.extend(x, y, 0);
+        }
+        f.body << "\n};\n";
+    };
+    if (o.showFunction()) curve(o.function(), "black!50, densely dashed, thin, forget plot");
+    curve(o.polynomial(), plotStyle(s, "thick"));
+    legendEntry(f, "T_{" + std::to_string(static_cast<int>(o.series().coeffs.size()) - 1) + "}", opt.legend);
+    double a = o.series().center;
+    f.body << "\\fill " << f.at(a, o.fCenter(), 0) << " circle[radius=1.5pt]"
+           << labelNode(f, {a, o.fCenter(), 0}, 1, -1, "a = " + num(a)) << ";\n";
+}
+
+// Newton's method: f, then each step's vertical line and tangent, with the iterates labeled on the axis
+void exportNewton(Figure& f, const scene::NewtonObject& o, const Style& s) {
+    std::string name = nameToLatex(o.name());
+    f.plots = true;
+    if (o.showFunction()) {
+        f.body << "\\addplot[" << plotStyle(s, "thick, forget plot") << "] coordinates {";
+        int k = 0;
+        for (size_t i = 0; i < o.function().size(); i += 2, k++) {
+            double x = o.function()[i].first, y = o.function()[i].second;
+            bool ok = usable(y) && std::fabs(y) <= 12;
+            f.body << (k % 6 == 0 ? "\n  " : " ") << (ok ? f.coord(x, y, 0) : f.coord(NAN, NAN, NAN));
+            if (ok) f.extend(x, y, 0);
+        }
+        f.body << "\n};\n";
+    }
+    const auto& steps = o.run().steps;
+    // Iterates bunch up near the root: label only those well apart (and apart from the final estimate)
+    double span = o.function().empty() ? 1.0 : o.function().back().first - o.function().front().first;
+    double gap = 0.06 * std::fabs(span), lastLabel = NAN;
+    for (size_t i = 0; i + 1 < steps.size() && i < 8; i++) {
+        const auto& st = steps[i];
+        if (!std::isfinite(st.fx)) break;
+        line(f, {st.x, 0, 0}, {st.x, st.fx, 0}, "black!45, densely dashed, thin");
+        line(f, {st.x, st.fx, 0}, {steps[i + 1].x, 0, 0}, "black, thin");
+        f.body << "\\fill " << f.at(st.x, 0, 0) << " circle[radius=1.2pt]";
+        bool apart = (std::isnan(lastLabel) || std::fabs(st.x - lastLabel) > gap) && std::fabs(st.x - steps.back().x) > gap;
+        if (apart) {
+            f.body << labelNode(f, {st.x, 0, 0}, 0, -1, "x_{" + std::to_string(i) + "}");
+            lastLabel = st.x;
+        }
+        f.body << ";\n";
+    }
+    const auto& last = steps.back();
+    f.body << "\\fill " << f.at(last.x, 0, 0) << " circle[radius=1.6pt]"
+           << labelNode(f, {last.x, 0, 0}, 1, 1, name + " \\approx " + num(last.x)) << ";\n";
+}
+
 // --- Floor tests for the Auto view: true when everything the object draws has z = 0 ---------
 
 bool velocityFlat(const scene::SceneObject& o) {
@@ -703,6 +762,11 @@ const ObjectExport* detail::objectExport(const std::string& typeId) {
         {"lineintegral", {[](F f, O o, const Style& s, I) {
              exportLineIntegral(f, static_cast<const scene::LineIntegralObject&>(o), s);
          }, workFlat}},
+        {"taylor", {[](F f, O o, const Style& s, I in) {
+             exportTaylor(f, static_cast<const scene::TaylorObject&>(o), s, in.options);
+         }, alwaysFlat}},
+        {"newton", {[](F f, O o, const Style& s, I) { exportNewton(f, static_cast<const scene::NewtonObject&>(o), s); },
+                    alwaysFlat}},
         // The complex plane is always a 2D figure
         {"complex", {[](F f, O o, const Style& s, I) { exportComplex(f, o, s); }, alwaysFlat}},
         {"product", {[](F f, O o, const Style& s, I) { exportComplex(f, o, s); }, alwaysFlat}},

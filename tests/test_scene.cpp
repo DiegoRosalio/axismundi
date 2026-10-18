@@ -365,6 +365,54 @@ void testScene() {
         CHECK(geometry::length(R->normal()) < 1e-4 && R->tangential().x > 1.9);
     }
 
+    // Taylor polynomial and Newton's method objects
+    {
+        Scene ts;
+        ts.clearAll();
+        auto* P = static_cast<TaylorObject*>(ts.add(SpaceKind::Euclidean3D, "taylor", "P"));
+        ts.evaluate();
+        CHECK(P->error().empty() && P->series().complexMethod);
+        CHECK(P->series().coeffs.size() == 4);  // sin about 0, degree 3: x - x^3/6
+        CHECK_NEAR(P->series().coeffs[1], 1.0, 1e-10);
+        CHECK_NEAR(P->series().coeffs[3], -1.0 / 6, 1e-10);
+        CHECK(P->polynomial().size() == 401 && P->previous().size() == 401 && P->terms().size() == 4);
+        auto* s = static_cast<ParameterObject*>(ts.add(SpaceKind::Euclidean3D, "parameter", "s"));
+        s->setNumber(1.0);
+        P->setField("f", "exp(x)");
+        P->setField("a", "s");      // a slider moves the center
+        P->setField("N", "2 + 3");  // the degree is a formula
+        ts.evaluate();
+        CHECK(P->degree() == 5);
+        CHECK_NEAR(P->series().center, 1.0, 1e-12);
+        CHECK_NEAR(P->series().coeffs[2], std::exp(1.0) / 2, 1e-9);
+        P->setField("f", "floor(x)");  // no complex values: degrees up to 4 by finite differences
+        P->setField("a", "0.5");
+        ts.evaluate();
+        CHECK(P->error().empty() && !P->series().complexMethod && P->series().coeffs.size() == 5);
+        P->setField("f", "ln(x)");
+        P->setField("a", "-1");
+        ts.evaluate();
+        CHECK(P->error().find("undefined at the center") != std::string::npos);
+
+        auto* r = static_cast<NewtonObject*>(ts.add(SpaceKind::Euclidean3D, "newton", "r"));
+        ts.evaluate();
+        CHECK(r->error().empty() && r->value().isRealNumber());
+        CHECK(r->run().steps.size() == 4);  // x0 = 1 and three steps
+        CHECK_NEAR(r->value().re, std::sqrt(2.0), 1e-5);
+        r->setField("steps", "20");
+        ts.evaluate();
+        CHECK(r->run().stop == taylor::NewtonStop::Converged);
+        CHECK_NEAR(r->value().re, std::sqrt(2.0), 1e-12);
+        auto* q = ts.add(SpaceKind::Euclidean3D, "vector", "q");
+        q->setProp("mode", "formula");
+        q->setField("value", "[r, 0, 0]");  // other objects use the root
+        ts.evaluate();
+        CHECK(q->error().empty() && std::fabs(q->value().vector.x - 1.41421356f) < 1e-5f);
+        r->setField("x0", "0");
+        ts.evaluate();
+        CHECK(r->run().stop == taylor::NewtonStop::FlatTangent);
+    }
+
     // Integral objects: values, boxes, partial work, and the value cache
     {
         Scene is;

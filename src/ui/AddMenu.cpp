@@ -101,6 +101,12 @@ std::vector<std::pair<std::string, AddChoice>> AddMenu::templates(scene::Scene& 
             c.typeId = "tangent";
             for (const char* k : {"f", "xmin", "xmax"}) c.fields[k] = text(fn, k);
             out.push_back({"Tangent line on " + fn->name() + " (slope f')", c});
+            AddChoice tp = c;
+            tp.typeId = "taylor";
+            out.push_back({"Taylor polynomial of " + fn->name(), tp});
+            AddChoice nw = c;
+            nw.typeId = "newton";
+            out.push_back({"Newton's method on " + fn->name() + " (a root)", nw});
         }
         for (const SceneObject* s : surfaces) {
             AddChoice c;

@@ -96,6 +96,8 @@ private:
     void inspectTangent(InspectorContext& c);
     void inspectTangentPlane(InspectorContext& c);
     void inspectVelocity(InspectorContext& c);
+    void inspectTaylor(InspectorContext& c);
+    void inspectNewton(InspectorContext& c);
     void inspectIntegral(InspectorContext& c);
     void inspectQuaternion(InspectorContext& c);
     void inspectField(InspectorContext& c);

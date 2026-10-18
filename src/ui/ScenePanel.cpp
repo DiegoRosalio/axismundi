@@ -419,6 +419,19 @@ const ScenePanel::TypeUi* ScenePanel::typeUi(const std::string& typeId) {
                       static_cast<const scene::VelocityObject&>(o).u0());
              return buf;
          }}},
+        {"taylor", {&ScenePanel::inspectTaylor, [](O o) -> std::string {
+             const auto& tp = static_cast<const scene::TaylorObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "degree %d about %.3g", static_cast<int>(tp.series().coeffs.size()) - 1,
+                      tp.series().center);
+             return buf;
+         }}},
+        {"newton", {&ScenePanel::inspectNewton, [](O o) -> std::string {
+             const auto& nw = static_cast<const scene::NewtonObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "x%d ≈ %.6g", static_cast<int>(nw.run().steps.size()) - 1, o.value().re);
+             return buf;
+         }}},
         {"fourierseries", {&ScenePanel::inspectFourierSeries, [](O o) -> std::string {
              return "N = " + std::to_string(static_cast<const scene::FourierSeriesObject&>(o).terms()) + " terms";
          }}},

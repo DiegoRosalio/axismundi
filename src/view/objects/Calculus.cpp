@@ -271,6 +271,50 @@ void drawVelocity(const scene::VelocityObject& o, Color c, bool fade, bool print
     DrawSphere(pw, (selected ? 0.11f : 0.08f) * std::sqrt(k), shade(c));
 }
 
+// The Taylor polynomial: f (gray), the previous degree (faint), the separate terms (fainter), T_N, the center
+void drawTaylor(const scene::TaylorObject& o, Color c, bool fade, bool print, Color ink) {
+    const ViewStyle& st = activeStyle();
+    const float k = print ? 0.8f : st.lineScale;
+    Color muted = print ? Color{150, 150, 150, 255} : (fade ? faded(st.muted) : st.muted);
+    if (o.showTerms() && !print)
+        for (const auto& term : o.terms()) floorPolyline(term, withAlpha(muted, 110), 0.0f, false);
+    if (o.showFunction()) floorPolyline(o.function(), muted, print ? 0.0f : 0.014f * k, print);
+    if (o.showPrevious() && !o.previous().empty())
+        floorPolyline(o.previous(), print ? Color{190, 190, 190, 255} : withAlpha(fade ? faded(c) : c, 90), 0.0f, false);
+    floorPolyline(o.polynomial(), print ? ink : (fade ? faded(c) : c), print ? 0.0f : 0.024f * k, false);
+    if (!o.error().empty()) return;
+    DrawSphere(mathToWorld(static_cast<float>(o.series().center), static_cast<float>(o.fCenter()), 0.01f),
+               0.08f * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
+}
+
+// Newton's method: f, then for each step the line up to (x_k, f(x_k)) and the tangent down to x_{k+1}
+void drawNewton(const scene::NewtonObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
+    const ViewStyle& st = activeStyle();
+    const float k = print ? 0.8f : st.lineScale;
+    if (o.showFunction()) floorPolyline(o.function(), print ? ink : (fade ? faded(c) : c), print ? 0.0f : 0.02f * k, false);
+    const auto& steps = o.run().steps;
+    if (steps.empty() || !o.error().empty()) return;
+    auto at = [](double x, double y) { return mathToWorld(static_cast<float>(x), static_cast<float>(y), 0.01f); };
+    Color text = print ? ink : (fade ? faded(st.text) : st.text);
+    Color muted = print ? Color{150, 150, 150, 255} : (fade ? faded(st.muted) : st.muted);
+    for (size_t i = 0; i + 1 < steps.size(); i++) {
+        const auto& s = steps[i];
+        if (!std::isfinite(s.fx)) break;
+        bool latest = i + 2 == steps.size();
+        dashed(at(s.x, 0), at(s.x, s.fx), withAlpha(muted, latest ? 230 : 140));
+        // The tangent from (x_k, f(x_k)) down to the axis at x_{k+1}
+        Color tangent = withAlpha(text, latest ? 240 : 170);
+        float r = (latest ? 0.012f : 0.007f) * k;
+        if (print) DrawLine3D(at(s.x, s.fx), at(steps[i + 1].x, 0), tangent);
+        else DrawCylinderEx(at(s.x, s.fx), at(steps[i + 1].x, 0), r, r, 5, tangent);
+        DrawSphere(at(s.x, s.fx), 0.045f * std::sqrt(k), withAlpha(text, latest ? 255 : 150));
+        DrawSphere(at(s.x, 0), 0.04f * std::sqrt(k), withAlpha(muted, latest ? 255 : 150));
+    }
+    // The current estimate on the x axis
+    Color point = print ? ink : (fade ? faded(derivativeColor(o)) : derivativeColor(o));
+    DrawSphere(at(steps.back().x, 0), (selected ? 0.11f : 0.08f) * std::sqrt(k), point);
+}
+
 // The picking/label handle of the derivative objects: their point (none while in error)
 template <class T>
 bool pointOf(const SceneObject& o, Vector3& out) {
@@ -419,6 +463,40 @@ void registerCalculusViews(ObjectViewTable& t) {
         out.push_back({p, mathToWorld(geometry::add(r.point(), geometry::scale(r.velocity(), r.arrowScale())))});
     };
     t["velocity"] = velocity;
+    ObjectView taylorView;
+    taylorView.palette = Palette::Plots;
+    taylorView.draw = [](const SceneObject& o, const DrawContext& c) {
+        drawTaylor(static_cast<const scene::TaylorObject&>(o), c.color, c.dim, c.print, c.print ? c.color : BLACK);
+    };
+    taylorView.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        if (!o.error().empty()) return false;
+        auto& tp = static_cast<const scene::TaylorObject&>(o);
+        out = mathToWorld(static_cast<float>(tp.series().center), static_cast<float>(tp.fCenter()), 0.0f);
+        return true;
+    };
+    t["taylor"] = taylorView;
+
+    ObjectView newtonView;
+    newtonView.palette = Palette::Plots;
+    newtonView.draw = [](const SceneObject& o, const DrawContext& c) {
+        drawNewton(static_cast<const scene::NewtonObject&>(o), c.color, c.dim, c.print, c.print ? c.color : BLACK,
+                   c.selected);
+    };
+    newtonView.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        auto& nw = static_cast<const scene::NewtonObject&>(o);
+        if (!o.error().empty() || nw.run().steps.empty()) return false;
+        out = mathToWorld(static_cast<float>(nw.run().steps.back().x), 0.0f, 0.0f);
+        return true;
+    };
+    newtonView.label = [](const SceneObject& o) -> std::string {
+        auto& nw = static_cast<const scene::NewtonObject&>(o);
+        char text[96];
+        snprintf(text, sizeof(text), "%s  x%d = %.6g", o.name().c_str(), static_cast<int>(nw.run().steps.size()) - 1,
+                 o.value().re);
+        return text;
+    };
+    newtonView.pick = pickAnchor;
+    t["newton"] = newtonView;
 }
 
 } // namespace linalg::view

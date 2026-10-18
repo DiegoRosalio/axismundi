@@ -1031,4 +1031,100 @@ void ScenePanel::inspectVelocity(InspectorContext& c) {
          t.textFaint);
 }
 
+namespace {
+// "0.841 + 0.54(x − 1) − 0.421(x − 1)² …": the first terms of a Taylor polynomial
+std::string polynomialText(const taylor::Series& s, int maxTerms) {
+    static const char* kPowers[] = {"", "", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"};
+    std::string base = std::fabs(s.center) < 1e-12 ? std::string("x")
+                                                   : "(x " + std::string(s.center < 0 ? "+ " : "− ") +
+                                                         panel::fmt(std::fabs(s.center)) + ")";
+    std::string out;
+    int shown = 0;
+    for (size_t k = 0; k < s.coeffs.size(); k++) {
+        double c = s.coeffs[k];
+        if (std::fabs(c) < 1e-10) continue;
+        if (shown == maxTerms) {
+            out += " + …";
+            break;
+        }
+        std::string mag = panel::fmt(std::fabs(c));
+        if (k > 0 && mag == "1") mag = "";
+        out += shown == 0 ? (c < 0 ? "−" : "") : (c < 0 ? " − " : " + ");
+        out += mag;
+        if (k > 0) out += base + (k < 10 ? kPowers[k] : ("^" + std::to_string(k)).c_str());
+        shown++;
+    }
+    return out.empty() ? "0" : out;
+}
+}  // namespace
+
+void ScenePanel::inspectTaylor(InspectorContext& c) {
+    ui::Column& col = c.col;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto& tp = static_cast<scene::TaylorObject&>(c.o);
+    col.setY(fieldRow(col.x(), col.y(), col.width(), tp, "f", sc, 52.0f));
+    ui::anchor("taylor.f", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    col.setY(fieldRow(col.x(), col.y(), col.width(), tp, "a", sc, 64.0f));
+    ui::anchor("taylor.a", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    col.setY(fieldRow(col.x(), col.y(), col.width(), tp, "N", sc, 64.0f));
+    ui::anchor("taylor.N", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    rangeRow(c, "xmin", "xmax", "x");
+    toggleProp(c, "Graph of f", "function", tp.showFunction(), "Draw f itself (gray) to compare.");
+    toggleProp(c, "Previous degree", "previous", tp.showPrevious(),
+               "Draw the polynomial one degree lower, faint: the difference is what the newest term adds.");
+    toggleProp(c, "Separate terms", "terms", tp.showTerms(), "Draw each term c_k (x − a)^k on its own (the first 6).");
+    ui::anchor("taylor.terms", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+    if (!tp.error().empty()) return;
+    const taylor::Series& se = tp.series();
+    char buf[160];
+    snprintf(buf, sizeof(buf), "T%d(x) = %s", static_cast<int>(se.coeffs.size()) - 1, polynomialText(se, 4).c_str());
+    note(c.col, buf, t.text);
+    if (std::isfinite(tp.maxError())) {
+        snprintf(buf, sizeof(buf), "largest gap to f on the range: %.3g", tp.maxError());
+        note(c.col, buf, t.textMuted);
+    }
+    note(c.col, se.note, se.complexMethod && static_cast<int>(se.coeffs.size()) > se.requested ? t.textFaint : t.warning);
+    note(c.col, "Each term matches one more derivative of f at the center: degree 1 is the tangent line. Far "
+                "from the center, or past a singularity, the polynomial can't follow f.",
+         t.textFaint);
+}
+
+void ScenePanel::inspectNewton(InspectorContext& c) {
+    ui::Column& col = c.col;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto& nw = static_cast<scene::NewtonObject&>(c.o);
+    col.setY(fieldRow(col.x(), col.y(), col.width(), nw, "f", sc, 52.0f));
+    ui::anchor("newton.f", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    col.setY(fieldRow(col.x(), col.y(), col.width(), nw, "x0", sc, 72.0f));
+    ui::anchor("newton.x0", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    col.setY(fieldRow(col.x(), col.y(), col.width(), nw, "steps", sc, 72.0f));
+    ui::anchor("newton.steps", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    rangeRow(c, "xmin", "xmax", "x");
+    toggleProp(c, "Graph of f", "function", nw.showFunction(), "Draw y = f(x).");
+    if (!nw.error().empty()) return;
+    const auto& run = nw.run();
+    char buf[160];
+    size_t rows = std::min<size_t>(run.steps.size(), 12);
+    for (size_t k = 0; k < rows; k++) {
+        const auto& s = run.steps[k];
+        if (std::isfinite(s.fx))
+            snprintf(buf, sizeof(buf), "x%-2zu = %-12.8g f = %.3g", k, s.x, std::fabs(s.fx) < 1e-300 ? 0.0 : s.fx);
+        else
+            snprintf(buf, sizeof(buf), "x%-2zu = %-12.8g", k, s.x);
+        note(c.col, buf, k + 1 == run.steps.size() ? t.text : t.textMuted, ui::FontRole::Mono);
+    }
+    if (run.steps.size() > rows) note(c.col, "…", t.textMuted);
+    const char* why = nullptr;
+    switch (run.stop) {
+        case taylor::NewtonStop::Converged: why = "Converged: the steps stopped moving. Near a root the number of correct digits about doubles each step."; break;
+        case taylor::NewtonStop::FlatTangent: why = "Stopped: the tangent is flat (f' = 0), so it never meets the x axis. Try another start."; break;
+        case taylor::NewtonStop::Undefined: why = "Stopped: f is undefined where the step landed."; break;
+        case taylor::NewtonStop::Diverging: why = "Diverging: each step overshoots farther. Start closer to the root."; break;
+        case taylor::NewtonStop::Steps: why = "Each step follows the tangent at (x, f(x)) down to the x axis: x − f(x)/f'(x)."; break;
+    }
+    note(c.col, why, run.stop == taylor::NewtonStop::Steps || run.stop == taylor::NewtonStop::Converged ? t.textFaint : t.warning);
+}
+
 } // namespace linalg

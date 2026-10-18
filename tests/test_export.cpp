@@ -167,6 +167,26 @@ void testLatexExport() {
         save("velocity", dr.code);
     }
 
+    // Taylor and Newton: 2D figures with the polynomial in the legend and the iterates labeled
+    {
+        Scene tsc;
+        tsc.clearAll();
+        tsc.add(SpaceKind::Euclidean3D, "taylor", "P");
+        tsc.evaluate();
+        latex::Options top;
+        top.standalone = true;
+        latex::Result tr = latex::exportLatex(tsc.space(SpaceKind::Euclidean3D), tsc.selection(SpaceKind::Euclidean3D), top);
+        CHECK(tr.exported == 1 && tr.flat && tr.code.find("T_{3}") != std::string::npos);
+        save("taylor", tr.code);
+        tsc.clearAll();
+        tsc.add(SpaceKind::Euclidean3D, "newton", "r");
+        tsc.evaluate();
+        tr = latex::exportLatex(tsc.space(SpaceKind::Euclidean3D), tsc.selection(SpaceKind::Euclidean3D), top);
+        CHECK(tr.exported == 1 && tr.flat && tr.code.find("x_{0}") != std::string::npos);
+        CHECK(tr.code.find("\\approx 1.414") != std::string::npos);
+        save("newton", tr.code);
+    }
+
     // Integrals: boxes and the value; a flat work integral is a 2D figure
     {
         Scene isc;

@@ -3,6 +3,7 @@
 #include "animation/Playback.hpp"
 #include "math/CurveGeometry.hpp"
 #include "math/Derivatives.hpp"
+#include "math/Taylor.hpp"
 #include "math/Fourier.hpp"
 #include "math/Integrals.hpp"
 #include "scene/SceneObject.hpp"
@@ -368,6 +369,57 @@ private:
     mutable std::vector<integrals::D3> m_curve;
     mutable integrals::D3 m_p, m_v, m_a, m_at, m_an;
     mutable double m_u0 = 0;
+};
+
+// y = f(x) and its Taylor polynomial of degree N about a center a, on the floor. Optional: the previous degree
+// (faint, to see what the newest term changed) and the separate terms. Drawn only (no value).
+class TaylorObject : public SceneObject {
+public:
+    using Samples = std::vector<std::pair<double, double>>;  // (x, y); y NaN where undefined
+    TaylorObject();
+    int degree() const;  // N, rounded and clamped to 0..taylor::kMaxDegree
+    bool showFunction() const { return propBool("function", true); }
+    bool showPrevious() const { return propBool("previous", true); }
+    bool showTerms() const { return propBool("terms", false); }
+    const taylor::Series& series() const { return m_series; }
+    double fCenter() const { return m_fa; }
+    double maxError() const { return m_maxError; }  // largest |f − T_N| on the range (NaN: none)
+    const Samples& function() const { return m_function; }
+    const Samples& polynomial() const { return m_polynomial; }
+    const Samples& previous() const { return m_previous; }
+    const std::vector<Samples>& terms() const { return m_terms; }  // c_k (x − a)^k, the first 6
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<TaylorObject>(); }
+
+private:
+    mutable taylor::Series m_series;
+    mutable double m_fa = 0, m_maxError = 0;
+    mutable Samples m_function, m_polynomial, m_previous;
+    mutable std::vector<Samples> m_terms;
+};
+
+// Newton's method on y = f(x): from x0, each step follows the tangent at (x_k, f(x_k)) down to the x axis.
+// The value is the last iterate (the root estimate).
+class NewtonObject : public SceneObject {
+public:
+    using Samples = std::vector<std::pair<double, double>>;
+    NewtonObject();
+    int stepsAsked() const;  // rounded and clamped to 0..30
+    bool showFunction() const { return propBool("function", true); }
+    const taylor::NewtonRun& run() const { return m_run; }
+    const Samples& function() const { return m_function; }
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<NewtonObject>(); }
+
+private:
+    mutable taylor::NewtonRun m_run;
+    mutable Samples m_function;
 };
 
 // A closed curve z(u) in the complex plane drawn by spinning circles (Fourier epicycles). The value is

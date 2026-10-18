@@ -462,6 +462,106 @@ expr::Value VelocityObject::computeValue() const {
     return expr::Value::vec(integrals::toVector(m_v));
 }
 
+// --- Taylor polynomial -------------------------------------------------------------------
+
+TaylorObject::TaylorObject() : SceneObject("taylor") {
+    setProp("function", true);
+    setProp("previous", true);
+    setProp("terms", false);
+    addField("f", "f(x) =", Expect::Plot, "sin(x)");
+    addField("a", "About x =", Expect::Number, "0");
+    addField("N", "Degree", Expect::Number, "3");
+    addField("xmin", "x from", Expect::Number, "-6");
+    addField("xmax", "x to", Expect::Number, "6");
+}
+
+int TaylorObject::degree() const {
+    return static_cast<int>(std::clamp(std::round(numberOf(*this, "N", 3)), 0.0, static_cast<double>(taylor::kMaxDegree)));
+}
+
+expr::Value TaylorObject::computeValue() const {
+    std::string err = rangeError(*this, "xmin", "xmax");
+    if (!err.empty()) return expr::Value::fail(err);
+    const Field* f = field("f");
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    taylor::RealFunction fn = [&](double x, double& y) { return evalNumber(f, res, t, x, 0, 0, 0, y); };
+    // The same formula at a complex x (false when it can't take complex values)
+    taylor::ComplexFunction fc = [&](taylor::cplx z, taylor::cplx& out) {
+        if (!f || !f->program.valid()) return false;
+        expr::Slots s;
+        s.x = z.real(), s.xIm = z.imag(), s.t = time();
+        s.hasX = s.hasT = true;
+        expr::Value v = f->program.eval(res, &s);
+        if (!v.isNumber()) return false;
+        out = {v.re, v.type == expr::Type::Complex ? v.im : 0.0};
+        return true;
+    };
+    double a = numberOf(*this, "a", 0), lo = numberOf(*this, "xmin", -6), hi = numberOf(*this, "xmax", 6);
+    if (!taylor::coefficients(fc, fn, a, degree(), m_series))
+        return expr::Value::fail("f is undefined at the center x = " + fmtNumber(a));
+    fn(a, m_fa);
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    int n = static_cast<int>(m_series.coeffs.size()) - 1;
+    m_function.clear();
+    m_polynomial.clear();
+    m_previous.clear();
+    m_terms.assign(static_cast<size_t>(std::min(n, 5) + 1), {});
+    m_maxError = nan;
+    const int samples = 400;
+    for (int i = 0; i <= samples; i++) {
+        double x = lo + (hi - lo) * i / samples, y = 0;
+        bool ok = fn(x, y);
+        double p = taylor::evaluate(m_series, x);
+        m_function.push_back({x, ok ? y : nan});
+        m_polynomial.push_back({x, p});
+        if (n >= 1) m_previous.push_back({x, taylor::evaluate(m_series, x, n - 1)});
+        double power = 1.0;
+        for (size_t k = 0; k < m_terms.size(); k++) {
+            m_terms[k].push_back({x, m_series.coeffs[k] * power});
+            power *= x - a;
+        }
+        if (ok && std::isfinite(p)) m_maxError = std::isnan(m_maxError) ? std::fabs(y - p) : std::max(m_maxError, std::fabs(y - p));
+    }
+    return expr::Value::fail("no value");  // drawn, not used in formulas
+}
+
+// --- Newton's method ------------------------------------------------------------------
+
+NewtonObject::NewtonObject() : SceneObject("newton") {
+    setProp("function", true);
+    addField("f", "f(x) =", Expect::Plot, "x^2 - 2");
+    addField("x0", "Start x0 =", Expect::Number, "1");
+    addField("steps", "Steps", Expect::Number, "3");
+    addField("xmin", "x from", Expect::Number, "-1");
+    addField("xmax", "x to", Expect::Number, "3");
+}
+
+int NewtonObject::stepsAsked() const {
+    return static_cast<int>(std::clamp(std::round(numberOf(*this, "steps", 3)), 0.0, 30.0));
+}
+
+expr::Value NewtonObject::computeValue() const {
+    std::string err = rangeError(*this, "xmin", "xmax");
+    if (!err.empty()) return expr::Value::fail(err);
+    const Field* f = field("f");
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    taylor::RealFunction fn = [&](double x, double& y) { return evalNumber(f, res, t, x, 0, 0, 0, y); };
+    double lo = numberOf(*this, "xmin", -1), hi = numberOf(*this, "xmax", 3);
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    m_function.clear();
+    for (int i = 0; i <= 400; i++) {
+        double x = lo + (hi - lo) * i / 400, y = 0;
+        m_function.push_back({x, fn(x, y) ? y : nan});
+    }
+    double x0 = numberOf(*this, "x0", 1);
+    m_run = taylor::newton(fn, x0, stepsAsked());
+    if (m_run.steps.empty() || !std::isfinite(m_run.steps.front().fx))
+        return expr::Value::fail("f is undefined at the start x0 = " + fmtNumber(x0));
+    return expr::Value::scalar(m_run.steps.back().x);
+}
+
 // --- Fourier epicycles ---------------------------------------------------------------
 
 EpicyclesObject::EpicyclesObject() : SceneObject("epicycles") {
