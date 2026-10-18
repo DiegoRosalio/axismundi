@@ -50,6 +50,14 @@ Vector fields and quaternions are in (see FEATURES.md); the rest later.
       term by term, Newton's method stepping along tangents
 - [ ] Tensor visualization
 
+### Next topics (ideas, 2026-10)
+- [ ] 2D linear transformations, animated: the plane deforming under a matrix, the determinant as the area of the
+      unit square's image, eigenvectors staying on their lines (a simpler first picture than the 3D basis)
+- [ ] Differential equations: a slope field for y' = f(x, y), solution curves started by clicking, phase portraits of
+      2D systems (pendulum, predator-prey) built on the vector-field and flow-line code
+- [ ] Probability and statistics: distributions, sampling, the central limit theorem animated
+- [ ] Sharing: export an animation as a GIF, share a scene as a link or a small file (see also video export below)
+
 ### Automation (CI)
 - [ ] Add CI/CD pipeline (roadmap step 6: `make test` + headless tour on every push)
 - [ ] The same compile check in CI (LaTeX export figures compiled with pdflatex)
