@@ -1,5 +1,10 @@
 #pragma once
 
+// App owns everything that runs: the scene (objects and time), the camera, the 3D view, every panel, and
+// the main loop. One class split over four .cpp files: App.cpp (setup, loop, scripting API used by the
+// tutorial and the tour), AppInput.cpp (keys, mouse, picking), AppDraw.cpp (3D scene, panels, HUD) and
+// AppFiles.cpp (scene files, LaTeX files, preferences). Lower layers (math, scene, view) never include this.
+
 #include "animation/Playback.hpp"
 #include "math/Complex.hpp"
 #include "math/Matrix3D.hpp"

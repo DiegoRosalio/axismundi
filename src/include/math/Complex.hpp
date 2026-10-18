@@ -1,5 +1,8 @@
 #pragma once
 
+// A complex number re + i·im with the usual arithmetic, plus polar form (abs, arg) and exp. No raylib:
+// the math layer is plain C++ so it can be unit-tested without a window.
+
 #include <ostream>
 #include <string>
 

@@ -1,5 +1,8 @@
 #pragma once
 
+// ViewSettings (grid, axes, labels, style, saved in scene files) and the "View" section of the side bar
+// that edits them, with the camera buttons and the scene file buttons.
+
 #include "ui/AppMode.hpp"
 #include "ui/SceneIO.hpp"
 #include "view/ViewStyle.hpp"

@@ -1,5 +1,8 @@
 #pragma once
 
+// Turns a plot (function, curve, surface, implicit curve) into GPU meshes once, then draws them every frame.
+// SceneView keeps one PlotRenderer per plot object and rebuilds it only when the object or the style changes.
+
 #include "math/Expression.hpp"
 #include "math/expr/Expr.hpp"
 #include "rendering/MeshBuilder.hpp"

@@ -1,5 +1,10 @@
 #pragma once
 
+// The base class of every object in a scene. An object has named formula fields (each compiled to a
+// Program and evaluated), string props (switches, sizes, modes) and a computed value that other objects can
+// use by name. Subclasses (Types.hpp) add their fields in the constructor and override computeValue().
+// No raylib: the scene model is unit-tested without a window.
+
 #include "math/expr/Expr.hpp"
 #include "ui/SceneIO.hpp"
 #include <cstdint>

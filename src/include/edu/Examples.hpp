@@ -1,5 +1,8 @@
 #pragma once
 
+// The example gallery as data: each Example has a title, a category, a one-line description and a
+// function that builds its scene through the App API. GalleryPanel shows them; the tour runs them.
+
 #include <functional>
 #include <string>
 #include <vector>

@@ -1,5 +1,8 @@
 #pragma once
 
+// A 3D vector of floats in math coordinates (z is up) with +, −, scaling, dot, cross and length.
+// The base type of the math layer; no raylib here (rendering/WorldMapping.hpp converts to raylib's axes).
+
 #include <cmath>
 #include <ostream>
 

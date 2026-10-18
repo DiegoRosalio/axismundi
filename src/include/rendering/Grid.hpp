@@ -1,5 +1,8 @@
 #pragma once
 
+// The floor grid of the 3D space (and the plane grid of the complex plane), drawn with GL lines that fade
+// toward the edge. Colors come from the view style.
+
 #include <raylib.h>
 
 namespace linalg {

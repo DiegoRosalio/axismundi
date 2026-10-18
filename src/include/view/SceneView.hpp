@@ -1,5 +1,9 @@
 #pragma once
 
+// SceneView draws one space (the 3D space or the complex plane): the axes, every object through its type's
+// ObjectView (view/ObjectViews.hpp), and the labels. It also keeps the GPU caches of plots and vector fields.
+// DrawOptions says how: selection, Paper (print preview), fading, solo.
+
 #include "export/LatexExport.hpp"
 #include "math/Matrix4D.hpp"
 #include "rendering/FieldRenderer.hpp"
