@@ -253,21 +253,21 @@ void Scene::restore(const SceneData& data) {
                 }
             }
             if (type == "parameter") {
-                auto* p = static_cast<ParameterObject*>(obj.get());
-                bool wasPlaying = p->propBool("playing", false);
+                auto* param = static_cast<ParameterObject*>(obj.get());
+                bool wasPlaying = param->propBool("playing", false);
                 if (!data.count(propPrefix + "mode")) {
                     // Files from before parameter modes: speed (range widths per second) + loop
-                    Playback pb = p->playback();
-                    double speed = p->propNumber("speed", 0.15);
+                    Playback pb = param->playback();
+                    double speed = param->propNumber("speed", 0.15);
                     pb.duration = static_cast<float>(1.0 / std::max(0.01, speed));
-                    pb.repeat = p->propBool("loop", true) ? Repeat::Loop : Repeat::Once;
-                    p->setPlayback(pb);
-                    p->setMode(wasPlaying ? ParameterObject::Mode::Animate : ParameterObject::Mode::Slider);
+                    pb.repeat = param->propBool("loop", true) ? Repeat::Loop : Repeat::Once;
+                    param->setPlayback(pb);
+                    param->setMode(wasPlaying ? ParameterObject::Mode::Animate : ParameterObject::Mode::Slider);
                 }
                 // Parameters used to have their own clocks; the scene clock replaces them
-                if (wasPlaying && p->mode() != ParameterObject::Mode::Slider) anyPlaying = true;
+                if (wasPlaying && param->mode() != ParameterObject::Mode::Slider) anyPlaying = true;
                 for (const char* old : {"playing", "clock", "period", "speed", "loop", "anim.phase", "anim.direction"})
-                    p->removeProp(old);
+                    param->removeProp(old);
             }
             sp.add(std::move(obj), name);
         }

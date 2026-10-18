@@ -197,13 +197,13 @@ void SceneView::updatePlots(scene::Space& space) {
         spec.heatSoften = style.heatSoften;
         spec.heatSoftenTo = style.text;
         if (m_print) {
-            int style = printStyleOf(p->id());
+            int printStyle = printStyleOf(p->id());
             spec.print = true;
             spec.heatmap = false;
             spec.smooth = false;  // flat cells with a black mesh, like the export
             spec.grayShading = m_printGray;
-            spec.color = grayOf(style);
-            spec.dash = dashOf(style);
+            spec.color = grayOf(printStyle);
+            spec.dash = dashOf(printStyle);
         }
         cache.renderer.rebuild(spec, &space);
         cache.builtAt = p->changedAt();

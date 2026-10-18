@@ -48,7 +48,7 @@ make test    # bin/run_tests: math, expression engine, scene, animation, explana
 make fonts   # regenerate src/ui/generated/fonts.inc from assets/fonts
 ```
 
-- Compiler: `clang++ -Wall -Wextra -O2 -std=c++20`. Keep the build **warning-free**
+- Compiler: `clang++ -Wall -Wextra -Wshadow -O2 -std=c++20`. Keep the build **warning-free**
   (multi-line string literals inside arrays need parentheses for -Wstring-concatenation).
 - `SRCS` globs every `src/**/*.cpp`; the test target builds `src/math/**`, `src/text/*`, `src/animation/*`,
   `src/scene/*`, `src/export/*`, `src/ui/SceneIO.cpp` and `tests/*`.

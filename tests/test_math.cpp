@@ -1802,8 +1802,8 @@ void testScene() {
         CHECK(F->error().empty());
         CHECK(F->field("F")->program.usesZ());
         CHECK(F->dependencies().count("k") == 1);
-        VectorFieldObject::Counts c = F->counts();
-        CHECK(c.nx == 8 && c.ny == 8 && c.nz == 1);  // plane, 1 arrow per unit over -4..4
+        VectorFieldObject::Counts counts = F->counts();
+        CHECK(counts.nx == 8 && counts.ny == 8 && counts.nz == 1);  // plane, 1 arrow per unit over -4..4
         CHECK(!F->followsClock());
         F->setProp("particles", "1");
         CHECK(F->followsClock());
@@ -1818,8 +1818,8 @@ void testScene() {
         F->setProp("density", "100");  // capped
         fs.evaluate();
         CHECK(F->error().empty());
-        c = F->counts();
-        CHECK(c.capped && c.nx == VectorFieldObject::kVolumeCap && c.nz == VectorFieldObject::kVolumeCap);
+        counts = F->counts();
+        CHECK(counts.capped && counts.nx == VectorFieldObject::kVolumeCap && counts.nz == VectorFieldObject::kVolumeCap);
         F->setField("F", "[1, 2]");  // not a vector of three? [1, 2] is invalid
         fs.evaluate();
         CHECK(!F->error().empty());

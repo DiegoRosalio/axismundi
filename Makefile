@@ -2,7 +2,7 @@
 # Compiler & Flags
 # ==============================================================================
 CXX      := clang++
-CXXFLAGS := -Wall -Wextra -O2 -std=c++20
+CXXFLAGS := -Wall -Wextra -Wshadow -O2 -std=c++20
 INCLUDES := -Isrc/include -Iinclude
 LDFLAGS  :=
 LDLIBS   := -lraylib -lm -lpthread -ldl
