@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scene/Scene.hpp"
+#include "ui/core/Layout.hpp"
 #include "view/SceneView.hpp"
 #include <raylib.h>
 #include <functional>
@@ -74,6 +75,29 @@ private:
     float fieldRow(float x, float y, float width, scene::SceneObject& obj, const std::string& key, scene::Scene& scene,
                    float labelWidth = 74.0f);
     static int fieldId(const scene::SceneObject& obj, const std::string& key);
+
+    // The inspector content of each object type (ScenePanelInspectors.cpp)
+    struct InspectorContext {
+        ui::Column& col;
+        scene::SceneObject& o;
+        scene::Scene& sc;
+        scene::SpaceKind kind;
+        const view::SceneView& view;
+    };
+    void rangeRow(InspectorContext& c, const char* lo, const char* hi, const char* label);
+    void inspectVector(InspectorContext& c);
+    void inspectMatrix(InspectorContext& c);
+    void inspectEigen(InspectorContext& c);
+    void inspectPlot(InspectorContext& c);
+    void inspectEpicycles(InspectorContext& c);
+    void inspectFourierSeries(InspectorContext& c);
+    void inspectFrame(InspectorContext& c);
+    void inspectIntegral(InspectorContext& c);
+    void inspectQuaternion(InspectorContext& c);
+    void inspectField(InspectorContext& c);
+    void inspectParameter(InspectorContext& c);
+    void inspectComplex(InspectorContext& c);
+    void inspectProduct(InspectorContext& c);
 
     scene::SpaceKind m_kind = scene::SpaceKind::Euclidean3D;
     int m_activeId = -1;
