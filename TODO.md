@@ -40,7 +40,8 @@ Vector fields and quaternions are in (see FEATURES.md); the rest later.
 - [ ] Quaternions, next: the 3-sphere picture (unit quaternions as points of S³, stereographic view), a
       pose/orientation object that rotates a model (e.g. a small airplane) instead of the basis, and Euler-angle
       gimbal-lock demo
-- [ ] Fourier transform visualization
+- [ ] Fourier, next: the continuous Fourier transform of a pulse (time vs frequency side by side), drawing your own
+      curve with the mouse for the epicycles, complex coefficients cₖ in the series view, 2D Fourier of an image
 - [ ] Integrals, next: triple integrals (boxes in a solid), regions bounded by curves (y from g(x) to h(x)), polar
       regions, flux through a surface, Green's and Stokes' theorems side by side
 - [ ] Differential geometry, next: surfaces (normals, tangent plane at a point, Gaussian and mean curvature as

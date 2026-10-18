@@ -30,6 +30,11 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Parameters as slider, animation (with start delay) or formula of time
 - [x] Scrubbing shows any moment (time-driven values are computed from the time)
 
+## Fourier
+- [x] Fourier series of f(x) on [a, b]: partial sums, harmonics, spectrum, terms as a formula
+- [x] Fourier epicycles: a closed curve drawn by spinning circles in the complex plane, with the clock
+- [x] Gallery, tutorial lesson, LaTeX export, Paper style; formula function sign(x)
+
 ## Curves (differential geometry)
 - [x] Moving frame on a curve: T, N, B, curvature κ, torsion τ, osculating circle, curvature comb, at u0 (a formula)
 - [x] Template from a curve, Analysis panel, gallery (helix, ellipse, parabola), tutorial lesson, LaTeX export

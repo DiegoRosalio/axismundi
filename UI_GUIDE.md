@@ -83,6 +83,8 @@ Each space has its own list of objects. The side bar shows:
 | Matrix | 3D | Cells (3×3 / 4×4, presets that add up; Identity starts over) or Formula; determinant |
 | Eigenvectors | 3D | Matrix formula (e.g. `M`); dashed lines with dots at λv |
 | Function / Curve / Surface / Implicit | 3D | Expressions in x, y (u for curves) and t; ranges; Detail per unit; Heat map; Next example |
+| Fourier series of f(x) | 3D | f, [a, b], Terms (a formula); Show f, Harmonics, Repeat outside; spectrum chart and coefficients |
+| Fourier epicycles | complex | z(u) for one lap, Circles, Laps per second; the biggest circles; Next example |
 | Moving frame on a curve | 3D | Curve x(u) y(u) z(u), u range, At u (a formula); Frame T/N/B, Osculating circle, Curvature comb, Curve; κ, τ, speed |
 | Volume under z = f(x, y) | 3D | f, x/y ranges, boxes per side (a formula), Left/Middle/Right rule, Boxes, Surface; boxes' sum, exact value, error |
 | Work ∫ F·dr | 3D | F(x, y, z), curve x(u) y(u) z(u), u range, Up to (0..1); work so far and over the whole path |
@@ -97,7 +99,7 @@ The **Formula reference** (F2) has all of this with live examples. Every field i
 - numbers, `+ - * / ^`, implicit multiplication (`2x`, `3(a + b)`);
 - vectors `[x, y, z]`, matrices `[[…], […], […]]` (3×3 or 4×4), `[u, v, w]` with vectors as columns;
 - components `v.x`, the constants `pi e i`;
-- `sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil atan2 min max`;
+- `sin cos tan asin acos atan sinh cosh tanh exp log ln sqrt abs floor ceil atan2 min max mod sign`;
 - vectors: `dot cross norm normalize`;
 - matrices: `det tr inv transpose rotx roty rotz rot(axis, angle) scale translate eye`;
 - complex numbers: `conj re im arg polar`;
@@ -146,6 +148,18 @@ The clock is saved with the scene. Undo never moves it.
 `0` stands for zero, so `lerp(0, v, s)` grows v from nothing. `keys(s, A, B, C, …)` runs through several values
 as s goes from 0 to 1. The Add menu builds these for the selection: **Morph from identity** (a matrix),
 **Grow from zero** (a vector or complex number) and **Blend** (two objects), each with a new slider `s`.
+
+### Fourier
+- **Fourier series of f(x)** (3D space, Add → Fourier): f on [a, b] rebuilt as a₀/2 + Σ aₖ cos(kωx) + bₖ sin(kωx)
+  with ω = 2π/(b − a). The partial sum (colored) is drawn next to f (gray), over three periods when **Repeat
+  outside** is on; **Harmonics** shows the first 8 waves. The inspector has a **spectrum** (the strength
+  √(aₖ² + bₖ²) of each wave) and the first coefficients. Terms is a formula, so a slider can add waves. Near a
+  jump the sums overshoot by about 9% (Gibbs).
+- **Fourier epicycles** (complex plane): a closed curve z(u), u from 0 to 2π (e.g. a heart or a square), drawn by
+  spinning circles, biggest first; circle k turns k times per lap. **Circles** sets how many; **Laps per second**
+  the speed (press P). The last lap is traced, and the value is the tip.
+- Gallery: square wave from sines, Gibbs overshoot, epicycles draw a heart / a square. Tutorial: "Fourier: sums
+  of waves". LaTeX export draws f and the sum, or the circles and the traced path.
 
 ### Moving frame on a curve
 Add → Calculus → **Moving frame on a curve** (or select a curve and use the template). At the point u = u0:

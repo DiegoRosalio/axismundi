@@ -35,6 +35,8 @@ and worked calculations.
   - plots: `y = f(x)`, curves `(x(u), y(u), z(u))`, surfaces `z = f(x, y)` and implicit curves
     `f(x, y) = 0`, with heat maps. Detail is set **per unit** (e.g. 30 samples per unit), so a wider range
     stays just as smooth. Surfaces are shaded GPU meshes.
+  - Fourier: a function rebuilt from sine waves (partial sums, harmonics, spectrum) and closed curves drawn by
+    spinning circles (epicycles) in the complex plane;
   - curves: the moving (Frenet) frame T, N, B with curvature κ, torsion τ, the osculating circle and a curvature
     comb, sliding along with a slider or the clock;
   - calculus: the volume under z = f(x, y) as Riemann boxes next to the exact double integral (boxes refine as a
@@ -116,7 +118,7 @@ Fields accept:
   - complex numbers: `conj re im arg polar`;
   - quaternions (rotations): `qaxis(axis, angle) quat(w, x, y, z) quat(M) rotate(q, v) mat(q) axis(q) angle(q)
     slerp(a, b, s)`, products `q1*q2`, and `conj inv abs unit q.w`;
-  - blending: `lerp(a, b, s)` (any value kind), `keys(s, A, B, …)`, and `mod(a, b)`.
+  - blending: `lerp(a, b, s)` (any value kind), `keys(s, A, B, …)`, and `mod(a, b)`, `sign(x)`.
 
 `M*v` applies a matrix to a vector (4×4 matrices treat v as a point), and `M*N` composes matrices.
 `t` is the scene time (seconds) everywhere; plots use `x` and `y`, and curves use `u` for their own variable.

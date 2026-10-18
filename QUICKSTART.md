@@ -62,6 +62,8 @@ floor grid larger.
 
 - **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form,
   quaternion axis and angle).
+- **Fourier** (Add → Fourier): sums of sine waves with their spectrum, and drawings made by spinning circles in the
+  complex plane. Tutorial lesson "Fourier: sums of waves".
 - **Moving frame** (Add → Calculus): T, N, B, curvature and torsion riding a curve. Tutorial lesson "Curvature
   and the moving frame".
 - **Integrals** (Add → Calculus): the volume under a surface as boxes next to the exact value, and the work of a
