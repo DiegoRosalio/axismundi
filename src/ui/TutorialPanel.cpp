@@ -31,7 +31,7 @@ void TutorialPanel::update(App& app) {
     if (m_lesson < 0) return;
     if (m_needsSetup) enterStep(app);
     const TutorialStep& s = lessons()[m_lesson].steps[m_step];
-    if (!app.uiMode()) m_context.cameraModeUsed = true;
+    if (!app.uiMode() || app.cameraMovedThisFrame()) m_context.cameraModeUsed = true;
     // Once done, a task stays done even if the user keeps experimenting
     if (s.check && !m_done && s.check(app, m_context)) m_done = true;
 }

@@ -60,6 +60,20 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
         m_resetCamera = true;
     }
     ui::tooltip(reset, "Back to the default viewpoint for this mode.");
+    // Blender-style views (keypad 1/3/7 and .), for keyboards without a keypad
+    if (mode == AppMode::Space3D) {
+        auto views = ui::splitRow(col.row(ui::kRowHeight), {1, 1, 1, 1}, 6.0f);
+        const char* names[4] = {"Front", "Right", "Top", "Focus"};
+        const char* tips[4] = {"Look along the y axis, from the front (keypad 1).",
+                               "Look along the x axis, from the right (keypad 3).",
+                               "Look straight down at the floor (keypad 7).",
+                               "Turn around the selected object: it becomes the orbit center (the . key)."};
+        for (int i = 0; i < 4; i++) {
+            if (ui::button(views[i], names[i], ui::ButtonKind::Secondary)) m_cameraView = i + 1;
+            ui::tooltip(views[i], tips[i], names[i]);
+        }
+        ui::anchor("view.cameraviews", {views[0].x, views[0].y, views[3].x + views[3].width - views[0].x, views[0].height});
+    }
     auto cells = ui::splitRow(col.row(ui::kRowHeight), {1, 1}, 8.0f);
     if (ui::button(cells[0], "New", ui::ButtonKind::Secondary, true, ui::Icon::Plus)) m_new = true;
     if (ui::button(cells[1], "Open…", ui::ButtonKind::Secondary, true, ui::Icon::Load, "F9")) m_load = true;

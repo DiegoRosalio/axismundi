@@ -34,6 +34,10 @@ dblclick() { xdotool mousemove --window "$W" "$1" "$2" mousedown 1 sleep 0.08 mo
 drag()  { xdotool mousemove --window "$W" "$1" "$2" sleep 0.1 mousedown 1 sleep 0.1 \
           mousemove --window "$W" $(( ($1+$3)/2 )) $(( ($2+$4)/2 )) sleep 0.1 \
           mousemove --window "$W" "$3" "$4" sleep 0.1 mouseup 1; sleep 0.3; }
+rdrag() { xdotool mousemove --window "$W" "$1" "$2" sleep 0.1 mousedown 3 sleep 0.1 \
+          mousemove --window "$W" $(( ($1+$3)/2 )) $(( ($2+$4)/2 )) sleep 0.1 \
+          mousemove --window "$W" "$3" "$4" sleep 0.1 mouseup 3; sleep 0.3; }
+wheel() { xdotool mousemove --window "$W" "$1" "$2" sleep 0.1; for _ in $(seq "$4"); do xdotool click "$3"; sleep 0.05; done; sleep 0.3; }  # 4 up, 5 down
 hover() { xdotool mousemove --window "$W" "$1" "$2"; sleep 0.2; }
 key()   { xdotool key --delay 80 "$@"; sleep 0.3; }
 type_() { xdotool type --delay 40 "$*"; sleep 0.3; }

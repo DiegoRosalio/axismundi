@@ -76,9 +76,13 @@ void App::handleInput(float deltaTime) {
         }
     }
 
-    // TAB switches between camera mode (cursor captured) and UI mode.
+    syncCameraMode();
+    // TAB switches between camera mode (cursor captured) and UI mode, with the fly camera.
     // While a field is being edited, TAB moves to the next field instead.
-    if (!editing && IsKeyPressed(KEY_TAB)) setUiMode(IsCursorHidden());
+    if (!editing && IsKeyPressed(KEY_TAB)) {
+        if (m_camera.mode() == CameraMode::Fly) setUiMode(IsCursorHidden());
+        else toast("Drag the view to turn it, right-drag to pan, wheel to zoom. Fly camera: Settings → Camera");
+    }
 
     bool ui = uiMode();
     // Widgets only respond in UI mode, and not behind the help overlay
@@ -88,7 +92,8 @@ void App::handleInput(float deltaTime) {
     m_scenePanel.update(m_scene);
 
     if (!editing) handleShortcuts(ui);
-    if (ui && !m_help.visible()) pickInViewport();
+    if (ui && !m_help.visible()) handleViewMouse();
+    else m_dragButton = -1;
 
     applyModeChange();  // tabs and keys 1/2 change m_mode directly
 
@@ -102,6 +107,7 @@ void App::applyModeChange() {
     closePopovers();
     // Remember the camera of the space we leave, restore the one of the space we enter
     int from = static_cast<int>(m_lastMode), to = static_cast<int>(m_mode);
+    m_camera.setSpace(m_mode);
     m_savedPosition[from] = m_camera.position();
     m_savedTarget[from] = m_camera.target();
     m_hasSavedView[from] = true;
@@ -168,6 +174,13 @@ void App::handleShortcuts(bool uiMode) {
     if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
     if (IsKeyPressed(KEY_B)) m_breakdownWindow.toggle();
     if (IsKeyPressed(KEY_C)) resetCamera();
+    if (IsKeyPressed(KEY_PERIOD) || IsKeyPressed(KEY_KP_DECIMAL)) focusSelection();
+    if (m_mode == AppMode::Space3D) {
+        // Blender's numpad views
+        if (IsKeyPressed(KEY_KP_1)) m_camera.frontView();
+        if (IsKeyPressed(KEY_KP_3)) m_camera.rightView();
+        if (IsKeyPressed(KEY_KP_7)) m_camera.topView();
+    }
     if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::Space3D;
     if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
     if (IsKeyPressed(KEY_E)) {
@@ -217,16 +230,86 @@ void App::duplicateSelection() {
     }
 }
 
-void App::pickInViewport() {
-    if (!ui::mousePressed(MOUSE_BUTTON_LEFT) || isEditing()) return;
-    Vector2 mouse = GetMousePosition();
-    // Only clicks on the 3D view itself, not on panels or popovers
-    if (mouse.x < SideBar::width() || mouse.y < TopBar::height()) return;
-    if (m_panels.anyContains(mouse)) return;
-    if (m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen() || m_fileDialog.isOpen() ||
-        m_formulaEditor.isOpen())
-        return;
+void App::syncCameraMode() {
+    CameraMode want = m_uiSettings.flyCamera ? CameraMode::Fly : CameraMode::Orbit;
+    if (m_camera.mode() == want) return;
+    m_camera.setMode(want);
+    if (want == CameraMode::Orbit && !uiMode()) setUiMode(true);  // orbit never captures the mouse
+}
 
+bool App::viewUnderMouse(Vector2 mouse) const {
+    // Only the 3D view itself, not the bars, panels or popovers
+    if (mouse.x < SideBar::width() || mouse.y < TopBar::height()) return false;
+    if (m_panels.anyContains(mouse)) return false;
+    return !(m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen() || m_fileDialog.isOpen() ||
+             m_formulaEditor.isOpen());
+}
+
+void App::handleViewMouse() {
+    m_cameraMoved = false;
+    Vector2 mouse = GetMousePosition();
+    bool overView = viewUnderMouse(mouse);
+    bool orbit = m_camera.mode() == CameraMode::Orbit;
+    OrbitInput in;
+    in.viewportHeight = static_cast<float>(GetScreenHeight()) - TopBar::height();
+
+    // A press on the view starts a drag; released before moving a few pixels, it was a click
+    if (m_dragButton < 0 && overView) {
+        for (int b : {MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE}) {
+            if (ui::mousePressed(b)) {
+                m_dragButton = b;
+                m_dragFresh = true;
+                m_dragDistance = 0.0f;
+                break;
+            }
+        }
+    }
+    if (m_dragButton >= 0) {
+        Vector2 d = GetMouseDelta();
+        // A touchpad tap presses and releases within one frame (the click latch keeps both)
+        bool released = ui::mouseReleased(m_dragButton) || !IsMouseButtonDown(m_dragButton);
+        if (!m_dragFresh) m_dragDistance += std::fabs(d.x) + std::fabs(d.y);
+        bool dragging = m_dragDistance > ui::px(4.0f);
+        if (orbit && dragging && !m_dragFresh) {
+            bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+            if (m_dragButton == MOUSE_BUTTON_RIGHT || shift) in.panDrag = d;
+            else in.orbitDrag = d;
+        }
+        m_dragFresh = false;
+        if (released) {
+            if (m_dragButton == MOUSE_BUTTON_LEFT && !dragging && !isEditing()) pickAt(mouse);
+            m_dragButton = -1;
+        }
+    }
+    if (orbit && overView) in.wheel = GetMouseWheelMove();
+    if (in.orbitDrag.x != 0 || in.orbitDrag.y != 0 || in.panDrag.x != 0 || in.panDrag.y != 0 || in.wheel != 0) {
+        m_camera.applyOrbit(in);
+        m_cameraMoved = true;
+    }
+}
+
+void App::orbitBy(float dxPixels, float dyPixels) {
+    OrbitInput in;
+    in.orbitDrag = {dxPixels, dyPixels};
+    in.viewportHeight = static_cast<float>(GetScreenHeight()) - TopBar::height();
+    m_camera.applyOrbit(in);
+}
+
+void App::focusSelection() {
+    SpaceKind kind = spaceKind();
+    scene::ObjectId id = m_scene.selection(kind).primary();
+    const SceneObject* o = id == scene::kNoObject ? nullptr : m_scene.space(kind).find(id);
+    Vector3 p{0, 0, 0};
+    if (o && view::SceneView::anchorPoint(*o, kind, drawOptions(), p)) {
+        m_camera.focus(p);
+    } else {
+        m_camera.focus(p);
+        toast(o ? "This object has no single point to center on: centered on the origin"
+                : "Nothing selected: centered on the origin");
+    }
+}
+
+void App::pickAt(Vector2 mouse) {
     const Camera3D& cam = m_camera.camera();
     SpaceKind kind = spaceKind();
     view::DrawOptions options = drawOptions();

@@ -185,6 +185,9 @@ void App::readScene(const std::string& path) {
     getFloat(data, "camera.tx", t.x);
     getFloat(data, "camera.ty", t.y);
     getFloat(data, "camera.tz", t.z);
+    m_camera.setSpace(m_mode);
+    // Files saved in fly mode (and before the orbit camera) keep a target one unit ahead
+    if (Vector3Distance(p, t) < 1.05f) t = CameraController::pivotAlong(p, t, m_mode);
     m_camera.setView(p, t);
     convertOldKeyframes(data);
     m_viewPanel.loadState(data);
@@ -206,6 +209,8 @@ void App::applyPreferences(const SceneData& prefs) {
     getBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     getBool(prefs, "ui.dim_unselected", m_uiSettings.dimUnselected);
     getBool(prefs, "ui.hud", m_uiSettings.showHud);
+    std::string cameraMode;
+    if (getString(prefs, "camera.mode", cameraMode)) m_uiSettings.flyCamera = cameraMode == "fly";
     std::string surfaces, style;
     bool oldSmooth = true;
     if (getString(prefs, "ui.surfaces", surfaces)) {
@@ -237,6 +242,7 @@ void App::savePreferences() {
     putBool(prefs, "ui.tooltips", m_uiSettings.tooltips);
     putBool(prefs, "ui.dim_unselected", m_uiSettings.dimUnselected);
     putBool(prefs, "ui.hud", m_uiSettings.showHud);
+    prefs["camera.mode"] = m_uiSettings.flyCamera ? "fly" : "orbit";
     static const char* kSurfaces[3] = {"style", "smooth", "faceted"};
     prefs["ui.surfaces"] = kSurfaces[static_cast<int>(m_uiSettings.surfaces)];
     prefs["view.style"] = view::styleKey(m_viewPanel.settings().style);

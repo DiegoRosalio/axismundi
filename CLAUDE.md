@@ -96,7 +96,8 @@ src/
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
                       VectorField (arrows on a grid, RK4 flow lines kept apart, particles as a function of t),
                       Integrals (Riemann boxes, Simpson, line integrals), CurveGeometry (Frenet frame, κ, τ),
-                      Fourier (curve coefficients for epicycles, series a_k/b_k)
+                      Fourier (curve coefficients for epicycles, series a_k/b_k), OrbitCamera (pivot/distance/yaw/pitch
+                      in world y-up axes)
   math/expr/          NO raylib: typed expression engine — Value (number, complex, vector, 3x3/4x4
                       matrix, quaternion, error; rotationOf gives a quaternion's axis/angle/matrix), Program (compile once, names used, eval with Resolver + x/y/t/u slots);
                       Reference (the in-app formula cheat sheet as data: sections, entries, examples)
@@ -114,7 +115,9 @@ src/
                       `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
-  rendering/          Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
+  rendering/          CameraController (Orbit = math/OrbitCamera around a pivot, or Fly = mouse look + WASD;
+                      `camera.mode` preference; target = the real pivot, files with a 1-unit target get one
+                      from `pivotAlong`), Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
                       VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
                       FieldRenderer (vector field arrows/lines/particles), MeshBuilder (MeshData, tubes, cones,
                       MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
@@ -277,6 +280,10 @@ overload; before it, a literal picked the bool overload).
   outside = Commit. `selectAllOnFocus` for short fields (cells, names), cursor-at-click for formulas.
   One `EditorState` is shared by all inline fields: only the active field may touch it. The inspector's
   `fieldRow` sizes the field with `editorHeight(text, width, 4)` and adds the ⤢ button (FormulaEditor).
+- **The 3D view's mouse** (`App::handleViewMouse`): a press on the empty view (`viewUnderMouse`: not the bars,
+  panels or popovers) starts a drag; moving more than 4 px makes it an orbit (left/middle) or pan (right or
+  Shift) with the orbit camera, releasing before that is a click that picks (`pickAt`). The wheel zooms only
+  over the view. Panels that scroll must keep checking their own bounds.
 - **Mouse buttons**: use `ui::mousePressed/mouseReleased`, never raylib's `IsMouseButtonPressed/Released`.
   A GLFW mouse-button callback (installed by `ui::installClickLatch()` after InitWindow, chaining raylib's)
   latches presses, so a touchpad tap that presses and releases within one frame is not lost. It needs the
@@ -331,6 +338,6 @@ a new step), then build, run the tour, grep `WALK`/`SOLVED` in stderr, and resto
 ## Not yet verified
 
 The tour exercises everything visually, and `tools/dev/input-test.sh` checks clicks, taps, drags, typing,
-picking in the view, the file dialog and camera mode with real X11 events under Xvfb. Not checked: the feel
+picking in the view, the file dialog, the orbit camera (drag, right-drag, wheel, .) and fly camera mode with real X11 events under Xvfb. Not checked: the feel
 on real hardware (a physical mouse, touchpad, keyboard layouts, HiDPI), fullscreen toggling and the
 preferences round trip (written on normal exit). Plot frame rates on real GPU hardware have not been measured.

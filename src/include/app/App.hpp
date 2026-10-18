@@ -83,6 +83,12 @@ public:
     // --- View --------------------------------------------------------------------
     void setCameraView(Vector3 position, Vector3 target) { m_camera.setView(position, target); }
     void resetCamera();
+    // Orbit camera helpers (also used by the tour): turn by a mouse drag in pixels, center on the selection
+    void orbitBy(float dxPixels, float dyPixels);
+    void focusSelection();
+    void cameraTopView() { m_camera.topView(); }
+    void setFlyCamera(bool fly) { m_uiSettings.flyCamera = fly; }
+    bool cameraMovedThisFrame() const { return m_cameraMoved; }  // orbit drag, pan or zoom
     // Scene clock: back to t = 0, then play or stay paused
     void restartTime(bool play) {
         m_scene.timeline().time = 0.0;
@@ -162,7 +168,11 @@ private:
     void toggleTheme();
     void toggleFullscreen();
     void takeScreenshot();
-    void pickInViewport();
+    // Mouse on the 3D view: orbit/pan drags, wheel zoom, and clicks (press + release without a drag) that pick
+    void handleViewMouse();
+    bool viewUnderMouse(Vector2 mouse) const;  // not over the bars, panels or popovers
+    void pickAt(Vector2 mouse);
+    void syncCameraMode();
     void deleteSelection();
     void toggleSolo();  // show only the selection (O)
     void duplicateSelection();
@@ -242,6 +252,12 @@ private:
     Vector3 m_savedPosition[kAppModeCount] = {};
     Vector3 m_savedTarget[kAppModeCount] = {};
     bool m_hasSavedView[kAppModeCount] = {};
+
+    // A mouse button pressed on the 3D view: a click if it is released before moving a few pixels
+    int m_dragButton = -1;
+    bool m_dragFresh = false;  // the press frame (its mouse delta happened before the press)
+    float m_dragDistance = 0.0f;
+    bool m_cameraMoved = false;
 
     int m_screenshotRequest = 0;  // 0 none, 1 full window, 2 scene only
 };

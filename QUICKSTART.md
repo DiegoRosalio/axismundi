@@ -12,8 +12,9 @@ make run
 
 1. The app starts with an **empty scene** and the cursor free (**UI mode**). Click **Add** (or press N) to create
    an object, **Demo scene** for a ready-made set, or **Open…** (F9) for a saved scene.
-2. **Tab** switches to **camera mode**: move the mouse to look around, W A S D to move. **Esc** (or Tab) gives
-   the cursor back. Esc never closes the app.
+2. **Drag** the empty view to turn around the scene, **right-drag** to slide it, and use the **wheel** to zoom
+   (a click without dragging still selects). Prefer moving like in a game? **Settings → Camera → Fly**: then
+   **Tab** captures the mouse, W A S D move you and **Esc** gives the cursor back. Esc never closes the app.
 3. Press **F1** (or the book icon in the top bar) and pick **Getting around**. The tutorial walks you through
    the rest, one small task at a time.
 4. Press **E** for the example gallery and click any card.

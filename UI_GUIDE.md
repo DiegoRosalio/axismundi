@@ -31,10 +31,21 @@ Top bar buttons, from the left: fullscreen and screenshot; **play / pause** the 
 **Time panel**; the **Analysis** panel, the transformation breakdown (3D space only), calculation steps, the
 example gallery and the tutorial; then theme, help and settings. A highlighted button means its panel is open.
 
-## Camera mode and UI mode
+## The camera: Orbit or Fly
+
+**Settings → Camera** picks how the view moves (saved as a preference).
+
+- **Orbit** (default, like Blender): on the empty 3D view, **drag** turns around the center point, **right-drag**
+  (or Shift+drag, or the middle button) slides the view, the **wheel** zooms. A click that doesn't move selects
+  as usual, and a drag that starts on a panel never moves the camera. **.** (or **Focus** under View) makes the
+  selected object's point the center; **keypad 1 / 3 / 7** (or **Front / Right / Top** under View) look along
+  y, along x, or straight down with x to the right. The complex plane stays face-on: a drag pans.
+- **Fly** (like a game): Tab enters camera mode, below.
+
+## Camera mode and UI mode (fly camera)
 
 - **Camera mode** (cursor hidden, green status dot): mouse look, WASD move, Space/Ctrl up/down, Shift faster.
-  Panels ignore the mouse.
+  Panels ignore the mouse. With the orbit camera Tab only shows a hint.
 - **UI mode** (cursor visible, blue status dot): click fields, buttons and panels; letter keys are shortcuts.
 - **Tab** switches between them (while no field is being edited).
 - **Esc** steps back one level: it cancels an edit, closes a popover or the help, or leaves camera mode.

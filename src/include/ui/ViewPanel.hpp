@@ -30,6 +30,8 @@ public:
 
     // One-shot requests raised by buttons (cleared when read)
     bool takeResetCameraRequest() { return take(m_resetCamera); }
+    // 0 none, 1 front, 2 right, 3 top, 4 focus on the selection
+    int takeCameraViewRequest() { int v = m_cameraView; m_cameraView = 0; return v; }
     bool takeSaveRequest() { return take(m_save); }
     bool takeLoadRequest() { return take(m_load); }
     bool takeSaveAsRequest() { return take(m_saveAs); }
@@ -46,6 +48,7 @@ private:
 
     ViewSettings m_settings;
     bool m_resetCamera = false;
+    int m_cameraView = 0;
     bool m_save = false;
     bool m_load = false;
     bool m_saveAs = false;

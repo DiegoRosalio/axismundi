@@ -15,11 +15,13 @@ struct Entry {
 };
 
 const Entry kView[] = {
-    {"Tab", "Camera mode / UI mode"},
-    {"Esc", "Leave camera mode (free the mouse)"},
-    {"W|A|S|D", "Move (camera mode)"},
-    {"Space|Ctrl", "Up / down (camera mode)"},
-    {"Shift", "Move faster"},
+    {"Drag|Right-drag", "Orbit / pan (orbit camera)"},
+    {"Wheel", "Zoom (orbit camera)"},
+    {".", "Center on the selection"},
+    {"1|3|7", "Front / right / top view (keypad)"},
+    {"Tab|Esc", "Capture / free the mouse (fly camera)"},
+    {"W|A|S|D", "Move (fly camera, Shift: faster)"},
+    {"Space|Ctrl", "Up / down (fly camera)"},
     {"C", "Reset camera"},
     {"1|2", "3D space / complex plane"},
     {"G", "Toggle grid"},

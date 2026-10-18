@@ -91,6 +91,10 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Add undo/redo for transformations
 - [x] Matrix presets accumulate: applying Rotate and then Scale should give scale·rotate (compose with the
       current matrix), not replace it with the last preset. Keep a way to start over (Identity).
+- [x] Two cameras (Settings → Camera): Orbit, like Blender (drag turns around a pivot, right/Shift/middle-drag
+      pans, the wheel zooms, `.` centers on the selection, keypad 1/3/7 and View buttons for front/right/top;
+      the complex plane only pans), and Fly, like a game (Tab, mouse look, WASD). Clicks pick on release so a
+      drag never changes the selection; old scene files get a pivot where their view meets the floor.
 
 ## Visualization
 - [x] Add 3D labels for vectors (billboard text)

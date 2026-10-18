@@ -22,6 +22,7 @@ public:
     SettingsActions draw(UiSettings& settings);
 
 private:
+    float m_height = 0.0f;  // of the content, measured on the last frame (pixels)
     bool m_open = false;
     bool m_justOpened = false;
     Rectangle m_anchor = {0, 0, 0, 0};

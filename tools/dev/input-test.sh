@@ -41,9 +41,8 @@ hover 800 300; key ctrl+s;        shot 16_save_dialog            # suggested nam
 type_ "trial"; key Return;        shot 17_saved                  # trial.txt
 key ctrl+o;                       shot 18_open_dialog
 dblclick 615 295;                 shot 19_opened
-key Tab; hover 900 450; xdotool mousemove_relative 60 0 sleep 0.2 mousemove_relative 60 -20
-                                  shot 20_camera_mode
-key Escape;                       shot 21_back_to_ui
+drag 1000 250 1150 320;           shot 20_orbit_drag             # empty view: the camera turns
+key Tab;                          shot 21_tab_hint               # toast: the fly camera is in Settings
 key ctrl+e;                       shot 22_export_panel
 click 1352 660;                   shot 23_pdf_dialog             # Save PDF… (needs pdflatex)
 type_ "my figure"; key Return; sleep 8
@@ -82,4 +81,18 @@ key 2; click 290 83;               shot 53_complex_menu           # complex plan
 click 87 355;                      shot 54_epicycles_added        # Add > Fourier > Fourier epicycles
 hover 1000 250; key p; sleep 2;    shot 55_epicycles_drawing      # P: the circles start drawing
 key p
+input_stop
+
+# Fifth session: the orbit camera (the default) and switching to the fly camera in Settings
+OUT=$DEV/input/camera; input_start || { input_stop; exit 1; }
+click 290 83; click 56 203;        shot 60_vector_selected
+drag 1000 300 1180 380;           shot 61_orbit_keeps_selection  # turned; v still selected
+rdrag 1000 300 900 250;           shot 62_panned                 # right-drag slides the view
+wheel 1000 300 4 4;               shot 63_zoomed_in              # wheel up: closer
+key period;                       shot 64_focus_on_v             # . : v's tip is the orbit center
+click 1566 25; click 1499 283;    shot 65_settings_fly           # Settings > Camera > Fly
+key Escape; key Tab; hover 900 450; xdotool mousemove_relative 60 0 sleep 0.2 mousemove_relative 60 -20
+                                  shot 66_fly_camera_mode        # Tab captures the mouse again
+key Escape;                       shot 67_back_to_ui
+drag 1000 300 1180 380;           shot 68_fly_drag_does_nothing  # no orbit with the fly camera
 input_stop

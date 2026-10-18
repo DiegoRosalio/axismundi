@@ -31,7 +31,7 @@ public:
     // Blender's numpad views, keeping the pivot and distance
     void frontView() { m_yaw = 0.0f, m_pitch = 0.0f; }
     void rightView() { m_yaw = 1.5707963f, m_pitch = 0.0f; }
-    void topView() { m_pitch = kMaxPitch; }
+    void topView() { m_yaw = 0.0f, m_pitch = kMaxPitch; }  // x to the right, y up the screen
 
     // Unit vectors of the eye: looking direction, screen right, screen up
     Vector3D forward() const;

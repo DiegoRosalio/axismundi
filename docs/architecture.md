@@ -37,8 +37,10 @@ Everything without raylib is unit-tested in `tests/test_math.cpp` (`make test`).
 
 ## One frame
 
-1. **Input** (`AppInput.cpp`): Tab switches camera/UI mode; shortcuts; clicks in the view pick objects
-   (`pickInViewport`, using each type's screen segments).
+1. **Input** (`AppInput.cpp`): shortcuts; `handleViewMouse` turns presses on the empty view into orbit/pan
+   drags and wheel zoom (`CameraController::applyOrbit`, math in `math/OrbitCamera`) or, released without
+   moving, into picks (`pickAt`, using each type's screen segments); with the fly camera Tab switches
+   camera/UI mode.
 2. **Update** (`App::update`): the scene clock advances (`Scene::advance`), then `Scene::evaluate`:
    - every object gets the time (`setTime`);
    - each `Space` evaluates its objects in dependency order: each active field's `Program` runs with a

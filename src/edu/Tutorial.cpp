@@ -49,11 +49,14 @@ std::vector<Lesson> build() {
          "the objects in the scene and edits the selected one; tools open as panels you can drag around.",
          nullptr, nullptr, nullptr, nullptr, nullptr},
         {"Move the camera",
-         "There are two input modes. In camera mode the mouse looks around and W A S D move you; in UI mode the "
-         "cursor is free to click fields and buttons. Tab switches between them; Esc always gives the mouse back.",
-         nullptr, "Press Tab, look around, then press Esc (or Tab) to get the cursor back.",
+         "Drag the empty view to turn around the scene, right-drag (or Shift+drag) to slide it, and use the "
+         "wheel to zoom; a click without dragging still selects. The . key centers on the selected object. "
+         "Settings also has a fly camera: Tab captures the mouse, then W A S D move you and Esc lets go.",
+         nullptr, "Turn the view with a drag, or zoom with the wheel.",
          [](App& app, const TutorialContext& ctx) { return ctx.cameraModeUsed && app.uiMode(); },
-         "Tab toggles the mode. The dot in the bottom-left status turns green in camera mode.", nullptr},
+         "Press the left button on an empty part of the view and move the mouse. With the fly camera "
+         "(Settings → Camera), press Tab and then Esc.",
+         nullptr},
         {"Two spaces",
          "The tabs at the top switch between the 3D space (vectors, matrices, plots) and the complex plane. "
          "The gallery has a ready-made example for each idea.",

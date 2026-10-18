@@ -405,7 +405,19 @@ void Tour::buildSteps() {
         app.resetScene();
         app.showSettings(true);
     });
+    step("25b_orbit_turned", [](App& app) {
+        app.showSettings(false);
+        app.resetCamera();
+        app.orbitBy(-260.0f, 90.0f);  // as if the empty view were dragged left and down
+    });
+    step("25c_orbit_top_focus", [](App& app) {
+        app.resetCamera();
+        app.select("c");
+        app.focusSelection();
+        app.cameraTopView();
+    });
     step("26_color_picker", [](App& app) {
+        app.resetCamera();
         app.showSettings(false);
         app.select("a");
     }, 4);

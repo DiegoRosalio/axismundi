@@ -14,7 +14,7 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     const ui::Theme& t = ui::theme();
 
     float w = ui::px(300.0f);
-    float h = ui::px(414.0f);
+    float h = m_height > 0.0f ? m_height : ui::px(520.0f);
     float x = std::min(m_anchor.x + m_anchor.width - w, static_cast<float>(GetScreenWidth()) - w - ui::px(8));
     m_bounds = {std::max(ui::px(8), x), m_anchor.y + m_anchor.height + ui::px(6.0f), w, h};
 
@@ -55,6 +55,19 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     }
     col.space(6.0f);
 
+    ui::textIn(col.row(18), ui::upper("Camera").c_str(), ui::FontRole::Caption, t.textMuted);
+    int camera = settings.flyCamera ? 1 : 0;
+    Rectangle cameraRow = col.row(32);
+    if (ui::segmented(cameraRow, {"Orbit", "Fly"}, camera,
+                      {"Like Blender: drag the view to turn around a point, right-drag (or Shift+drag) to pan, "
+                       "the wheel to zoom. . centers on the selection; keypad 1/3/7: front, right, top.",
+                       "Like a game: Tab captures the mouse, then the mouse looks around and W A S D move you "
+                       "(Space/Ctrl: up/down). Esc gives the mouse back."})) {
+        settings.flyCamera = camera == 1;
+    }
+    ui::anchor("settings.camera", cameraRow);
+    col.space(6.0f);
+
     ui::textIn(col.row(18), ui::upper("Surfaces").c_str(), ui::FontRole::Caption, t.textMuted);
     int surfaces = static_cast<int>(settings.surfaces);
     if (ui::segmented(col.row(32), {"By style", "Smooth", "Faceted"}, surfaces,
@@ -79,6 +92,7 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     std::string where = ui::ellipsize(("Saved in " + Preferences::path()).c_str(), ui::FontRole::Small,
                                       col.width());
     ui::textIn(col.row(18), where.c_str(), ui::FontRole::Small, t.textFaint);
+    m_height = col.y() - m_bounds.y + ui::px(12.0f);
     return actions;
 }
 

@@ -131,6 +131,13 @@ void App::drawUi(float deltaTime) {
     }
     if (!requests.message.empty()) toast(requests.message, requests.messageIsError);
     if (m_viewPanel.takeResetCameraRequest()) resetCamera();
+    switch (m_viewPanel.takeCameraViewRequest()) {
+        case 1: m_camera.frontView(); break;
+        case 2: m_camera.rightView(); break;
+        case 3: m_camera.topView(); break;
+        case 4: focusSelection(); break;
+        default: break;
+    }
     if (m_viewPanel.takeSaveRequest()) saveScene();
     if (m_viewPanel.takeSaveAsRequest()) saveSceneAs();
     if (m_viewPanel.takeLoadRequest()) loadScene();
@@ -345,8 +352,13 @@ void App::drawHud() {
     float x = viewportLeft() + ui::px(16.0f);
     float bottom = static_cast<float>(GetScreenHeight()) - ui::px(14.0f);
 
-    const char* modeText = ui ? "UI mode  ·  click objects to select  ·  Tab: camera  ·  H: help"
-                              : "Camera mode  ·  WASD move, mouse look  ·  Esc or Tab: free the mouse";
+    bool orbit = m_camera.mode() == CameraMode::Orbit;
+    const char* orbitText = m_mode == AppMode::Complex
+                                ? "Click to select  ·  drag: pan  ·  wheel: zoom  ·  H: help"
+                                : "Click to select  ·  drag: orbit  ·  right-drag: pan  ·  wheel: zoom  ·  . key: focus";
+    const char* modeText = orbit ? orbitText
+                           : ui  ? "UI mode  ·  click objects to select  ·  Tab: camera  ·  H: help"
+                                 : "Camera mode  ·  WASD move, mouse look  ·  Esc or Tab: free the mouse";
     Vector3 p = m_camera.position();
     const char* camText = TextFormat("Camera (%.2f, %.2f, %.2f)  ·  %d FPS", p.x, p.y, p.z, GetFPS());
 
@@ -356,7 +368,7 @@ void App::drawHud() {
     ui::fillRounded(box, ui::px(8.0f), t.labelBg);
     float tx = box.x + ui::px(10.0f);
     // A small dot shows the input mode at a glance
-    DrawCircleV({tx + ui::px(3), box.y + ui::px(5) + lineH / 2}, ui::px(3.5f), ui ? t.accent : t.success);
+    DrawCircleV({tx + ui::px(3), box.y + ui::px(5) + lineH / 2}, ui::px(3.5f), ui || orbit ? t.accent : t.success);
     ui::textIn({tx + ui::px(12), box.y + ui::px(5), w, lineH}, modeText, ui::FontRole::Small, t.text);
     ui::textIn({tx, box.y + ui::px(5) + lineH, w, lineH}, camText, ui::FontRole::Small, t.textMuted);
 }

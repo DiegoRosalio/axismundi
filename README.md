@@ -165,14 +165,22 @@ make test                      # math, expressions, scene, playback and explanat
 
 ### Controls
 
-The app has two input states. In **camera mode** (cursor hidden) the mouse looks around, WASD move,
-Space/Ctrl go up and down, and Shift moves faster. In **UI mode** (cursor visible) you click objects, fields,
-buttons and panels. Press **Tab** to switch; **Esc** always gives the mouse back. Esc never quits: close the
-window to exit.
+Two cameras, picked in **Settings → Camera**:
+
+- **Orbit** (the default, like Blender): drag the empty view to turn around a center point, right-drag (or
+  Shift+drag, or the middle button) to slide the view, the wheel to zoom. A click without dragging selects.
+  The **.** key (or **Focus** in the View section) makes the selected object the center; keypad 1 / 3 / 7 (or
+  **Front / Right / Top**) look from the front, the right or straight down. In the complex plane a drag pans.
+- **Fly** (like a game): **Tab** captures the mouse (camera mode); the mouse looks around, WASD move,
+  Space/Ctrl go up and down, Shift moves faster. **Esc** (or Tab) gives the mouse back (UI mode).
+
+Esc never quits: close the window to exit.
 
 | Key | Action |
 |-----|--------|
-| Tab | Camera mode ⟷ UI mode |
+| Drag / right-drag / wheel | Orbit / pan / zoom (orbit camera) |
+| . / keypad 1, 3, 7 | Center on the selection / front, right, top view |
+| Tab | Camera mode ⟷ UI mode (fly camera) |
 | Esc | Leave camera mode, close a popup or the help, cancel an edit |
 | 1 / 2 | 3D space / complex plane |
 | Click / Ctrl+click | Select an object / add it to the selection |
