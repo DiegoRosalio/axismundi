@@ -43,8 +43,7 @@ void drawQuaternion(const scene::QuaternionObject& o, bool selected, Color c, bo
             printArrow({0, 0, 0}, mathToWorld(a * kQuatAxisLength), c, 0, selected);
         } else {
             dashed(mathToWorld(a * -2.6f), mathToWorld(a * 2.6f), withAlpha(c, 200), 0.1f);
-            if (selected) DrawCylinderEx({0, 0, 0}, mathToWorld(a * kQuatAxisLength), 0.06f * k, 0.06f * k, 10, withAlpha(c, 60));
-            VectorRenderer::drawArrow(Vector3D::zero(), toVec(mathToWorld(a * kQuatAxisLength)), c, 0.02f * k, 0.17f);
+            VectorRenderer::drawVectorArrow({0, 0, 0}, mathToWorld(a * kQuatAxisLength), c, selected, k);
         }
         // The angle: an arc around the axis, from a direction at right angles to the axis
         Vector3D u = perpendicular(a) * 1.0f;

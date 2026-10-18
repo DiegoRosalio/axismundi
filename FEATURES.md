@@ -115,6 +115,9 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
       drag never changes the selection; old scene files get a pivot where their view meets the floor.
 
 ## Visualization
+- [x] Arrows keep their size on screen: shafts about 2 px wide at any zoom, heads about 30% of the length (at most
+      ~16 px, so short vectors aren't all head), no ball on the tip; matrix bases use the same arrows; axes and point
+      markers are limited in pixels too. The selection is a narrow faint outline instead of a large halo
 - [x] Endless adaptive grid (GPU shader): spacing follows the zoom with smooth fades (0.1 … 100), anti-aliased
       lines, distance fade; numbers on the axes at a zoom-dependent step; View options: Auto / 1-unit spacing,
       floor and wall grids (xz, yz), square or polar grid in the complex plane; line-grid fallback

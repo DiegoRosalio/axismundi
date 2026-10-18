@@ -60,7 +60,7 @@ void drawEpicycles(const scene::EpicyclesObject& o, Color c, bool fade, bool pri
         DrawLine3D(center, at(centers[i]), arm);
     }
     Vector3 tip = at(centers.back());
-    DrawSphere(tip, (selected ? 0.1f : 0.07f) * std::sqrt(st.lineScale), print ? ink : (fade ? faded(c) : c));
+    dot(tip, (selected ? 0.1f : 0.07f) * std::sqrt(st.lineScale), print ? ink : (fade ? faded(c) : c));
 }
 
 // Paper: the circle |z| and the projections (when switched on), then the arrow in the export's style
@@ -117,7 +117,7 @@ void drawNumber(const SceneObject& o, const DrawContext& c) {
             prev = next;
         }
         Vector3 top = {re, im, theta * pitch};
-        DrawSphere(top, 0.04f, t.helix);
+        dot(top, 0.04f, t.helix);
         dashed(top, tip, t.helix, 0.08f);
         arcXY(0.2f, 0.0f, theta, c.color);
     }

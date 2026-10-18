@@ -80,9 +80,11 @@ void drawLineIntegral(const scene::LineIntegralObject& o, Color c, bool fade, bo
         float r = (i <= done ? 0.035f : 0.018f) * k;  // the part travelled so far is thicker
         DrawCylinderEx(w3(path[i - 1].p), w3(path[i].p), r, r, 6, col);
     }
-    if (selected && !print) {
-        for (size_t i = 1; i < path.size(); i++)
-            DrawCylinderEx(w3(path[i - 1].p), w3(path[i].p), 0.07f * k, 0.07f * k, 8, withAlpha(c, 45));
+    if (selected && !print) {  // a narrow faint outline along the path
+        for (size_t i = 1; i < path.size(); i++) {
+            float pad = 0.035f * k + VectorRenderer::pixelsAt(w3(path[i].p), 2.0f);
+            DrawCylinderEx(w3(path[i - 1].p), w3(path[i].p), pad, pad, 8, withAlpha(c, 45));
+        }
     }
     // F along the path (the longest arrow 0.7 units)
     double longest = 0;
@@ -95,7 +97,7 @@ void drawLineIntegral(const scene::LineIntegralObject& o, Color c, bool fade, bo
             VectorRenderer::drawArrow(toVec(w3(a.p)), toVec(w3(tip)), arrowColor, 0.012f * k, 0.12f);
         }
     }
-    DrawSphere(w3(o.marker()), 0.08f * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
+    dot(w3(o.marker()), 0.08f * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
 }
 void drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
     const ViewStyle& st = activeStyle();
@@ -133,7 +135,7 @@ void drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Colo
             };
             DrawLine3D(at(a0), at(a1), circle);
         }
-        DrawSphere(w3(center), 0.04f, circle);
+        dot(w3(center), 0.04f, circle);
         DrawLine3D(p, w3(center), withAlpha(circle, 120));
     }
     if (o.showFrame()) {
@@ -147,7 +149,7 @@ void drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Colo
             VectorRenderer::drawArrow(toVec(p), toVec(w3(tip)), col, 0.022f * k, 0.17f);
         }
     }
-    DrawSphere(p, (selected ? 0.11f : 0.08f) * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
+    dot(p, (selected ? 0.11f : 0.08f) * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
 }
 void drawTangent(const scene::TangentObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
     const ViewStyle& st = activeStyle();
@@ -164,7 +166,7 @@ void drawTangent(const scene::TangentObject& o, Color c, bool fade, bool print, 
     if (o.hasSecant()) {
         double h = o.secantH(), y1 = y0 + o.secantSlope() * h;
         floorLine(x0, y0, o.secantSlope(), 3.5, muted, print ? 0.0f : 0.009f * k);
-        DrawSphere(mathToWorld(static_cast<float>(x0 + h), static_cast<float>(y1), 0.01f), 0.06f * std::sqrt(k), muted);
+        dot(mathToWorld(static_cast<float>(x0 + h), static_cast<float>(y1), 0.01f), 0.06f * std::sqrt(k), muted);
     }
     if (o.showTriangle() && std::fabs(m) < 20) {
         // Run 1, rise f'(x0): the slope read off the picture
@@ -181,7 +183,7 @@ void drawTangent(const scene::TangentObject& o, Color c, bool fade, bool print, 
     }
     Color line = print ? ink : withAlpha(fade ? faded(st.text) : st.text, 230);
     floorLine(x0, y0, m, 3.0, line, print ? 0.0f : 0.012f * k);
-    DrawSphere(mathToWorld(static_cast<float>(x0), static_cast<float>(y0), 0.01f), (selected ? 0.11f : 0.08f) * std::sqrt(k),
+    dot(mathToWorld(static_cast<float>(x0), static_cast<float>(y0), 0.01f), (selected ? 0.11f : 0.08f) * std::sqrt(k),
                shade(c));
 }
 void drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bool fade, bool print, Color ink,
@@ -234,7 +236,7 @@ void drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bool fade, bo
         if (std::sqrt(fx * fx + fy * fy) > 1e-6)
             VectorRenderer::drawArrow(toVec(foot), toVec(tip), print ? ink : shade(derivativeColor(o)), 0.026f * k, 0.2f);
     }
-    DrawSphere(pw, (selected ? 0.1f : 0.075f) * std::sqrt(k), shade(c));
+    dot(pw, (selected ? 0.1f : 0.075f) * std::sqrt(k), shade(c));
 }
 void drawVelocity(const scene::VelocityObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
     const ViewStyle& st = activeStyle();
@@ -268,7 +270,7 @@ void drawVelocity(const scene::VelocityObject& o, Color c, bool fade, bool print
     }
     if (o.showVelocity())
         VectorRenderer::drawArrow(toVec(pw), toVec(tipOf(o.velocity())), shade(c), 0.026f * k, 0.2f);
-    DrawSphere(pw, (selected ? 0.11f : 0.08f) * std::sqrt(k), shade(c));
+    dot(pw, (selected ? 0.11f : 0.08f) * std::sqrt(k), shade(c));
 }
 
 // The Taylor polynomial: f (gray), the previous degree (faint), the separate terms (fainter), T_N, the center
@@ -283,7 +285,7 @@ void drawTaylor(const scene::TaylorObject& o, Color c, bool fade, bool print, Co
         floorPolyline(o.previous(), print ? Color{190, 190, 190, 255} : withAlpha(fade ? faded(c) : c, 90), 0.0f, false);
     floorPolyline(o.polynomial(), print ? ink : (fade ? faded(c) : c), print ? 0.0f : 0.024f * k, false);
     if (!o.error().empty()) return;
-    DrawSphere(mathToWorld(static_cast<float>(o.series().center), static_cast<float>(o.fCenter()), 0.01f),
+    dot(mathToWorld(static_cast<float>(o.series().center), static_cast<float>(o.fCenter()), 0.01f),
                0.08f * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
 }
 
@@ -307,12 +309,12 @@ void drawNewton(const scene::NewtonObject& o, Color c, bool fade, bool print, Co
         float r = (latest ? 0.012f : 0.007f) * k;
         if (print) DrawLine3D(at(s.x, s.fx), at(steps[i + 1].x, 0), tangent);
         else DrawCylinderEx(at(s.x, s.fx), at(steps[i + 1].x, 0), r, r, 5, tangent);
-        DrawSphere(at(s.x, s.fx), 0.045f * std::sqrt(k), withAlpha(text, latest ? 255 : 150));
-        DrawSphere(at(s.x, 0), 0.04f * std::sqrt(k), withAlpha(muted, latest ? 255 : 150));
+        dot(at(s.x, s.fx), 0.045f * std::sqrt(k), withAlpha(text, latest ? 255 : 150));
+        dot(at(s.x, 0), 0.04f * std::sqrt(k), withAlpha(muted, latest ? 255 : 150));
     }
     // The current estimate on the x axis
     Color point = print ? ink : (fade ? faded(derivativeColor(o)) : derivativeColor(o));
-    DrawSphere(at(steps.back().x, 0), (selected ? 0.11f : 0.08f) * std::sqrt(k), point);
+    dot(at(steps.back().x, 0), (selected ? 0.11f : 0.08f) * std::sqrt(k), point);
 }
 
 // The picking/label handle of the derivative objects: their point (none while in error)

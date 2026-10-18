@@ -39,6 +39,8 @@ view::DrawOptions App::drawOptions() const {
     o.dimUnselected = m_uiSettings.dimUnselected && !m_tutorialWindow.visible() && !breakdownActive();
     o.solo = m_viewPanel.settings().soloSelection;
     o.tickStep = tickStep();
+    o.cameraPosition = m_camera.position();
+    o.worldPerPixel = 2.0f * std::tan(m_camera.camera().fovy * DEG2RAD / 2.0f) / static_cast<float>(GetScreenHeight());
     const SceneObject* target = targetMatrix();
     if (target && m_mode == AppMode::Space3D) {
         if (breakdownActive()) {

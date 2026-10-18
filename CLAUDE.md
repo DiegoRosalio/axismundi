@@ -127,7 +127,9 @@ src/
                       plane, GLSL 330 fragment shader with fwidth lines, families from math/GridMath, polar mode;
                       the project's only shader: strings in the .cpp, LoadShaderFromMemory, valid() false ->
                       fallback; AXISMUNDI_NO_SHADER=1 forces the fallback), Grid (the fallback line grid),
-                      VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
+                      VectorRenderer (drawVectorArrow: the vector look, ~2 px shaft, head 30% of the length up to
+                      ~16 px, outline when selected; drawArrow clamps given sizes in pixels; pixelsAt(point, px) from
+                      setScreenScale, set each frame from DrawOptions.cameraPosition/worldPerPixel), PlotRenderer (GPU meshes from expressions + resolver),
                       FieldRenderer (vector field arrows/lines/particles), MeshBuilder (MeshData, tubes, cones,
                       MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
@@ -209,6 +211,8 @@ docs/screenshots/     images for the docs, produced by --tour
   `smoothDefault`). Drawing code reads only the style, never `ui::theme()` for scene colors. The View section
   shows 2×2 cards (`ViewPanel::styleCard`); more styles need another card row.
 - The export panel's B/W preview is synced with Paper in `App::update` (`m_previewShown`, `m_styleBeforePaper`).
+- Sizes on screen: arrows, axes and point markers (`draw::dot`) are sized in pixels through
+  `VectorRenderer::pixelsAt`, so zooming in never makes them fat; plots, fields and surfaces keep world sizes.
 - Selection: `DrawOptions.dimUnselected` (Settings `ui.dim_unselected`, off during lessons and the breakdown)
   fades the others by blending toward the background (not alpha: keeps depth right; plots use `draw(fade)`);
   `DrawOptions.solo` (`ViewSettings::soloSelection`, key O) draws and picks only the selection.

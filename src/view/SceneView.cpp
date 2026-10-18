@@ -252,6 +252,7 @@ int SceneView::printStyleOf(scene::ObjectId id) const {
 }
 
 void SceneView::draw3D(scene::Space& space, const DrawOptions& options) {
+    VectorRenderer::setScreenScale(options.cameraPosition, options.worldPerPixel);
     m_print = options.print;
     m_printGray = options.printGrayShading;
     m_dim = options.dimUnselected && !m_print && options.selection && !options.selection->empty();
@@ -270,7 +271,9 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
     float len = view.axisLength;
 
     if (view.showAxes && !options.print) {
-        float r = 0.02f * t.lineScale;
+        // About 2-3 px wide on screen whatever the zoom
+        float r = std::clamp(0.02f * t.lineScale, VectorRenderer::pixelsAt({0, 0, 0}, 0.75f),
+                             VectorRenderer::pixelsAt({0, 0, 0}, 2.0f));
         DrawCylinderEx({0, 0, 0}, mathToWorld(len, 0, 0), r, r, 8, t.axisX);
         DrawCylinderEx({0, 0, 0}, mathToWorld(0, len, 0), r, r, 8, t.axisY);
         DrawCylinderEx({0, 0, 0}, mathToWorld(0, 0, len), r, r, 8, t.axisZ);
@@ -322,7 +325,8 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
         }
     } else {
         if (view.showAxes) {
-            float r = 0.015f * t.lineScale;
+            float r = std::clamp(0.015f * t.lineScale, VectorRenderer::pixelsAt({0, 0, 0}, 0.75f),
+                                 VectorRenderer::pixelsAt({0, 0, 0}, 2.0f));
             DrawCylinderEx({-extent, 0, 0}, {extent, 0, 0}, r, r, 6, t.axisX);
             DrawCylinderEx({0, -extent, 0}, {0, extent, 0}, r, r, 6, t.axisY);
             // Tick marks at the step the axis numbers use (at most 400 per axis)
