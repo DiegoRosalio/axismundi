@@ -33,7 +33,7 @@ The folder-by-folder map is in [CLAUDE.md](../CLAUDE.md#architecture).
         text/ (no raylib): TextLayout (wrapping), LabelLayout (non-overlapping labels)
 ```
 
-Everything without raylib is unit-tested in `tests/test_math.cpp` (`make test`).
+Everything without raylib is unit-tested in `tests/` (`make test`): `main.cpp` runs the list, `TestSupport.hpp` has CHECK, and one file per topic (linear, expr, calculus, scene, export, text).
 
 ## One frame
 

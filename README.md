@@ -216,7 +216,7 @@ Shortcuts are ignored while a text field is being edited.
 ├── docs/architecture.md      # how the pieces fit together, where to add things
 ├── docs/screenshots/         # images used by the docs (made with --tour)
 ├── include/raygui.h          # raygui (single header)
-├── tests/test_math.cpp       # unit tests
+├── tests/                    # unit tests: main.cpp (runner), TestSupport.hpp (CHECK), one file per topic
 ├── tools/fonts.py            # font subsetting and embedding
 ├── tools/lesson_walk.py      # temporary tour patch that checks every tutorial step
 ├── tools/dev/                # build, tour, lesson walk, LaTeX and real-input test scripts

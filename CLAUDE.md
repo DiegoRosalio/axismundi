@@ -137,7 +137,8 @@ src/
                       SettingsPopover, ColorPopover, HelpOverlay, SceneIO, Preferences, RayguiImpl.cpp
   ui/generated/       fonts.inc (embedded fonts, subset; codepoint list)
   include/<area>/     headers mirror the folders above
-tests/test_math.cpp   assert-style runner (CHECK / CHECK_NEAR); includes a check over every registered type
+tests/                main.cpp (runner + list), TestSupport.hpp (CHECK / CHECK_NEAR, helpers), test_{linear,expr,
+                      calculus,scene,export,text}.cpp; test_scene includes a check over every registered type
 docs/architecture.md  how the pieces fit together (data flow per frame, where to add things)
 assets/fonts/         subset TTFs + OFL licenses; tools/fonts.py subsets (fonttools) and embeds
 docs/screenshots/     images for the docs, produced by --tour
@@ -256,7 +257,8 @@ section order.
 4. Inspector: an `inspect<Type>` method in `ScenePanelInspectors.cpp` plus its row in `ScenePanel::typeUi`
    (inspector + list summary; reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
    optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
-5. Tests in `tests/test_math.cpp` (model + evaluation), tour step + screenshots for the UI.
+5. Tests in the topic file under `tests/` (model + evaluation; add the function to the list in `tests/main.cpp`),
+   tour step + screenshots for the UI.
 6. LaTeX export: an `export<Type>` + its row in `export/LatexObjects.cpp` (with the flat test) + Paper drawing
    (see LaTeX export).
 Saving/loading is automatic (fields and props are serialized generically).
