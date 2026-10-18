@@ -56,6 +56,16 @@ Value Value::mat4(const Matrix4D& m) {
     return r;
 }
 
+Value Value::quat(double w, double x, double y, double z) {
+    Value r;
+    r.type = Type::Quaternion;
+    r.re = w;
+    r.qi = x;
+    r.qj = y;
+    r.qk = z;
+    return r;
+}
+
 Value Value::fail(const std::string& message) {
     Value r;
     r.type = Type::Error;
@@ -88,6 +98,7 @@ std::string typeName(Type type) {
         case Type::Complex: return "complex number";
         case Type::Vector:  return "vector";
         case Type::Matrix:  return "matrix";
+        case Type::Quaternion: return "quaternion";
         case Type::Error:   return "error";
     }
     return "?";
@@ -113,6 +124,21 @@ std::string Value::summary() const {
             return "(" + num(vector.x) + ", " + num(vector.y) + ", " + num(vector.z) + ")";
         case Type::Matrix:
             return typeName();
+        case Type::Quaternion: {
+            // w + xi + yj + zk, leaving out zero terms
+            std::string out;
+            const double parts[4] = {re, qi, qj, qk};
+            const char* units[4] = {"", "i", "j", "k"};
+            for (int n = 0; n < 4; n++) {
+                double v = parts[n];
+                if (std::fabs(v) < 5e-5) continue;
+                std::string mag = num(std::fabs(v));
+                if (n > 0 && mag == "1") mag = "";
+                if (out.empty()) out = (v < 0 ? "−" : "") + mag + units[n];
+                else out += (v < 0 ? " − " : " + ") + mag + units[n];
+            }
+            return out.empty() ? "0" : out;
+        }
         case Type::Error:
             return error;
     }

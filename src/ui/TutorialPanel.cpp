@@ -31,7 +31,7 @@ void TutorialPanel::update(App& app) {
     if (m_lesson < 0) return;
     if (m_needsSetup) enterStep(app);
     const TutorialStep& s = lessons()[m_lesson].steps[m_step];
-    if (!app.uiMode()) m_context.cameraModeUsed = true;
+    if (!app.uiMode() || app.cameraMovedThisFrame()) m_context.cameraModeUsed = true;
     // Once done, a task stays done even if the user keeps experimenting
     if (s.check && !m_done && s.check(app, m_context)) m_done = true;
 }
@@ -68,7 +68,7 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
         for (int i = 0; i < static_cast<int>(all.size()); i++) {
             Rectangle row = col.row(50.0f);
             bool hover = ui::hovered(row);
-            if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
                 startLesson(i);
                 m_finishedMessage.clear();
             }
@@ -164,10 +164,8 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
         m_needsSetup = true;
     }
     bool last = (m_step == count - 1);
-    bool canAdvance = stepDone();
-    if (step.task && !canAdvance) {
-        if (ui::button(buttons[1], "Skip", ui::ButtonKind::Ghost)) canAdvance = true, m_done = true;
-    }
+    // Skip marks the step done, which enables Next
+    if (step.task && !stepDone() && ui::button(buttons[1], "Skip", ui::ButtonKind::Ghost)) m_done = true;
     if (ui::button(buttons[2], last ? "Finish" : "Next", ui::ButtonKind::Primary, stepDone(),
                    last ? ui::Icon::Check : ui::Icon::ChevronRight)) {
         if (last) {

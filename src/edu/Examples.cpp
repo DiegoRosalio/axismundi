@@ -65,6 +65,64 @@ std::vector<Example> build() {
                     [](App& app) {
                         matrixScene(app, Quaternion::fromAxisAngle(Vector3D(1, 1, 1), kPi / 3).toMatrix());
                     }});
+    list.push_back({"Quarter turn (quaternion)", C::Matrices,
+                    "q = qaxis([0, 0, 1], π/2): a quarter turn about the z axis, stored in four numbers "
+                    "(0.707 + 0.707k). The gray vector v is turned into q v q⁻¹ along the dashed circle.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "quaternion", "q",
+                                      {{"value", "qaxis([0, 0, 1], pi/2)"}, {"v", "[1.5, 0, 1]"}},
+                                      {{"act", "1"}, {"basis", "0"}});
+                        app.select("q");
+                        app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+                    }});
+    list.push_back({"Order matters (quaternions)", C::Matrices,
+                    "q1 turns 90° about z, q2 turns 90° about x. The vector a turned by q1·q2 (q2 first) ends up "
+                    "somewhere else than by q2·q1: rotations don't commute.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "quaternion", "q1", {{"value", "qaxis([0, 0, 1], pi/2)"}},
+                                      {{"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "q2", {{"value", "qaxis([1, 0, 0], pi/2)"}},
+                                      {{"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "vector", "a", {{"x", "1.5"}, {"y", "0"}, {"z", "0"}});
+                        app.addObject(AppMode::Space3D, "vector", "u", {{"value", "rotate(q1*q2, a)"}},
+                                      {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "vector", "w", {{"value", "rotate(q2*q1, a)"}},
+                                      {{"mode", "formula"}});
+                        app.select("u");
+                        app.select("w", AppMode::Space3D, true);
+                        app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+                    }});
+    list.push_back({"Slerp between two rotations", C::Matrices,
+                    "q = slerp(a, b, s) turns smoothly from rotation a (none) to rotation b as s plays from 0 to "
+                    "1 and back: the shortest way, at constant speed.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0"}, {"min", "0"}, {"max", "1"}, {"mode", "animate"},
+                                       {"anim.repeat", "2"}, {"anim.duration", "3"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "a", {{"value", "quat(1, 0, 0, 0)"}},
+                                      {{"axis", "0"}, {"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "b", {{"value", "qaxis([1, 1, 0], 2.5)"}},
+                                      {{"basis", "0"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "q", {{"value", "slerp(a, b, s)"}});
+                        app.select("q");
+                        app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Quaternion from a matrix", C::Matrices,
+                    "M = rot([1, 1, 0], θ) is a rotation matrix and q = quat(M) the same rotation as a "
+                    "quaternion. Drag θ: q's axis stays (1, 1, 0)/√2 and its angle follows θ.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "theta", {},
+                                      {{"value", "1.2"}, {"min", "0"}, {"max", "3.1416"}});
+                        app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "rot([1, 1, 0], theta)"}},
+                                      {{"mode", "formula"}});
+                        app.addObject(AppMode::Space3D, "quaternion", "q", {{"value", "quat(M)"}}, {{"basis", "0"}});
+                        app.select("q");
+                    }});
     list.push_back({"Animated rotation", C::Matrices,
                     "A parameter θ plays from 0 to 2π and drives M = rotz(θ): every object that uses M moves "
                     "with it.",
@@ -219,6 +277,26 @@ std::vector<Example> build() {
                                       {{"projections", "1"}, {"helix", "1"}});
                         app.select("theta");
                     }});
+    list.push_back({"Epicycles draw a heart", C::Complex,
+                    "Twelve spinning circles, each turning k times per lap, add up to a point that draws a heart: "
+                    "the Fourier series of the curve. Add circles to sharpen the dip.",
+                    [](App& app) {
+                        fresh(app, AppMode::Complex);
+                        app.addObject(AppMode::Complex, "epicycles", "E");
+                        app.select("E");
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Epicycles draw a square", C::Complex,
+                    "Corners are hard for circles: with 8 the square is round, with 40 the corners sharpen. Change "
+                    "the number of circles while it draws.",
+                    [](App& app) {
+                        fresh(app, AppMode::Complex);
+                        app.addObject(AppMode::Complex, "epicycles", "E",
+                                      {{"z", "2(cos(u) + i*sin(u))/max(abs(cos(u)), abs(sin(u)))"}, {"N", "16"},
+                                       {"speed", "0.15"}});
+                        app.select("E");
+                        app.restartTime(true);
+                    }});
     list.push_back({"Rotate and scale", C::Complex,
                     "z₂ = 1.5 e^(i·30°) turns z₁ by 30° and stretches it 1.5 times.",
                     [](App& app) {
@@ -278,6 +356,266 @@ std::vector<Example> build() {
                                   {{"x", "3cos(u)"}, {"y", "3sin(u)"}, {"z", "sin(3u - 2t)"}, {"umin", "0"},
                                    {"umax", "2pi"}});
                         app.restartTime(true);
+                    }});
+    list.push_back({"Square wave from sines", C::Plots,
+                    "A square wave rebuilt from sine waves: S = (4/π)(sin x + sin 3x/3 + sin 5x/5 + …). Drag n to "
+                    "add terms; the spectrum in the inspector shows only odd k, falling like 1/k.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "n", {},
+                                      {{"value", "5"}, {"min", "1"}, {"max", "40"}, {"step", "1"}});
+                        app.addObject(AppMode::Space3D, "fourierseries", "S",
+                                      {{"f", "sign(x)"}, {"N", "n"}}, {{"harmonics", "1"}});
+                        app.select("S");
+                        app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
+                    }});
+    list.push_back({"Gibbs overshoot", C::Plots,
+                    "With 60 terms the sum hugs the sawtooth everywhere except at the jumps, where it overshoots by "
+                    "about 9% however many terms you take (the Gibbs phenomenon).",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "fourierseries", "S", {{"f", "x"}, {"N", "60"}});
+                        app.select("S");
+                        app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
+                    }});
+    list.push_back({"Secant becomes tangent", C::Plots,
+                    "The gray secant joins x0 and x0 + h. As the clock shrinks h toward 0 it turns into the tangent "
+                    "(black): the derivative is the limit of these slopes.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "tangent", "T",
+                                      {{"f", "x^3/6 - x"}, {"x0", "1"}, {"h", "2.5(1 - mod(t, 5)/5)"},
+                                       {"xmin", "-4"}, {"xmax", "4"}},
+                                      {{"derivative", "0"}, {"triangle", "0"}});
+                        app.select("T");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.0f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Slope as a function: f and f'", C::Plots,
+                    "The point slides along f; the second curve is f', the slope at every x. Where f has a peak or "
+                    "a valley the tangent is flat and f' crosses zero.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "tangent", "T",
+                                      {{"f", "x^3/6 - x"}, {"x0", "3sin(t/2)"}, {"xmin", "-4"}, {"xmax", "4"}});
+                        app.select("T");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.0f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Gradient points uphill", C::Plots,
+                    "On a hill z = 3e^(−(x² + y²)/4) the gradient arrow on the floor always points to the top, "
+                    "longest where the slope is steepest. The tangent plane touches the hill at the point.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "tangentplane", "G",
+                                      {{"f", "3exp(-(x^2 + y^2)/4)"}, {"x0", "2cos(t/2)"}, {"y0", "2sin(t/2)"},
+                                       {"xmin", "-4"}, {"xmax", "4"}, {"ymin", "-4"}, {"ymax", "4"}});
+                        app.select("G");
+                        app.setCameraView({6.5f, 6.5f, 8.0f}, {0, 1.0f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Velocity on a helix", C::Plots,
+                    "r' follows the helix at constant speed, so the acceleration r'' never speeds it up: it only "
+                    "turns, pointing straight at the axis.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "velocity", "R",
+                                      {{"x", "2cos(u)"}, {"y", "2sin(u)"}, {"z", "u/4"}, {"umin", "0"},
+                                       {"umax", "4pi"}, {"u0", "mod(t, 4pi)"}});
+                        app.select("R");
+                        app.setCameraView({5.5f, 5.0f, 6.5f}, {0, 1.4f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Speeding up vs turning", C::Plots,
+                    "Around an ellipse the speed changes: the acceleration splits into a part along the motion "
+                    "(speeding up or slowing down) and a part across it (turning).",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "velocity", "R", {{"u0", "mod(t/2, 2pi)"}}, {{"split", "1"}});
+                        app.select("R");
+                        app.setCameraView({0.0f, 9.0f, 5.0f}, {0, 0, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"sin(x) term by term", C::Plots,
+                    "Every second the Taylor polynomial of sin about 0 gains a term: x, x − x³/6, ... Each one fits "
+                    "sin a little farther from the center. The faint curve is the previous degree.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "taylor", "p",
+                                      {{"f", "sin(x)"}, {"a", "0"}, {"N", "min(floor(t), 15)"}, {"xmin", "-8"},
+                                       {"xmax", "8"}});
+                        app.select("p");
+                        app.setCameraView({0.0f, 12.0f, 6.5f}, {0, 0, -1.0f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"e^x around a moving center", C::Plots,
+                    "A degree-3 Taylor polynomial of e^x whose center slides back and forth: it always fits best near "
+                    "its center.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "taylor", "p",
+                                      {{"f", "exp(x)"}, {"a", "1.5sin(t/2)"}, {"N", "3"}, {"xmin", "-4"}, {"xmax", "3"}});
+                        app.select("p");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.5f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Where the series stops working", C::Plots,
+                    "1/(1 + x²) is smooth everywhere on the line, yet its Taylor polynomials about 0 only fit for "
+                    "|x| < 1: more terms make them worse beyond. The reason is off the line: 1 + x² = 0 at x = ±i.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "taylor", "p",
+                                      {{"f", "1/(1 + x^2)"}, {"a", "0"}, {"N", "min(2floor(t), 20)"}, {"xmin", "-2.5"},
+                                       {"xmax", "2.5"}});
+                        app.select("p");
+                        app.setCameraView({0.0f, 6.0f, 3.5f}, {0, 0, -0.5f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Newton finds √2", C::Plots,
+                    "Newton's method on x² − 2 from x0 = 3: each step follows the tangent down to the x axis. The "
+                    "steps land closer and closer to √2 ≈ 1.41421, the correct digits doubling each time.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "newton", "r",
+                                      {{"f", "x^2 - 2"}, {"x0", "3"}, {"steps", "min(floor(t), 6)"}, {"xmin", "-1"},
+                                       {"xmax", "3.2"}});
+                        app.select("r");
+                        app.setCameraView({1.2f, 13.0f, 2.0f}, {1.2f, 0, -3.2f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Newton overshoots", C::Plots,
+                    "On atan(x) from x0 = 1.5 the tangents are too flat: each step lands farther away on the other "
+                    "side, and the method runs off. Start nearer 0 and it works.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "newton", "r",
+                                      {{"f", "atan(x)"}, {"x0", "1.5"}, {"steps", "min(floor(t), 3)"}, {"xmin", "-7"},
+                                       {"xmax", "7"}});
+                        app.select("r");
+                        app.setCameraView({0.0f, 11.0f, 5.5f}, {0, 0, -0.5f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Frenet frame on a helix", C::Plots,
+                    "T (red), N (green), B (blue) ride a helix as u0 follows the clock. A helix bends and twists "
+                    "the same everywhere: κ and τ stay constant, and N always points at the axis.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "frame", "P", {{"u0", "mod(t, 4pi)"}});
+                        app.select("P");
+                        app.setCameraView({5.5f, 5.0f, 6.5f}, {0, 1.4f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Curvature of an ellipse", C::Plots,
+                    "The comb shows κ along the ellipse: the teeth are longest at the ends of the long axis, where "
+                    "it turns sharply, and shortest at the flat sides. Drag u0.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0.5"}, {"min", "0"}, {"max", "6.2832"}});
+                        app.addObject(AppMode::Space3D, "frame", "P",
+                                      {{"x", "3cos(u)"}, {"y", "1.5sin(u)"}, {"z", "0"}, {"umin", "0"}, {"umax", "2pi"},
+                                       {"u0", "s"}},
+                                      {{"comb", "1"}});
+                        app.select("P");
+                        app.setCameraView({0.0f, 9.0f, 5.0f}, {0, 0, 0});
+                    }});
+    list.push_back({"Osculating circle on a parabola", C::Plots,
+                    "The circle that hugs y = x²/2 best: radius 1 at the vertex, growing as the parabola "
+                    "straightens out. u0 swings with the clock.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "frame", "P",
+                                      {{"x", "u"}, {"y", "u^2/2"}, {"z", "0"}, {"umin", "-3"}, {"umax", "3"},
+                                       {"u0", "2sin(t/2)"}});
+                        app.select("P");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.5f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Volume under a paraboloid", C::Plots,
+                    "V = ∫∫ (4 − x² − y²) dA over the square [−1, 1]²: the boxes under the surface add up to "
+                    "almost the exact volume 40/3 ≈ 13.33.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "doubleintegral", "V",
+                                      {{"f", "4 - x^2 - y^2"}, {"xmin", "-1"}, {"xmax", "1"}, {"ymin", "-1"},
+                                       {"ymax", "1"}, {"n", "6"}});
+                        app.select("V");
+                        app.setCameraView({4.2f, 4.0f, 5.0f}, {0, 1.2f, 0});
+                    }});
+    list.push_back({"Riemann boxes refine", C::Plots,
+                    "n = round(1 + 19s) boxes per side while s plays: the sum of the boxes closes in on the exact "
+                    "volume under z = 1 + sin(x)cos(y).",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "s", {},
+                                      {{"value", "0"}, {"min", "0"}, {"max", "1"}, {"mode", "animate"},
+                                       {"anim.repeat", "2"}, {"anim.duration", "6"}});
+                        app.addObject(AppMode::Space3D, "doubleintegral", "V",
+                                      {{"f", "1 + sin(x)cos(y)"}, {"xmin", "-3"}, {"xmax", "3"}, {"ymin", "-3"},
+                                       {"ymax", "3"}, {"n", "round(1 + 19s)"}});
+                        app.select("V");
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Work around a circle", C::Plots,
+                    "The rotation field F = [−y, x, 0] pushes along the circle everywhere (all green): the work "
+                    "around it is 2π·r² = 8π. The marker travels the path with the clock.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "lineintegral", "W", {{"upto", "mod(t/8, 1)"}});
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y, x, 0]"}}, {{"density", "0.75"}});
+                        app.select("W");
+                        app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Path independence", C::Plots,
+                    "F = [y·z, x·z, x·y] is the gradient of x·y·z, so its work from (0,0,0) to (1,1,1) is 1 on "
+                    "any path: the straight W1 and the wiggly W2 agree.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "lineintegral", "W1",
+                                      {{"F", "[y*z, x*z, x*y]"}, {"x", "u"}, {"y", "u"}, {"z", "u"}, {"umin", "0"},
+                                       {"umax", "1"}});
+                        app.addObject(AppMode::Space3D, "lineintegral", "W2",
+                                      {{"F", "[y*z, x*z, x*y]"}, {"x", "u"}, {"y", "u^2"}, {"z", "u + sin(pi*u)"},
+                                       {"umin", "0"}, {"umax", "1"}});
+                        app.select("W1");
+                        app.select("W2", AppMode::Space3D, true);
+                        app.setCameraView({2.6f, 2.4f, 3.2f}, {0.5f, 0.6f, -0.5f});
+                    }});
+    list.push_back({"Rotation field", C::Plots,
+                    "F = [−y, x, 0] turns around the origin: arrows grow with the distance, and the flow lines "
+                    "are circles.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y, x, 0]"}}, {{"lines", "1"}});
+                        app.setCameraView({0.0f, 10.0f, 6.5f}, {0, 0, 0});
+                    }});
+    list.push_back({"Source and sink", C::Plots,
+                    "A source at (−2, 0) and a sink at (2, 0): every flow line leaves the source and ends in the "
+                    "sink, like an electric dipole.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F",
+                                      {{"F", "([x + 2, y, 0]/((x + 2)^2 + y^2) - [x - 2, y, 0]/((x - 2)^2 + y^2))"}},
+                                      {{"lines", "1"}, {"same_length", "1"}, {"seeds", "8"}});
+                        app.setCameraView({0.0f, 10.0f, 6.5f}, {0, 0, 0});
+                    }});
+    list.push_back({"Flow with particles", C::Plots,
+                    "A vortex that drains into the origin. Particles drift along the flow lines while the clock "
+                    "plays: watch them spiral in.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y - x/4, x - y/4, 0]"}},
+                                      {{"lines", "1"}, {"particles", "1"}, {"seeds", "5"}});
+                        app.setCameraView({0.0f, 10.0f, 6.5f}, {0, 0, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"3D swirl", C::Plots,
+                    "F = [−y, x, 0.4] in a box: every flow line is a helix around the z axis.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "field", "F", {{"F", "[-y, x, 0.4]"}},
+                                      {{"domain", "volume"}, {"lines", "1"}, {"seeds", "3"}, {"density", "0.75"}});
                     }});
     return list;
 }

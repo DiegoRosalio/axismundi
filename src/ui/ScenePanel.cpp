@@ -1,9 +1,13 @@
 #include "ui/ScenePanel.hpp"
+#include "ui/ScenePanelDetail.hpp"
+#include "math/VectorField.hpp"
 #include "math/Decompositions.hpp"
 #include "ui/Widgets.hpp"
+#include "ui/core/TextEditor.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
 #include <algorithm>
+#include <map>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -13,9 +17,8 @@ namespace linalg {
 using scene::SceneObject;
 using scene::SpaceKind;
 
-namespace {
+namespace panel {
 
-constexpr float kPi = 3.14159265f;
 
 std::string fmt(double v) {
     char buf[32];
@@ -24,33 +27,11 @@ std::string fmt(double v) {
     return buf;
 }
 
-// One-line description for the objects list
+// One-line description for the objects list (each type's summary is in ScenePanel::typeUi)
 std::string summaryOf(const SceneObject& o) {
-    const std::string& type = o.typeId();
     if (!o.error().empty()) return o.error();
-    if (type == "parameter") {
-        const auto& p = static_cast<const scene::ParameterObject&>(o);
-        const char* how = p.mode() == scene::ParameterObject::Mode::Formula
-                              ? "f(t)"
-                              : p.mode() == scene::ParameterObject::Mode::Animate ? "animated" : "slider";
-        return std::string(how) + " = " + fmt(p.number());
-    }
-    if (type == "eigen") {
-        const scene::Field* f = o.field("of");
-        return "eigenvectors of " + (f ? f->text : std::string("?"));
-    }
-    if (type == "function") return "y = " + o.field("f")->text;
-    if (type == "surface") return "z = " + o.field("f")->text;
-    if (type == "implicit") return o.field("f")->text + " = 0";
-    if (type == "curve") return "curve in u";
-    if (type == "product") return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
-    if (type == "vector" && static_cast<const scene::VectorObject&>(o).byFormula()) {
-        return o.field("value")->text + " = " + o.value().summary();
-    }
-    if (type == "matrix" && static_cast<const scene::MatrixObject&>(o).byFormula()) {
-        return o.field("value")->text;
-    }
-    return o.value().summary();
+    const ScenePanel::TypeUi* ui = ScenePanel::typeUi(o.typeId());
+    return ui && ui->summary ? ui->summary(o) : o.value().summary();
 }
 
 const char* typeLabel(const SceneObject& o) {
@@ -58,18 +39,10 @@ const char* typeLabel(const SceneObject& o) {
     return t ? t->label : o.typeId().c_str();
 }
 
-void note(ui::Column& col, const std::string& text, Color color, ui::FontRole role = ui::FontRole::Small) {
+void note(ui::Column& col, const std::string& text, Color color, ui::FontRole role) {
     float h = ui::textWrapped({col.x(), col.y(), col.width(), 0}, text.c_str(), role, color);
     col.space(h / ui::scale() + 4.0f);
 }
-
-// Sample functions per plot type, for the "Next example" button
-struct PlotExample {
-    const char* f;
-    const char* x;
-    const char* y;
-    const char* z;
-};
 
 const std::vector<PlotExample>& plotExamples(const std::string& type) {
     static const std::vector<PlotExample> function = {
@@ -92,7 +65,9 @@ const std::vector<PlotExample>& plotExamples(const std::string& type) {
     return function;
 }
 
-} // namespace
+} // namespace panel
+
+using namespace panel;
 
 int ScenePanel::fieldId(const SceneObject& obj, const std::string& key) {
     unsigned h = 2166136261u ^ obj.id();
@@ -142,23 +117,31 @@ void ScenePanel::update(scene::Scene&) {
 
 void ScenePanel::editText(Rectangle r, int id, const std::string& current, bool invalid,
                           std::function<bool(const std::string&)> commit) {
-    m_editables.push_back({id, current, commit});
-    char tmp[256];
-    bool active = (m_activeId == id);
-    char* buf = active ? m_buffer : tmp;
-    if (!active) snprintf(tmp, sizeof(tmp), "%s", current.c_str());
+    // Short fields (cells, names, ranges): one line, the text is selected on focus
+    editField(r, id, current, invalid, std::move(commit), scene::kNoObject, std::string(), true);
+}
 
+void ScenePanel::editFormula(Rectangle r, int id, const std::string& current, bool invalid,
+                             std::function<bool(const std::string&)> commit, scene::ObjectId object,
+                             const std::string& key) {
+    editField(r, id, current, invalid, std::move(commit), object, key, false);
+}
+
+void ScenePanel::editField(Rectangle r, int id, const std::string& current, bool invalid,
+                           std::function<bool(const std::string&)> commit, scene::ObjectId object,
+                           const std::string& key, bool shortField) {
+    m_editables.push_back({id, current, commit});
+    bool active = (m_activeId == id);
+    std::string text = active ? std::string(m_buffer) : current;
     bool showInvalid = invalid && !active;
     if (active) {
-        // Live syntax check while typing
-        expr::Program probe;
-        showInvalid = !probe.compile(m_buffer);
+        expr::Program probe;  // live syntax check while typing
+        showInvalid = !probe.compile(text);
     }
-
-    int before = m_activeId;
-    bool finished = ui::textField(r, buf, sizeof(m_buffer), id, m_activeId, showInvalid);
-    if (!active && m_activeId == id) {
-        // Just activated: commit the field that was being edited, then take over
+    ui::EditorEvent ev = ui::textEditor(r, id, text, active, showInvalid, ui::inlineEditorState(), shortField);
+    if (ev == ui::EditorEvent::Activated) {
+        // Commit the field that was being edited, then take over
+        int before = m_activeId;
         if (before >= 0 && before != id) {
             for (const auto* list : {&m_editables, &m_lastEditables}) {
                 bool done = false;
@@ -172,9 +155,24 @@ void ScenePanel::editText(Rectangle r, int id, const std::string& current, bool 
                 if (done) break;
             }
         }
-        snprintf(m_buffer, sizeof(m_buffer), "%s", tmp);
+        m_activeId = id;
+        snprintf(m_buffer, sizeof(m_buffer), "%s", current.c_str());
+        return;
     }
-    if (finished) commit(m_buffer);
+    if (!active) return;
+    snprintf(m_buffer, sizeof(m_buffer), "%s", text.c_str());
+    if (ev == ui::EditorEvent::Commit) {
+        m_activeId = -1;
+        commit(m_buffer);
+    } else if (ev == ui::EditorEvent::Expand && !key.empty()) {
+        // The big editor takes over the unsaved text
+        m_activeId = -1;
+        m_requests.openFormula = true;
+        m_requests.formulaObject = object;
+        m_requests.formulaKey = key;
+        m_requests.formulaText = m_buffer;
+        m_requests.formulaCommit = commit;
+    }
 }
 
 float ScenePanel::fieldRow(float x, float y, float width, SceneObject& obj, const std::string& key, scene::Scene& sc,
@@ -183,22 +181,40 @@ float ScenePanel::fieldRow(float x, float y, float width, SceneObject& obj, cons
     scene::Field* f = obj.field(key);
     if (!f) return y;
     ui::Column col(x, y, width, 6.0f);
-    Rectangle r = col.row(34.0f);
+    int id = fieldId(obj, key);
+    // The field grows to up to 4 lines for long formulas (measured on the text shown)
+    float fieldW = width - (labelWidth > 0 ? ui::px(labelWidth + 6.0f) : 0.0f) - ui::px(30.0f);
+    std::string shown = m_activeId == id ? std::string(m_buffer) : f->text;
+    float h = std::max(ui::px(34.0f), ui::editorHeight(shown, fieldW, 4));
+    Rectangle r = col.row(h / ui::scale());
     if (labelWidth > 0) {
         Rectangle l = ui::takeLeft(r, labelWidth, 6.0f);
+        l.height = ui::px(34.0f);
         ui::textIn(l, ui::ellipsize(f->label.c_str(), ui::FontRole::Body, l.width).c_str(), ui::FontRole::Body,
                    t.textMuted);
     }
-    int id = fieldId(obj, key);
+    Rectangle expand = ui::takeRight(r, 26.0f, 4.0f);
+    expand.height = ui::px(26.0f);
+    expand.y = r.y + ui::px(4.0f);
     scene::ObjectId oid = obj.id();
     SpaceKind kind = m_kind;
-    editText(r, id, f->text, !f->error.empty(), [&sc, kind, oid, key](const std::string& text) {
+    auto commit = [&sc, kind, oid, key](const std::string& text) {
         SceneObject* o = sc.space(kind).find(oid);
         if (!o) return false;
         o->setField(key, text);
         sc.commit();
         return true;
-    });
+    };
+    editFormula(r, id, f->text, !f->error.empty(), commit, oid, key);
+    if (ui::iconButton(expand, ui::Icon::Fullscreen)) {
+        m_requests.openFormula = true;
+        m_requests.formulaObject = oid;
+        m_requests.formulaKey = key;
+        m_requests.formulaText = m_activeId == id ? std::string(m_buffer) : f->text;
+        m_requests.formulaCommit = commit;
+        if (m_activeId == id) m_activeId = -1;
+    }
+    ui::tooltip(expand, "Edit in a big editor with the live result (Ctrl+Enter while typing)", "Expand");
     if (!f->error.empty() && m_activeId != id) {
         col.removeGap();
         col.space(2.0f);
@@ -237,8 +253,15 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
     Rectangle head = col.row(32.0f);
     Rectangle add = ui::takeRight(head, 74.0f, 6.0f);
     Rectangle redo = ui::takeRight(head, 30.0f, 2.0f);
-    Rectangle undo = ui::takeRight(head, 30.0f, 6.0f);
+    Rectangle undo = ui::takeRight(head, 30.0f, 2.0f);
+    Rectangle solo = ui::takeRight(head, 30.0f, 6.0f);
     ui::sectionHeader(head, "Objects", m_showObjects);
+    bool soloActive = m_solo && !sel.empty();
+    if (ui::iconButton(solo, ui::Icon::Solo, soloActive, !sel.empty() || m_solo)) m_requests.toggleSolo = true;
+    ui::tooltip(solo, m_solo ? "Showing only the selected objects. Click (or O) to show everything again."
+                             : "Show only the selected objects in the view (O). The others stay in the list.",
+                "Only the selection");
+    ui::anchor("objects.solo", solo);
     if (ui::iconButton(undo, ui::Icon::Undo, false, sc.canUndo())) {
         m_activeId = -1;
         sc.undo();
@@ -257,6 +280,16 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
     ui::anchor("objects.add", add);
     if (!m_showObjects) return col.y() + ui::px(6.0f);
 
+    if (space.objects().empty()) {
+        note(col, "No objects yet. Click Add (or press N), pick an example in the gallery (E), or open a saved "
+                  "scene (F9).", t.textMuted);
+        Rectangle demo = col.row(30.0f);
+        if (ui::button(demo, "Demo scene", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) m_requests.loadDemo = true;
+        ui::tooltip(demo, "A matrix M, vectors a and b and a few vectors computed from them (both spaces). "
+                          "Ctrl+Z goes back.", "Demo scene");
+        ui::anchor("objects.demo", demo);
+        col.space(4.0f);
+    }
     Rectangle listArea = {col.x(), col.y(), col.width(), 0};
     bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
     for (const auto& obj : space.objects()) {
@@ -266,7 +299,7 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
         Rectangle eye = {row.x + row.width - ui::px(32), row.y + ui::px(3), ui::px(30), ui::px(30)};
         bool selected = sel.contains(o.id());
         bool hoverRow = ui::hovered(row) && !ui::hovered(eye);
-        if (hoverRow && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (hoverRow && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
             if (m_activeId >= 0) finishEditing(sc);
             if (ctrl) sel.toggle(o.id());
             else sel.set(o.id());
@@ -276,12 +309,15 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
 
         float dot = ui::px(9.0f);
         Color c = view::SceneView::colorOf(o);
-        if (!o.visible) c = Fade(c, 0.3f);
+        bool hiddenBySolo = soloActive && !selected;
+        if (!o.visible || hiddenBySolo) c = Fade(c, 0.3f);
         DrawCircleV({row.x + ui::px(12), row.y + row.height / 2}, dot / 2, c);
+        // Outline, so pale colors (Chalkboard's chalk white) stay visible on a light list
+        DrawCircleLinesV({row.x + ui::px(12), row.y + row.height / 2}, dot / 2, Fade(t.borderStrong, 0.8f));
         float tx = row.x + ui::px(24);
         float nameW = std::min(ui::px(64.0f), ui::textWidth(o.name().c_str(), ui::FontRole::BodyStrong) + ui::px(2));
         ui::textIn({tx, row.y, nameW, row.height}, ui::ellipsize(o.name().c_str(), ui::FontRole::BodyStrong, ui::px(64)).c_str(),
-                   ui::FontRole::BodyStrong, o.visible ? t.text : t.textFaint);
+                   ui::FontRole::BodyStrong, o.visible && !hiddenBySolo ? t.text : t.textFaint);
         float sx = tx + nameW + ui::px(8);
         float sw = eye.x - sx - ui::px(6);
         bool hasError = !o.error().empty();
@@ -299,13 +335,116 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
         }
         ui::tooltip(eye, o.visible ? "Hide" : "Show");
         if (hasError) ui::tooltip(row, o.error().c_str(), o.name().c_str());
-    }
-    if (space.objects().empty()) {
-        note(col, "Nothing here yet. Use Add to create a vector, a matrix, a plot...", t.textMuted);
+        else if (hiddenBySolo) ui::tooltip(row, "Hidden in the view while only the selection is shown (O).");
     }
     ui::anchor("objects.list", listArea);
+
+    // Show all: undoes hiding (one undo step) and turns "only the selection" off
+    bool anyHidden = false;
+    for (const auto& obj : space.objects()) anyHidden = anyHidden || !obj->visible;
+    if (anyHidden || soloActive) {
+        col.space(2.0f);
+        Rectangle all = col.row(28.0f);
+        if (ui::button(all, "Show all", ui::ButtonKind::Secondary, true, ui::Icon::Eye)) {
+            if (anyHidden) {
+                for (const auto& obj : space.objects()) obj->visible = true;
+                sc.commit();
+            }
+            m_requests.soloOff = true;
+        }
+        ui::tooltip(all, "Show every object again (hidden ones and the ones left out by 'only the selection').",
+                    "Show all");
+        ui::anchor("objects.showall", all);
+    }
     col.space(8.0f);
     return col.y();
+}
+
+
+const ScenePanel::TypeUi* ScenePanel::typeUi(const std::string& typeId) {
+    using O = const SceneObject&;  // a short name for the parameter type below
+    // Lambdas with no capture ([]) convert to plain function pointers, so they fit TypeUi::summary.
+    // `static` builds the table once, the first time it is needed.
+    static const std::map<std::string, TypeUi> table = {
+        {"vector", {&ScenePanel::inspectVector, [](O o) -> std::string {
+             if (!static_cast<const scene::VectorObject&>(o).byFormula()) return o.value().summary();
+             return o.field("value")->text + " = " + o.value().summary();
+         }}},
+        {"matrix", {&ScenePanel::inspectMatrix, [](O o) -> std::string {
+             return static_cast<const scene::MatrixObject&>(o).byFormula() ? o.field("value")->text : o.value().summary();
+         }}},
+        {"eigen", {&ScenePanel::inspectEigen, [](O o) -> std::string { return "eigenvectors of " + o.field("of")->text; }}},
+        {"function", {&ScenePanel::inspectPlot, [](O o) -> std::string { return "y = " + o.field("f")->text; }}},
+        {"surface", {&ScenePanel::inspectPlot, [](O o) -> std::string { return "z = " + o.field("f")->text; }}},
+        {"implicit", {&ScenePanel::inspectPlot, [](O o) -> std::string { return o.field("f")->text + " = 0"; }}},
+        {"curve", {&ScenePanel::inspectPlot, [](O) -> std::string { return "curve in u"; }}},
+        {"field", {&ScenePanel::inspectField, [](O o) -> std::string { return "F = " + o.field("F")->text; }}},
+        {"parameter", {&ScenePanel::inspectParameter, [](O o) -> std::string {
+             const auto& p = static_cast<const scene::ParameterObject&>(o);
+             const char* how = p.mode() == scene::ParameterObject::Mode::Formula   ? "f(t)"
+                               : p.mode() == scene::ParameterObject::Mode::Animate ? "animated"
+                                                                                  : "slider";
+             return std::string(how) + " = " + fmt(p.number());
+         }}},
+        {"quaternion", {&ScenePanel::inspectQuaternion, [](O o) -> std::string {
+             expr::Rotation r;
+             if (!expr::rotationOf(o.value(), r)) return o.value().summary();
+             char buf[64];
+             snprintf(buf, sizeof(buf), "%.0f° rotation", r.angle * 180.0 / 3.14159265358979);
+             return buf;
+         }}},
+        {"doubleintegral", {&ScenePanel::inspectIntegral, [](O o) -> std::string { return "= " + o.value().summary(); }}},
+        {"lineintegral", {&ScenePanel::inspectIntegral, [](O o) -> std::string { return "= " + o.value().summary(); }}},
+        {"frame", {&ScenePanel::inspectFrame, [](O o) -> std::string {
+             const auto& f = static_cast<const scene::FrameObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "κ = %.3g at u = %.3g", f.frame().kappa, f.u0());
+             return buf;
+         }}},
+        {"tangent", {&ScenePanel::inspectTangent, [](O o) -> std::string {
+             char buf[64];
+             snprintf(buf, sizeof(buf), "slope %.3g at x = %.3g", o.value().re,
+                      static_cast<const scene::TangentObject&>(o).x0());
+             return buf;
+         }}},
+        {"tangentplane", {&ScenePanel::inspectTangentPlane, [](O o) -> std::string {
+             const auto& g = static_cast<const scene::TangentPlaneObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "grad f = (%.3g, %.3g)", g.fx(), g.fy());
+             return buf;
+         }}},
+        {"velocity", {&ScenePanel::inspectVelocity, [](O o) -> std::string {
+             char buf[64];
+             snprintf(buf, sizeof(buf), "speed %.3g at u = %.3g", o.value().vector.magnitude(),
+                      static_cast<const scene::VelocityObject&>(o).u0());
+             return buf;
+         }}},
+        {"taylor", {&ScenePanel::inspectTaylor, [](O o) -> std::string {
+             const auto& tp = static_cast<const scene::TaylorObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "degree %d about %.3g", static_cast<int>(tp.series().coeffs.size()) - 1,
+                      tp.series().center);
+             return buf;
+         }}},
+        {"newton", {&ScenePanel::inspectNewton, [](O o) -> std::string {
+             const auto& nw = static_cast<const scene::NewtonObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "x%d ≈ %.6g", static_cast<int>(nw.run().steps.size()) - 1, o.value().re);
+             return buf;
+         }}},
+        {"fourierseries", {&ScenePanel::inspectFourierSeries, [](O o) -> std::string {
+             return "N = " + std::to_string(static_cast<const scene::FourierSeriesObject&>(o).terms()) + " terms";
+         }}},
+        {"complex", {&ScenePanel::inspectComplex, nullptr}},
+        {"product", {&ScenePanel::inspectProduct, [](O o) -> std::string {
+             return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
+         }}},
+        {"epicycles", {&ScenePanel::inspectEpicycles, [](O o) -> std::string {
+             return std::to_string(static_cast<const scene::EpicyclesObject&>(o).circles()) + " circles";
+         }}},
+    };
+    auto it = table.find(typeId);
+    return it == table.end() ? nullptr : &it->second;
 }
 
 float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc, SpaceKind kind,
@@ -359,409 +498,11 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
     if (type != "parameter") ui::tooltip(sw, "Change the color", "Color");
     col.space(2.0f);
 
-    auto commit = [&sc]() { sc.commit(); };
+    // --- Type-specific content (ScenePanelInspectors.cpp) ------------------------
+    InspectorContext ctx{col, o, sc, kind, view};
+    if (const TypeUi* tu = typeUi(type); tu && tu->inspect) (this->*tu->inspect)(ctx);
 
-    // --- Type-specific content ------------------------------------------------
-    if (type == "vector") {
-        auto& v = static_cast<scene::VectorObject&>(o);
-        int mode = v.byFormula() ? 1 : 0;
-        if (ui::segmented(col.row(32), {"Components", "Formula"}, mode,
-                          {"Type the x, y and z components.",
-                           "Define it from other objects, e.g. a + b, cross(a, b), M*a, 2*normalize(a)."})) {
-            m_activeId = -1;
-            v.setByFormula(mode == 1);
-            if (mode == 1) v.setField("value", "[" + v.field("x")->text + ", " + v.field("y")->text + ", " +
-                                                    v.field("z")->text + "]");
-            commit();
-        }
-        if (!v.byFormula()) {
-            Rectangle row = col.row(34.0f);
-            auto cells = ui::splitRow(row, {1, 1, 1}, 6.0f);
-            const char* keys[3] = {"x", "y", "z"};
-            for (int k = 0; k < 3; k++) {
-                scene::Field* f = v.field(keys[k]);
-                int id = fieldId(v, keys[k]);
-                std::string key = keys[k];
-                editText(cells[k], id, f->text, !f->error.empty(), [&sc, kind, oid, key](const std::string& text) {
-                    SceneObject* ob = sc.space(kind).find(oid);
-                    if (!ob) return false;
-                    ob->setField(key, text);
-                    sc.commit();
-                    return true;
-                });
-                ui::tooltip(cells[k], (std::string(keys[k]) + " component: a number or a formula such as cos(theta)").c_str());
-            }
-            for (int k = 0; k < 3; k++) {
-                if (!v.field(keys[k])->error.empty()) note(col, std::string(keys[k]) + ": " + v.field(keys[k])->error, t.danger);
-            }
-        } else {
-            col.setY(fieldRow(col.x(), col.y(), col.width(), v, "value", sc, 0.0f));
-        }
-        col.setY(fieldRow(col.x(), col.y(), col.width(), v, "tail", sc));
-        if (v.value().type == expr::Type::Vector) {
-            Vector3D val = v.value().vector;
-            char buf[96];
-            snprintf(buf, sizeof(buf), "|%s| = %.3f", v.name().c_str(), val.magnitude());
-            ui::textIn(col.row(18), buf, ui::FontRole::Mono, t.textMuted);
-        }
-    } else if (type == "matrix") {
-        auto& m = static_cast<scene::MatrixObject&>(o);
-        int mode = m.byFormula() ? 1 : 0;
-        if (ui::segmented(col.row(32), {"Cells", "Formula"}, mode,
-                          {"Type each entry. Entries may use parameters, e.g. cos(theta).",
-                           "One formula: rotz(theta), scale(2), inv(A), A*B, [a, b, cross(a, b)] (columns)..."})) {
-            m_activeId = -1;
-            m.setByFormula(mode == 1);
-            commit();
-        }
-        if (!m.byFormula()) {
-            Rectangle top = col.row(32.0f);
-            top.width = std::min(top.width, ui::px(150.0f));
-            int size = m.size() == 4 ? 1 : 0;
-            if (ui::segmented(top, {"3×3", "4×4"}, size,
-                              {"A linear map of 3D space.",
-                               "Adds a fourth row and column (homogeneous coordinates); the last column translates."})) {
-                m_activeId = -1;
-                m.setSize(size == 1 ? 4 : 3);
-                commit();
-            }
-            int n = m.size();
-            Rectangle grid = {col.x(), col.y(), col.width(), 0};
-            for (int i = 0; i < n; i++) {
-                Rectangle row = col.row(n == 4 ? 32.0f : 36.0f);
-                grid = ui::unite(grid, row);
-                auto cells = n == 4 ? ui::splitRow(row, {1, 1, 1, 1}, 6.0f) : ui::splitRow(row, {1, 1, 1}, 6.0f);
-                for (int j = 0; j < n; j++) {
-                    std::string key = scene::MatrixObject::cellKey(i, j);
-                    scene::Field* f = m.field(key);
-                    editText(cells[j], fieldId(m, key), f->text, !f->error.empty(), [&sc, kind, oid, key](const std::string& text) {
-                        SceneObject* ob = sc.space(kind).find(oid);
-                        if (!ob) return false;
-                        ob->setField(key, text);
-                        sc.commit();
-                        return true;
-                    });
-                    static const char* columnTips[4] = {
-                        "Column 1 is where M sends the x-axis vector (1, 0, 0).",
-                        "Column 2 is where M sends the y-axis vector (0, 1, 0).",
-                        "Column 3 is where M sends the z-axis vector (0, 0, 1).",
-                        "Column 4 is the translation (4×4 only).",
-                    };
-                    if (m_activeId != fieldId(m, key)) ui::tooltip(cells[j], columnTips[j]);
-                }
-            }
-            ui::anchor("matrix.grid", grid);
-            if (!m.error().empty()) note(col, m.error(), t.danger);
-
-            // Presets
-            struct Preset { const char* label; const char* key; Matrix3D value; const char* tip; };
-            const Preset presets[] = {
-                {"Identity", "I", Matrix3D::identity(), "Leaves every vector where it is. det = 1."},
-                {"Rotate 45°", "R", Matrix3D::rotation(kPi / 4), "45° about the z-axis. Lengths and angles are kept (det = 1)."},
-                {"Scale 2×", "S", Matrix3D::scale(2, 2), "Doubles x and y, keeps z (det = 4)."},
-                {"Shear", "X", Matrix3D::shear(0.5f, 0), "x' = x + 0.5 y: squares become parallelograms (det = 1)."},
-                {"Reflect", "F", Matrix3D::scale(-1, 1), "x' = −x: a mirror image (det = −1)."},
-            };
-            col.space(2.0f);
-            Rectangle presetArea = {col.x(), col.y(), col.width(), 0};
-            for (int i = 0; i < 5; i += 2) {
-                Rectangle row = col.row(30.0f);
-                presetArea = ui::unite(presetArea, row);
-                auto cells = ui::splitRow(row, {1, 1}, 6.0f);
-                for (int k = 0; k < 2 && i + k < 5; k++) {
-                    const Preset& p = presets[i + k];
-                    if (ui::button(cells[k], p.label, ui::ButtonKind::Secondary, true, ui::Icon::None, p.key)) {
-                        m_activeId = -1;
-                        m.setSize(3);
-                        for (int r = 0; r < 3; r++)
-                            for (int c = 0; c < 3; c++) {
-                                char buf[32];
-                                formatNumber(buf, sizeof(buf), p.value.m[r][c]);
-                                m.setField(scene::MatrixObject::cellKey(r, c), buf);
-                            }
-                        commit();
-                    }
-                    ui::tooltip(cells[k], p.tip, p.label);
-                    if (i + k == 1) ui::anchor("preset.rotate", cells[k]);
-                    if (i + k == 4) ui::anchor("preset.reflect", cells[k]);
-                }
-            }
-            ui::anchor("presets", presetArea);
-        } else {
-            col.setY(fieldRow(col.x(), col.y(), col.width(), m, "value", sc, 0.0f));
-            note(col, "Try rotz(theta), rot([1,1,1], pi/3), scale(1, 2, 1), translate(1, 0, 0), inv(M), A*B, "
-                      "or [u, v, w] to use vectors as columns.", t.textFaint);
-        }
-        if (m.value().type == expr::Type::Matrix) {
-            float det = m.value().size == 4 ? m.value().matrix.determinant() : m.value().matrix3().determinant();
-            char buf[64];
-            snprintf(buf, sizeof(buf), "det = %.4g", det);
-            ui::textIn(col.row(18), buf, ui::FontRole::Mono, t.textMuted);
-        }
-    } else if (type == "eigen") {
-        col.setY(fieldRow(col.x(), col.y(), col.width(), o, "of", sc));
-        note(col, "Dashed lines show the directions this matrix only stretches; the dots mark λv.", t.textMuted);
-    } else if (dynamic_cast<scene::PlotObject*>(&o)) {
-        auto& p = static_cast<scene::PlotObject&>(o);
-        bool curve = (type == "curve");
-        if (curve) {
-            for (const char* k : {"x", "y", "z"}) col.setY(fieldRow(col.x(), col.y(), col.width(), p, k, sc));
-        } else {
-            col.setY(fieldRow(col.x(), col.y(), col.width(), p, "f", sc));
-            ui::anchor("plot.expr", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
-        }
-        auto rangeRow = [&](const char* lo, const char* hi, const char* label) {
-            Rectangle row = col.row(34.0f);
-            Rectangle l = ui::takeLeft(row, 34.0f, 6.0f);
-            ui::textIn(l, label, ui::FontRole::Body, t.textMuted);
-            auto cells = ui::splitRow(row, {1, 1}, 26.0f);
-            const char* keys[2] = {lo, hi};
-            for (int k = 0; k < 2; k++) {
-                std::string key = keys[k];
-                scene::Field* f = p.field(key);
-                editText(cells[k], fieldId(p, key), f->text, !f->error.empty(), [&sc, kind, oid, key](const std::string& text) {
-                    SceneObject* ob = sc.space(kind).find(oid);
-                    if (!ob) return false;
-                    ob->setField(key, text);
-                    sc.commit();
-                    return true;
-                });
-            }
-            ui::textIn({cells[0].x + cells[0].width, row.y, ui::px(26), row.height}, "to", ui::FontRole::Small, t.textMuted,
-                       ui::Align::Center);
-        };
-        if (curve) rangeRow("umin", "umax", "u");
-        else {
-            rangeRow("xmin", "xmax", "x");
-            if (type != "function") rangeRow("ymin", "ymax", "y");
-        }
-
-        Rectangle row = col.row(30.0f);
-        Rectangle label = ui::takeLeft(row, 52.0f, 8.0f);
-        Rectangle value = ui::takeRight(row, 64.0f, 8.0f);
-        ui::textIn(label, "Detail", ui::FontRole::Body, t.text);
-        auto dr = scene::PlotObject::densityRange(p.kind());
-        float density = static_cast<float>(p.density());
-        if (ui::slider(row, density, static_cast<float>(dr.min), static_cast<float>(dr.max))) {
-            p.setDensity(density < 10 ? std::round(density * 2) / 2.0 : std::round(static_cast<double>(density)));
-            m_sliderDirty = true;
-        }
-        ui::anchor("plot.detail", row);
-        bool grid2D = type == "surface" || type == "implicit";
-        char dbuf[48];
-        snprintf(dbuf, sizeof(dbuf), "%g/unit", p.density());
-        ui::textIn(value, dbuf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
-        ui::tooltip({label.x, row.y, value.x + value.width - label.x, row.height},
-                    grid2D ? "Grid cells per unit of x and y. A wider range keeps the same smoothness."
-                           : (curve ? "Samples per unit of t. A longer range keeps the same smoothness."
-                                    : "Samples per unit of x. A wider range keeps the same smoothness."),
-                    "Detail");
-        scene::PlotObject::Samples sm = p.samples();
-        char sbuf[128];
-        if (grid2D) {
-            if (sm.capped)
-                snprintf(sbuf, sizeof(sbuf), "%d × %d cells (capped from %d × %d for speed)", sm.nx, sm.ny, sm.wantedX,
-                         sm.wantedY);
-            else
-                snprintf(sbuf, sizeof(sbuf), "%d × %d cells", sm.nx, sm.ny);
-        } else {
-            if (sm.capped) snprintf(sbuf, sizeof(sbuf), "%d samples (capped from %d for speed)", sm.nx, sm.wantedX);
-            else snprintf(sbuf, sizeof(sbuf), "%d samples", sm.nx);
-        }
-        note(col, sbuf, sm.capped ? t.warning : t.textFaint);
-        bool heat = p.heatmap();
-        if (ui::toggleRow(col.row(30), "Heat map", heat)) {
-            p.setProp("heatmap", heat);
-            commit();
-        }
-        if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
-            m_activeId = -1;
-            const auto& list = plotExamples(type);
-            m_exampleIndex = (m_exampleIndex + 1) % static_cast<int>(list.size());
-            const PlotExample& e = list[m_exampleIndex];
-            if (curve) {
-                p.setField("x", e.x);
-                p.setField("y", e.y);
-                p.setField("z", e.z);
-            } else {
-                p.setField("f", e.f);
-            }
-            commit();
-        }
-        const PlotRenderer* r = view.plot(p.id());
-        if (!p.error().empty()) note(col, p.error(), t.danger);
-        else if (r && !r->error().empty()) note(col, r->error(), t.danger);
-        else if (r) {
-            char buf[96];
-            snprintf(buf, sizeof(buf), "Values range over [%.2f, %.2f]", r->minValue(), r->maxValue());
-            note(col, buf, t.textMuted);
-        }
-        note(col, curve ? "u runs along the curve; t is the scene time. Parameters work by name too."
-                        : "Use x, y, t (the scene time) and parameters by name, e.g. a*sin(x - t).",
-             t.textFaint);
-    } else if (type == "parameter") {
-        auto& p = static_cast<scene::ParameterObject&>(o);
-        using PMode = scene::ParameterObject::Mode;
-        Rectangle modeRow = col.row(30.0f);
-        int m = static_cast<int>(p.mode());
-        if (ui::segmented(modeRow, {"Slider", "Animate", "Formula"}, m,
-                          {"Set the value by hand. It stays where you put it.",
-                           "Follows the scene clock from min to max, with a repeat style and an easing curve.",
-                           "A formula of t, the scene time in seconds, e.g. 2pi*t/5 or sin(t)."})) {
-            p.setMode(static_cast<PMode>(m));
-            commit();
-        }
-        ui::anchor("parameter.mode", modeRow);
-
-        if (p.mode() == PMode::Formula) {
-            col.setY(fieldRow(col.x(), col.y(), col.width(), o, "formula", sc, 64.0f));
-            ui::anchor("parameter.formula", {col.x(), col.y() - ui::px(40), col.width(), ui::px(36)});
-        }
-        if (p.mode() == PMode::Slider) {
-            Rectangle row = col.row(30.0f);
-            Rectangle value = ui::takeRight(row, 56.0f, 8.0f);
-            float v = static_cast<float>(p.number());
-            if (ui::slider(row, v, static_cast<float>(p.minimum()), static_cast<float>(p.maximum()))) {
-                p.setNumber(v);
-                m_sliderDirty = true;
-            }
-            ui::anchor("parameter.slider", row);
-            ui::textIn(value, fmt(p.number()).c_str(), ui::FontRole::Mono, t.text, ui::Align::Right);
-        }
-        if (p.mode() != PMode::Formula) {
-            Rectangle range = col.row(34.0f);
-            Rectangle l = ui::takeLeft(range, 52.0f, 6.0f);
-            ui::textIn(l, "Range", ui::FontRole::Body, t.textMuted);
-            auto cells = ui::splitRow(range, {1, 1}, 26.0f);
-            const char* keys[2] = {"min", "max"};
-            for (int k = 0; k < 2; k++) {
-                std::string key = keys[k];
-                editText(cells[k], fieldId(p, std::string("#") + key), fmt(p.propNumber(key)), false,
-                         [&sc, kind, oid, key](const std::string& text) {
-                             float val;
-                             auto* ob = dynamic_cast<scene::ParameterObject*>(sc.space(kind).find(oid));
-                             if (!ob || !parseNumber(text.c_str(), val)) return false;
-                             ob->setProp(key, static_cast<double>(val));
-                             ob->setNumber(ob->number());
-                             sc.commit();
-                             return true;
-                         });
-            }
-            ui::textIn({cells[0].x + cells[0].width, range.y, ui::px(26), range.height}, "to", ui::FontRole::Small,
-                       t.textMuted, ui::Align::Center);
-        }
-
-        if (p.mode() == PMode::Animate) {
-            Playback pb = p.playback();
-            bool changed = false;
-            changed |= ui::repeatControl(col.row(30.0f), pb.repeat);
-            Rectangle row = col.row(32.0f);
-            Rectangle easeRect = ui::takeLeft(row, 150.0f, 10.0f);
-            if (ui::easingButton(easeRect, pb.easing, m_easingOpen)) m_easingOpen = !m_easingOpen;
-            ui::anchor("parameter.easing", easeRect);
-            Rectangle durValue = ui::takeRight(row, 44.0f, 6.0f);
-            float dur = pb.duration;
-            if (ui::slider(row, dur, 0.5f, 30.0f)) {
-                pb.duration = std::round(dur * 10.0f) / 10.0f;
-                changed = true;
-                m_sliderDirty = true;
-            }
-            ui::tooltip(row, "Seconds for one run from min to max.", "Duration");
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%.1fs", pb.duration);
-            ui::textIn(durValue, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
-            if (m_easingOpen) {
-                bool picked = false;
-                float h = ui::easingGrid(col.x(), col.y(), col.width(), pb.easing, picked);
-                col.space(h / ui::scale() + 6.0f);
-                changed |= picked;
-            }
-            if (changed) {
-                p.setPlayback(pb);
-                if (!m_sliderDirty) commit();
-            }
-            // Start delay, so several parameters can run one after another
-            Rectangle startRow = col.row(34.0f);
-            Rectangle sl = ui::takeLeft(startRow, 64.0f, 6.0f);
-            ui::textIn(sl, "Start at", ui::FontRole::Body, t.textMuted);
-            Rectangle sf = ui::takeLeft(startRow, 80.0f, 6.0f);
-            editText(sf, fieldId(p, "#start"), fmt(p.startDelay()), false, [&sc, kind, oid](const std::string& text) {
-                float val;
-                auto* ob = dynamic_cast<scene::ParameterObject*>(sc.space(kind).find(oid));
-                if (!ob || !parseNumber(text.c_str(), val) || val < 0.0f) return false;
-                ob->setProp("anim.start", static_cast<double>(val));
-                sc.commit();
-                return true;
-            });
-            ui::tooltip(sf, "Seconds of scene time before this parameter starts moving.", "Start delay");
-            ui::textIn(startRow, "s", ui::FontRole::Small, t.textMuted);
-        }
-
-        if (p.timeDriven()) {
-            // Current value and the link to the clock that drives it
-            const scene::Timeline& tl = sc.timeline();
-            char buf[96];
-            snprintf(buf, sizeof(buf), "t = %.2f s     %s = %s", tl.time, p.name().c_str(), fmt(p.number()).c_str());
-            ui::textIn(col.row(18.0f), buf, ui::FontRole::Mono, t.textMuted);
-            Rectangle link = col.row(30.0f);
-            if (ui::button(link, tl.playing ? "Follows the Time panel (playing)" : "Follows the Time panel (paused)",
-                           ui::ButtonKind::Secondary, true, tl.playing ? ui::Icon::Pause : ui::Icon::Play)) {
-                m_requests.openTime = true;
-            }
-            ui::anchor("parameter.time", link);
-            ui::tooltip(link, "Time-driven parameters follow the scene clock. Play, pause and scrub it in the Time "
-                              "panel (P plays or pauses).", "Scene clock");
-        }
-        note(col, "Use " + p.name() + " in any formula, e.g. rotz(" + p.name() + ") or lerp(eye(), M, " + p.name() +
-                      ").",
-             t.textFaint);
-    } else if (type == "complex") {
-        col.setY(fieldRow(col.x(), col.y(), col.width(), o, "value", sc, 52.0f));
-        const expr::Value& v = o.value();
-        if (v.isNumber()) {
-            double r = std::hypot(v.re, v.im), a = std::atan2(v.im, v.re) * 180.0 / kPi;
-            if (std::fabs(a) < 0.05) a = 0.0;  // no "-0.0°"
-            char buf[96];
-            snprintf(buf, sizeof(buf), "|%s| = %.3f   arg = %.1f°", o.name().c_str(), r, a);
-            ui::textIn(col.row(18), buf, ui::FontRole::Mono, t.textMuted);
-        }
-        struct Toggle { const char* label; const char* key; const char* tip; };
-        const Toggle toggles[] = {
-            {"Circle through it", "circle", "The circle of all numbers with the same length"},
-            {"cos / sin projections", "projections", "Its shadows on the real and imaginary axes"},
-            {"Helix of e^(it)", "helix", "The path r·e^(it) for t from 0 to its angle, rising along Z"},
-        };
-        for (const auto& tg : toggles) {
-            Rectangle r = col.row(30.0f);
-            bool on = o.propBool(tg.key);
-            if (ui::toggleRow(r, tg.label, on)) {
-                o.setProp(tg.key, on);
-                commit();
-            }
-            ui::tooltip(r, tg.tip);
-        }
-    } else if (type == "product") {
-        col.setY(fieldRow(col.x(), col.y(), col.width(), o, "a", sc, 104.0f));
-        col.setY(fieldRow(col.x(), col.y(), col.width(), o, "b", sc, 104.0f));
-        const scene::Field* fa = o.field("a");
-        const scene::Field* fb = o.field("b");
-        if (o.value().isNumber() && fa->value.isNumber() && fb->value.isNumber()) {
-            double ra = std::hypot(fa->value.re, fa->value.im), rb = std::hypot(fb->value.re, fb->value.im);
-            double aa = std::atan2(fa->value.im, fa->value.re) * 180 / kPi, ab = std::atan2(fb->value.im, fb->value.re) * 180 / kPi;
-            char buf[128];
-            snprintf(buf, sizeof(buf), "length %.2f × %.2f = %.2f", ra, rb, ra * rb);
-            ui::textIn(col.row(18), buf, ui::FontRole::Mono, t.textMuted);
-            snprintf(buf, sizeof(buf), "angle %.1f° + %.1f° = %.1f°", aa, ab, aa + ab);
-            ui::textIn(col.row(18), buf, ui::FontRole::Mono, t.textMuted);
-        }
-        bool angles = o.propBool("angles", true);
-        if (ui::toggleRow(col.row(30), "Show rotation and scaling", angles)) {
-            o.setProp("angles", angles);
-            commit();
-        }
-    }
-
-    if (!o.error().empty() && type != "matrix" && !dynamic_cast<scene::PlotObject*>(&o)) {
+    if (!o.error().empty() && type != "matrix" && type != "field" && !dynamic_cast<scene::PlotObject*>(&o)) {
         bool shown = false;
         for (const auto& f : o.fields()) {
             if (!f.error.empty()) shown = true;

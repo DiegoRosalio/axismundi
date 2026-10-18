@@ -1,0 +1,306 @@
+#include "math/VectorField.hpp"
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <unordered_map>
+
+namespace linalg::field {
+
+bool Box::contains(const Vector3D& p, double slack) const {
+    return p.x >= min.x - slack && p.x <= max.x + slack && p.y >= min.y - slack && p.y <= max.y + slack &&
+           p.z >= min.z - slack && p.z <= max.z + slack;
+}
+
+FieldFunction::FieldFunction(const expr::Program& program, const expr::Resolver* resolver, double time, bool plane)
+    : m_program(program), m_resolver(resolver), m_time(time), m_plane(plane) {}
+
+bool FieldFunction::at(const Vector3D& p, Vector3D& out) const {
+    expr::Slots s;
+    s.x = p.x;
+    s.y = p.y;
+    s.z = m_plane ? 0.0 : p.z;
+    s.t = m_time;
+    s.hasX = s.hasY = s.hasZ = s.hasT = true;
+    expr::Value v = m_program.eval(m_resolver, &s);
+    if (!v.ok() || v.type != expr::Type::Vector) return false;
+    out = v.vector;
+    if (m_plane) out.z = 0.0f;
+    return std::isfinite(out.x) && std::isfinite(out.y) && std::isfinite(out.z);
+}
+
+ArrowSet sampleArrows(const FieldFunction& f, const Box& box, int nx, int ny, int nz, bool sameLength) {
+    ArrowSet set;
+    nx = std::max(1, nx);
+    ny = std::max(1, ny);
+    nz = f.plane() ? 1 : std::max(1, nz);
+    double dx = (box.max.x - box.min.x) / nx, dy = (box.max.y - box.min.y) / ny;
+    double dz = f.plane() ? 0.0 : (box.max.z - box.min.z) / nz;
+    set.cell = std::min(dx, dy);
+    if (!f.plane()) set.cell = std::min(set.cell, dz);
+    if (!(set.cell > 0.0)) set.cell = 1.0;
+
+    std::vector<Arrow> raw;
+    raw.reserve(static_cast<size_t>(nx) * ny * nz);
+    double lo = 0.0, hi = 0.0;
+    bool first = true;
+    for (int k = 0; k < nz; k++)
+        for (int j = 0; j < ny; j++)
+            for (int i = 0; i < nx; i++) {
+                Vector3D p(static_cast<float>(box.min.x + (i + 0.5) * dx), static_cast<float>(box.min.y + (j + 0.5) * dy),
+                           f.plane() ? 0.0f : static_cast<float>(box.min.z + (k + 0.5) * dz));
+                Vector3D v;
+                if (!f.at(p, v)) continue;
+                double m = v.magnitude();
+                if (!(m > 1e-12)) continue;
+                raw.push_back({p, v, m});
+                lo = first ? m : std::min(lo, m);
+                hi = first ? m : std::max(hi, m);
+                first = false;
+            }
+    set.minMagnitude = lo;
+    set.maxMagnitude = hi;
+    // The longest arrow is 90% of a cell, so neighbours don't touch
+    const double longest = 0.9 * set.cell;
+    for (Arrow& a : raw) {
+        double scale = sameLength ? 0.75 * longest / a.magnitude : longest / hi;
+        a.vec = a.vec * static_cast<float>(scale);
+    }
+    set.arrows = std::move(raw);
+    return set;
+}
+
+namespace {
+
+// Unit direction of F, false where F is (nearly) zero or undefined
+bool direction(const FieldFunction& f, const Vector3D& p, double sign, Vector3D& dir, double& speed) {
+    Vector3D v;
+    if (!f.at(p, v)) return false;
+    speed = v.magnitude();
+    if (!(speed > 1e-9)) return false;
+    dir = v * static_cast<float>(sign / speed);
+    return true;
+}
+
+// One direction of a flow line: points after the seed (not including it) and their flow times
+void traceOneWay(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps, double sign,
+                 std::vector<Vector3D>& points, std::vector<double>& times, bool& closed,
+                 const std::function<bool(const Vector3D&)>& stop) {
+    Vector3D p = seed;
+    double tau = 0.0;
+    for (int n = 0; n < maxSteps; n++) {
+        Vector3D k1, k2, k3, k4;
+        double s1, s2, s3, s4;
+        float h = static_cast<float>(step);
+        if (!direction(f, p, sign, k1, s1)) return;
+        if (!direction(f, p + k1 * (h / 2), sign, k2, s2)) return;
+        if (!direction(f, p + k2 * (h / 2), sign, k3, s3)) return;
+        if (!direction(f, p + k3 * h, sign, k4, s4)) return;
+        Vector3D next = p + (k1 + k2 * 2.0f + k3 * 2.0f + k4) * (h / 6.0f);
+        if (f.plane()) next.z = 0.0f;
+        // Flow time: arc length over the speed (Simpson's rule on 1/|F|)
+        double dt = step * (1.0 / s1 + 4.0 / s2 + 1.0 / s4) / 6.0;
+        if (!box.contains(next)) {
+            // Clip the last step at the box edge
+            double lo = 0.0, hi = 1.0;
+            for (int it = 0; it < 20; it++) {
+                double mid = (lo + hi) / 2;
+                (box.contains(p + (next - p) * static_cast<float>(mid)) ? lo : hi) = mid;
+            }
+            if (lo > 1e-6) {
+                points.push_back(p + (next - p) * static_cast<float>(lo));
+                times.push_back(tau + dt * lo);
+            }
+            return;
+        }
+        tau += dt;
+        p = next;
+        points.push_back(p);
+        times.push_back(tau);
+        if (stop && stop(p)) return;  // e.g. too close to another flow line
+        // Back at the start after going round: an orbit
+        if (n > 8 && (p - seed).magnitude() < 0.6 * step) {
+            closed = true;
+            return;
+        }
+    }
+}
+
+} // namespace
+
+namespace {
+
+FlowLine traceWithStop(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps,
+                       const std::function<bool(const Vector3D&)>& stop);
+
+} // namespace
+
+FlowLine traceFlowLine(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps) {
+    return traceWithStop(f, seed, box, step, maxSteps, nullptr);
+}
+
+namespace {
+
+FlowLine traceWithStop(const FieldFunction& f, const Vector3D& seed, const Box& box, double step, int maxSteps,
+                       const std::function<bool(const Vector3D&)>& stop) {
+    FlowLine line;
+    Vector3D s = seed;
+    if (f.plane()) s.z = 0.0f;
+    std::vector<Vector3D> fwd, back;
+    std::vector<double> fwdT, backT;
+    bool closed = false;
+    traceOneWay(f, s, box, step, maxSteps, 1.0, fwd, fwdT, closed, stop);
+    if (!closed) {
+        bool closedBack = false;
+        traceOneWay(f, s, box, step, maxSteps, -1.0, back, backT, closedBack, stop);
+    }
+    // Upstream end first: the backward points reversed, then the seed, then forward
+    double offset = backT.empty() ? 0.0 : backT.back();
+    for (size_t i = back.size(); i-- > 0;) {
+        line.points.push_back(back[i]);
+        line.times.push_back(offset - backT[i]);
+    }
+    line.points.push_back(s);
+    line.times.push_back(offset);
+    for (size_t i = 0; i < fwd.size(); i++) {
+        line.points.push_back(fwd[i]);
+        line.times.push_back(offset + fwdT[i]);
+    }
+    if (closed) {
+        // Close the loop exactly
+        Vector3D v;
+        double speed = f.at(s, v) ? v.magnitude() : 0.0;
+        double gap = (line.points.back() - s).magnitude();
+        line.points.push_back(s);
+        line.times.push_back(line.times.back() + (speed > 1e-9 ? gap / speed : 0.0));
+        line.closed = true;
+    }
+    if (line.points.size() < 2) line.points.clear(), line.times.clear();
+    return line;
+}
+
+} // namespace
+
+namespace {
+
+// Points of the kept lines in a hash grid with cells of the separation size
+class PointGrid {
+public:
+    explicit PointGrid(double cell) : m_cell(cell > 0 ? cell : 1.0) {}
+    void add(const Vector3D& p) { m_cells[key(p)].push_back(p); }
+    bool near(const Vector3D& p, double dist) const {
+        long cx = coord(p.x), cy = coord(p.y), cz = coord(p.z);
+        for (long dx = -1; dx <= 1; dx++)
+            for (long dy = -1; dy <= 1; dy++)
+                for (long dz = -1; dz <= 1; dz++) {
+                    auto it = m_cells.find(pack(cx + dx, cy + dy, cz + dz));
+                    if (it == m_cells.end()) continue;
+                    for (const Vector3D& q : it->second)
+                        if ((q - p).magnitude() < dist) return true;
+                }
+        return false;
+    }
+
+private:
+    long coord(float v) const { return static_cast<long>(std::floor(v / m_cell)); }
+    static long long pack(long x, long y, long z) {
+        return (static_cast<long long>(x & 0x1FFFFF) << 42) | (static_cast<long long>(y & 0x1FFFFF) << 21) |
+               static_cast<long long>(z & 0x1FFFFF);
+    }
+    long long key(const Vector3D& p) const { return pack(coord(p.x), coord(p.y), coord(p.z)); }
+    double m_cell;
+    std::unordered_map<long long, std::vector<Vector3D>> m_cells;
+};
+
+} // namespace
+
+std::vector<FlowLine> traceFlowLines(const FieldFunction& f, const std::vector<Vector3D>& seeds, const Box& box,
+                                     double step, int maxSteps, double separation) {
+    std::vector<FlowLine> kept;
+    PointGrid grid(separation);
+    for (const Vector3D& seed0 : seeds) {
+        Vector3D seed = seed0;
+        if (f.plane()) seed.z = 0.0f;
+        if (separation > 0 && grid.near(seed, separation)) continue;
+        // Stop tracing once the line runs into a kept one (it would be cut there anyway)
+        std::function<bool(const Vector3D&)> stop;
+        if (separation > 0) stop = [&](const Vector3D& p) { return grid.near(p, separation); };
+        FlowLine line = traceWithStop(f, seed, box, step, maxSteps, stop);
+        if (line.points.size() < 2) continue;
+        if (separation > 0) {
+            // The seed's index: the point with the largest time not after the seed's (the seed is a point)
+            size_t s = 0;
+            for (size_t i = 0; i < line.points.size(); i++)
+                if ((line.points[i] - seed).magnitude() < 1e-6f) {
+                    s = i;
+                    break;
+                }
+            size_t hi = s, lo = s;
+            while (hi + 1 < line.points.size() && !grid.near(line.points[hi + 1], separation)) hi++;
+            while (lo > 0 && !grid.near(line.points[lo - 1], separation)) lo--;
+            if (hi < line.points.size() - 1 || lo > 0) {
+                FlowLine cut;
+                double t0 = line.times[lo];
+                for (size_t i = lo; i <= hi; i++) {
+                    cut.points.push_back(line.points[i]);
+                    cut.times.push_back(line.times[i] - t0);
+                }
+                line = std::move(cut);
+            }
+            if (line.points.size() < 3) continue;
+        }
+        for (const Vector3D& p : line.points) grid.add(p);
+        kept.push_back(std::move(line));
+    }
+    return kept;
+}
+
+int seedsPerAxis(bool plane, int requested) {
+    return plane ? std::clamp(requested, 2, 16) : std::clamp(requested, 2, 4);
+}
+
+std::vector<FlowLine> fieldFlowLines(const FieldFunction& f, const Box& box, int seedsRequested) {
+    bool plane = f.plane();
+    int per = seedsPerAxis(plane, seedsRequested);
+    double span = std::max({static_cast<double>(box.max.x - box.min.x), static_cast<double>(box.max.y - box.min.y),
+                            plane ? 0.0 : static_cast<double>(box.max.z - box.min.z)});
+    double step = span / (plane ? 160.0 : 90.0);
+    int maxSteps = plane ? 600 : 300;
+    // Lines stay at least this far apart (about half the seed spacing in a plane)
+    double separation = span / (per * (plane ? 2.2 : 4.0));
+    return traceFlowLines(f, flowSeeds(box, plane, per), box, step, maxSteps, separation);
+}
+
+std::vector<Vector3D> flowSeeds(const Box& box, bool plane, int perAxis) {
+    std::vector<Vector3D> seeds;
+    perAxis = std::max(1, perAxis);
+    int nz = plane ? 1 : perAxis;
+    for (int k = 0; k < nz; k++)
+        for (int j = 0; j < perAxis; j++)
+            for (int i = 0; i < perAxis; i++) {
+                float x = static_cast<float>(box.min.x + (i + 0.5) * (box.max.x - box.min.x) / perAxis);
+                float y = static_cast<float>(box.min.y + (j + 0.5) * (box.max.y - box.min.y) / perAxis);
+                float z = plane ? 0.0f : static_cast<float>(box.min.z + (k + 0.5) * (box.max.z - box.min.z) / nz);
+                seeds.emplace_back(x, y, z);
+            }
+    return seeds;
+}
+
+Vector3D particleAt(const FlowLine& line, double tau) {
+    if (line.points.empty()) return Vector3D::zero();
+    if (tau <= line.times.front()) return line.points.front();
+    if (tau >= line.times.back()) return line.points.back();
+    auto it = std::upper_bound(line.times.begin(), line.times.end(), tau);
+    size_t i = static_cast<size_t>(it - line.times.begin());
+    double t0 = line.times[i - 1], t1 = line.times[i];
+    float a = t1 > t0 ? static_cast<float>((tau - t0) / (t1 - t0)) : 0.0f;
+    return line.points[i - 1] + (line.points[i] - line.points[i - 1]) * a;
+}
+
+double particleTime(const FlowLine& line, int k, int n, double t, double speed) {
+    double T = line.duration();
+    if (!(T > 0.0) || n <= 0) return 0.0;
+    double tau = std::fmod(speed * t + static_cast<double>(k) * T / n, T);
+    return tau < 0 ? tau + T : tau;
+}
+
+} // namespace linalg::field

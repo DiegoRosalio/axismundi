@@ -1,5 +1,8 @@
 #pragma once
 
+// The floor grid of the 3D space (and the plane grid of the complex plane), drawn with GL lines that fade
+// toward the edge. Colors come from the view style.
+
 #include <raylib.h>
 
 namespace linalg {
@@ -16,7 +19,7 @@ public:
     void setSize(int size) { m_size = size; }
     int size() const { return m_size; }
     void setSpacing(float spacing) { m_spacing = spacing; }
-    void setGridColor(Color color) { m_gridColor = color; }
+    void setGridColor(Color color) { m_gridColor = color; }  // the view style's grid (alpha 0: theme)
     void setShowGrid(bool show) { m_showGrid = show; }
     void setShowAxes(bool show) { m_showAxes = show; }
 

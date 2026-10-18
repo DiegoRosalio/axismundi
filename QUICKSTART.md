@@ -10,8 +10,11 @@ make run
 
 ## First minute
 
-1. The app starts in **camera mode**: move the mouse to look around, W A S D to move.
-2. Press **Esc** (or **Tab**) to get the cursor back (**UI mode**). Esc never closes the app.
+1. The app starts with an **empty scene** and the cursor free (**UI mode**). Click **Add** (or press N) to create
+   an object, **Demo scene** for a ready-made set, or **Open…** (F9) for a saved scene.
+2. **Drag** the empty view to turn around the scene, **right-drag** to slide it, and use the **wheel** to zoom
+   (a click without dragging still selects). Prefer moving like in a game? **Settings → Camera → Fly**: then
+   **Tab** captures the mouse, W A S D move you and **Esc** gives the cursor back. Esc never closes the app.
 3. Press **F1** (or the book icon in the top bar) and pick **Getting around**. The tutorial walks you through
    the rest, one small task at a time.
 4. Press **E** for the example gallery and click any card.
@@ -26,6 +29,8 @@ make run
   can add `a + b`, `cross(a, b)` or the projection of `a` on `b` in one click.
 - Fields are formulas: type `2a - b`, `normalize(a)`, `cos(theta)`, `rotz(theta)` … and the object follows
   its inputs. A red outline or a red badge in the list means a formula has a problem; hover it to see why.
+- Long formulas wrap in the field. For more room press **Ctrl+Enter** while typing (or click ⤢): a big
+  editor shows the result as you type. **Ctrl+B** hides the side bar when you want the whole view.
 - **Del** deletes, **Ctrl+D** duplicates, **Ctrl+Z / Ctrl+Y** undo and redo.
 
 ## Parameters
@@ -43,28 +48,49 @@ The **Time panel** (P to play or pause) runs the clock for everything at once an
 something by hand, select it and use Add → Morph from identity / Grow from zero: you get a slider `s` and a
 `lerp` formula.
 
-Plot **Detail** is per unit of the range, so wide plots stay smooth. **Grid size** (View section) makes the
-floor grid larger.
+Plot **Detail** is per unit of the range, so wide plots stay smooth. The grid and the axis numbers follow the
+zoom; the View section adds grid walls, a polar grid for the complex plane, and a fixed 1-unit spacing.
 
 ## The two spaces
 
 - **3D space** (key 1): z points up and the floor is the xy-plane. It holds vectors, matrices, eigenvectors
-  and plots (`y = f(x)`, curves, surfaces `z = f(x, y)`, implicit curves).
+  and plots (`y = f(x)`, curves, surfaces `z = f(x, y)`, implicit curves), and vector fields such as
+  `[-y, x, 0]` with flow lines and moving particles (Add → Fields).
 - **Complex plane** (key 2): complex numbers (`2 + i`, `z1*z2`, `exp(i*theta)`) and products drawn as a
   rotation plus a scaling.
 
 ## Tools
 
-- **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form).
+- **M** Analysis: results for the selection (lengths, angles, det, inverse, eigenvalues, LU/QR/SVD, polar form,
+  quaternion axis and angle).
+- **Fourier** (Add → Fourier): sums of sine waves with their spectrum, and drawings made by spinning circles in the
+  complex plane. Tutorial lesson "Fourier: sums of waves".
+- **Moving frame** (Add → Calculus): T, N, B, curvature and torsion riding a curve. Tutorial lesson "Curvature
+  and the moving frame".
+- **Derivatives** (Add → Calculus): a tangent line with f' and a shrinking secant, the tangent plane and gradient
+  of a surface, velocity and acceleration on a curve. Tutorial lesson "Derivatives: slopes and tangents".
+- **Taylor and Newton** (Add → Calculus): Taylor polynomials adding terms one by one, and Newton's method
+  stepping along tangents to a root. Tutorial lesson "Taylor polynomials and Newton's method".
+- **Integrals** (Add → Calculus): the volume under a surface as boxes next to the exact value, and the work of a
+  vector field along a curve. Tutorial lesson "Integrals as volumes".
+- **Quaternions** (Add → Quaternion): rotations in four numbers, `qaxis([0, 0, 1], pi/2)`. The tutorial lesson
+  "Quaternions" explains them step by step.
 - **B** Breakdown: the selected matrix as rotate → stretch → rotate, step by step.
 - **K** Calculation steps: worked calculations with your numbers.
 - **F2** Formula reference: everything you can type in a formula, with live examples and a box to try your own.
+- **Ctrl+E** Export to LaTeX: the scene as a black-and-white PGFPlots figure for your documents (copy, save
+  `.tex`, or save a PDF when LaTeX is installed), with a B/W preview in the app.
 - **P** plays or pauses the scene clock (Time panel).
 
 ## Make it yours
 
+- **Style** (View section): Colorful, Paper, High contrast (for projectors) or Chalkboard.
+- **O** shows only the selected objects; press it again (or **Show all**) to see everything.
 - **T** switches between the dark and light theme; **Ctrl+=** / **Ctrl+−** change the interface size.
 - Drag panels by their title bar; collapse or close them with the buttons on the right.
-- **F5** saves the scene to `scene.txt`, **F9** loads it. **F12** saves a screenshot.
+- **Ctrl+S** / **F5** saves the scene (the first time it asks for a name), **Ctrl+Shift+S** saves under a new
+  name, **Ctrl+O** / **F9** opens a scene file (with recent files), **New** clears both spaces. Opening and
+  New can be undone. **F12** saves a screenshot.
+- Matrix presets add up: Rotate 45° then Scale 2× gives scale·rotate. **Identity** starts over.
 
 See [UI_GUIDE.md](UI_GUIDE.md) for details.

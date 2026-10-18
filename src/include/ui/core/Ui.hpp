@@ -30,6 +30,11 @@ constexpr float kDesignHeight = 900.0f;
 // --- Lifecycle (call after InitWindow / once per frame / before CloseWindow)
 void init();
 void beginFrame();
+// Seconds for animations (cursor blink, highlight pulse, tooltip delay). Normally the real clock; with a
+// fixed step (the screenshot tour) it advances exactly `step` per frame, so screenshots repeat run to run.
+double now();
+void setFixedStep(float step);  // 0: the real clock
+float frameStep(float real);    // the frame's duration: `real`, or the fixed step
 void shutdown();
 
 // --- Scale -------------------------------------------------------------------
@@ -72,6 +77,12 @@ bool canInteract();               // false while the GUI is locked (camera mode,
 void setClip(Rectangle r);
 void clearClip();
 bool mouseInClip();
+// Mouse buttons with presses/releases latched per frame: a touchpad tap can press and release
+// within one frame, which raylib's per-frame sampling misses. Use these instead of
+// IsMouseButtonPressed/Released. installClickLatch() after InitWindow.
+void installClickLatch();
+bool mousePressed(int button);
+bool mouseReleased(int button);
 bool hovered(Rectangle r);        // mouse inside and interaction allowed
 bool clicked(Rectangle r);        // left button pressed inside this frame
 bool rightClicked(Rectangle r);

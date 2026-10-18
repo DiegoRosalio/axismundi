@@ -15,12 +15,19 @@ public:
     virtual bool lookup(const std::string& name, Value& out) const = 0;
 };
 
-// Values for the plot variables x, y and t (fast path, no name lookup)
-// Variables supplied at evaluation: x, y (plots), t (scene time), u (curve variable)
+// Variables supplied at evaluation: x, y (plots), t (scene time), u (curve variable),
+// z (vector fields)
 struct Slots {
-    double x = 0.0, y = 0.0, t = 0.0, u = 0.0;
-    bool hasX = false, hasY = false, hasT = false, hasU = false;
+    double x = 0.0, y = 0.0, t = 0.0, u = 0.0, z = 0.0;
+    // x may be complex (x + i·xIm): the Taylor object samples f on a small circle in the complex plane
+    double xIm = 0.0;
+    bool hasX = false, hasY = false, hasT = false, hasU = false, hasZ = false;
 };
+
+// Extra variables a formula may use (Program::compile): u in curves, z in vector fields.
+// Elsewhere u and z are ordinary names (objects may be called u or z).
+constexpr unsigned kVarU = 1;
+constexpr unsigned kVarZ = 2;
 
 struct Node;
 
@@ -43,9 +50,9 @@ public:
     Program(const Program&) = delete;
     Program& operator=(const Program&) = delete;
 
-    // Parse. On failure returns false and error() says why. With curveVariable,
-    // `u` is the curve's own variable (a slot) instead of a name.
-    bool compile(const std::string& text, bool curveVariable = false);
+    // Parse. On failure returns false and error() says why. `variables` (kVarU, kVarZ) makes u
+    // and/or z variables (slots) instead of names; `true` means kVarU (curves).
+    bool compile(const std::string& text, unsigned variables = 0);
     bool valid() const { return m_root != nullptr; }
     const std::string& error() const { return m_error; }
     const std::string& text() const { return m_text; }
@@ -57,6 +64,7 @@ public:
     bool usesY() const { return m_usesY; }
     bool usesT() const { return m_usesT; }
     bool usesU() const { return m_usesU; }
+    bool usesZ() const { return m_usesZ; }
 
     Value eval(const Resolver* resolver = nullptr, const Slots* slots = nullptr) const;
 
@@ -65,7 +73,7 @@ private:
     std::string m_text;
     std::string m_error;
     std::set<std::string> m_names;
-    bool m_usesX = false, m_usesY = false, m_usesT = false, m_usesU = false;
+    bool m_usesX = false, m_usesY = false, m_usesT = false, m_usesU = false, m_usesZ = false;
 };
 
 // True for built-in names that objects may not use: constants, functions, x, y, t

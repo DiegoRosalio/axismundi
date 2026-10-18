@@ -7,7 +7,33 @@
 
 namespace linalg {
 
-float SideBar::width() { return ui::px(344.0f); }
+namespace {
+bool s_collapsed = false;
+}
+
+float SideBar::width() { return ui::px(s_collapsed ? 44.0f : 344.0f); }
+bool SideBar::collapsed() { return s_collapsed; }
+void SideBar::setCollapsed(bool collapsed) { s_collapsed = collapsed; }
+
+SideBar::StripActions SideBar::drawCollapsed() {
+    StripActions actions;
+    const ui::Theme& t = ui::theme();
+    float viewTop = top();
+    Color bg = t.panel;
+    bg.a = 255;
+    DrawRectangleRec({0, viewTop, width(), GetScreenHeight() - viewTop}, bg);
+    DrawRectangleRec({width() - ui::pxi(1.0f), viewTop, ui::pxi(1.0f), GetScreenHeight() - viewTop}, t.border);
+    float s = ui::px(32.0f), x = (width() - s) / 2;
+    Rectangle expand = {x, viewTop + ui::px(10.0f), s, s};
+    Rectangle add = {x, expand.y + s + ui::px(8.0f), s, s};
+    if (ui::iconButton(expand, ui::Icon::ChevronRight)) actions.expand = true;
+    ui::tooltip(expand, "Show the objects list and the inspector (Ctrl+B)", "Side bar");
+    ui::anchor("sidebar.expand", expand);
+    if (ui::iconButton(add, ui::Icon::Plus)) actions.add = true;
+    ui::tooltip(add, "Add an object (N)", "Add");
+    actions.addButton = add;
+    return actions;
+}
 float SideBar::top() { return TopBar::height(); }
 
 Rectangle SideBar::begin() {

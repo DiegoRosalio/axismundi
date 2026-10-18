@@ -1,5 +1,7 @@
 #pragma once
 
+// Draws arrows (a cylinder shaft plus a cone head) between two world points: vectors, frames, gradients...
+
 #include "math/Vector3D.hpp"
 #include <raylib.h>
 #include <vector>

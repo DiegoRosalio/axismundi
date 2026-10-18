@@ -1,5 +1,10 @@
 #pragma once
 
+// The base class of every object in a scene. An object has named formula fields (each compiled to a
+// Program and evaluated), string props (switches, sizes, modes) and a computed value that other objects can
+// use by name. Subclasses (Types.hpp) add their fields in the constructor and override computeValue().
+// No raylib: the scene model is unit-tested without a window.
+
 #include "math/expr/Expr.hpp"
 #include "ui/SceneIO.hpp"
 #include <cstdint>
@@ -28,7 +33,9 @@ enum class Expect {
     ComplexNum,   // real or complex number
     Vector,
     Matrix,
+    Quaternion,
     Plot,         // real-valued function of x, y, t (checked with sample values)
+    Field,        // vector-valued function of x, y, z, t (vector fields; checked with sample values)
 };
 
 // One editable input of an object, written as an expression ("[1, 0, 0]", "a + b", "cos(theta)")
@@ -41,6 +48,8 @@ struct Field {
     std::string error;   // parse or evaluation error ("" when fine)
     expr::Value value;   // result of the last evaluation (not used for Plot fields)
     bool curveVariable = false;  // curve fields: `u` is the curve's own variable
+    bool zVariable = false;      // vector field formulas: `z` is a variable (with x and y)
+    unsigned variables() const { return (curveVariable ? expr::kVarU : 0u) | (zVariable ? expr::kVarZ : 0u); }
 };
 
 // Base of everything that can live in a space: vectors, matrices, plots,
@@ -78,6 +87,8 @@ public:
     void setTime(double seconds) { m_time = seconds; }
     // True when an active field uses t (the object follows the scene clock)
     bool usesTime() const;
+    // Moves when the scene clock runs (listed in the Time panel): formulas of t by default
+    virtual bool followsClock() const { return usesTime(); }
     double time() const { return m_time; }
 
     // --- Properties (non-expression settings, saved as text) -------------------
@@ -87,6 +98,8 @@ public:
     void setProp(const std::string& key, const std::string& value);
     void setProp(const std::string& key, double value);
     void setProp(const std::string& key, bool value);
+    // A string literal would otherwise pick the bool overload
+    void setProp(const std::string& key, const char* value) { setProp(key, std::string(value)); }
     void removeProp(const std::string& key);
     const std::map<std::string, std::string>& props() const { return m_props; }
 
@@ -113,8 +126,17 @@ protected:
     void addField(const std::string& key, const std::string& label, Expect expect, const std::string& text);
     // Make `u` the curve variable in this field (recompiles it)
     void markCurveVariable(const std::string& key);
+    void markFieldVariable(const std::string& key);  // z becomes a variable in this field
     // Turn evaluated fields into the object's value (default: the "value" field)
     virtual expr::Value computeValue() const;
+    // Expensive values (integrals, series): computeValue runs only when a field, property, input or
+    // (for formulas of t) the time changed; otherwise the last value is kept
+    virtual bool cachesValue() const { return false; }
+    // Other objects' values, available while computeValue runs (nullptr otherwise)
+    const expr::Resolver* evaluationResolver() const { return m_resolver; }
+    // While computeValue runs: did a field, property or input change (false when only the scene time moved
+    // for an object that follows the clock without formulas of t)
+    bool inputsChangedNow() const { return m_inputsChanged; }
     virtual std::unique_ptr<SceneObject> makeEmpty() const = 0;
 
 private:
@@ -131,6 +153,9 @@ private:
     bool m_dirty = true;
     double m_time = 0.0;
     double m_evaluatedTime = -1.0;  // time of the last evaluation (fields using t change with it)
+    const expr::Resolver* m_resolver = nullptr;  // during computeValue
+    bool m_computed = false;                     // computeValue ran at least once (cachesValue)
+    bool m_inputsChanged = true;                 // see inputsChangedNow()
 };
 
 // Does a value satisfy an expectation? Returns "" or an error message.

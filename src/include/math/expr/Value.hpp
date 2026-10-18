@@ -7,11 +7,11 @@
 
 namespace linalg::expr {
 
-enum class Type { Scalar, Complex, Vector, Matrix, Error };
+enum class Type { Scalar, Complex, Vector, Matrix, Quaternion, Error };
 
 // Result of evaluating an expression: a number, a complex number, a 3D
-// vector, a 3x3 or 4x4 matrix, or an error message. New kinds (quaternions,
-// tensors, functions) can be added here as the math grows.
+// vector, a 3x3 or 4x4 matrix, a quaternion, or an error message. New kinds
+// (tensors, functions) can be added here as the math grows.
 struct Value {
     Type type = Type::Error;
     double re = 0.0;            // Scalar, or real part of Complex
@@ -19,6 +19,7 @@ struct Value {
     Vector3D vector;            // Vector
     Matrix4D matrix;            // Matrix (3x3 is stored in the upper-left block)
     int size = 3;               // Matrix: 3 or 4
+    double qi = 0.0, qj = 0.0, qk = 0.0;  // Quaternion: re + qi·i + qj·j + qk·k
     std::string error;          // Error
 
     static Value scalar(double v);
@@ -26,6 +27,7 @@ struct Value {
     static Value vec(const Vector3D& v);
     static Value mat3(const Matrix3D& m);
     static Value mat4(const Matrix4D& m);
+    static Value quat(double w, double x, double y, double z);
     static Value fail(const std::string& message);
 
     bool ok() const { return type != Type::Error; }
@@ -37,12 +39,23 @@ struct Value {
     Matrix3D matrix3() const;   // upper-left 3x3 block
     Matrix4D matrix4() const;   // 3x3 embedded in a 4x4 identity
 
-    // "number", "complex number", "vector", "3×3 matrix", "error"
+    // "number", "complex number", "vector", "3×3 matrix", "quaternion", "error"
     std::string typeName() const;
-    // Short human-readable form: "2.5", "1 + 2i", "(1, 0, 0)", "3×3 matrix"
+    // Short human-readable form: "2.5", "1 + 2i", "(1, 0, 0)", "3×3 matrix", "0.707 + 0.707k"
     std::string summary() const;
 };
 
 std::string typeName(Type type);
+
+// The rotation a quaternion stands for (of q/|q|): unit axis, angle in [0, π], 3×3 matrix and |q|.
+// False for anything else or the zero quaternion. With angle 0 the axis is (0, 0, 1) and hasAxis false.
+struct Rotation {
+    Vector3D axis{0, 0, 1};
+    double angle = 0.0;
+    bool hasAxis = false;
+    Matrix3D matrix = Matrix3D::identity();
+    double norm = 1.0;
+};
+bool rotationOf(const Value& q, Rotation& out);
 
 } // namespace linalg::expr

@@ -14,12 +14,12 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     const ui::Theme& t = ui::theme();
 
     float w = ui::px(300.0f);
-    float h = ui::px(414.0f);
+    float h = m_height > 0.0f ? m_height : ui::px(520.0f);
     float x = std::min(m_anchor.x + m_anchor.width - w, static_cast<float>(GetScreenWidth()) - w - ui::px(8));
     m_bounds = {std::max(ui::px(8), x), m_anchor.y + m_anchor.height + ui::px(6.0f), w, h};
 
     // Close when clicking outside (not on the frame that opened it)
-    if (!m_justOpened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+    if (!m_justOpened && ui::mousePressed(MOUSE_BUTTON_LEFT) &&
         !CheckCollisionPointRec(GetMousePosition(), m_bounds)) {
         m_open = false;
         return actions;
@@ -55,15 +55,33 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     }
     col.space(6.0f);
 
+    ui::textIn(col.row(18), ui::upper("Camera").c_str(), ui::FontRole::Caption, t.textMuted);
+    int camera = settings.flyCamera ? 1 : 0;
+    Rectangle cameraRow = col.row(32);
+    if (ui::segmented(cameraRow, {"Orbit", "Fly"}, camera,
+                      {"Like Blender: drag the view to turn around a point, right-drag (or Shift+drag) to pan, "
+                       "the wheel to zoom. . centers on the selection; keypad 1/3/7: front, right, top.",
+                       "Like a game: Tab captures the mouse, then the mouse looks around and W A S D move you "
+                       "(Space/Ctrl: up/down). Esc gives the mouse back."})) {
+        settings.flyCamera = camera == 1;
+    }
+    ui::anchor("settings.camera", cameraRow);
+    col.space(6.0f);
+
     ui::textIn(col.row(18), ui::upper("Surfaces").c_str(), ui::FontRole::Caption, t.textMuted);
-    int style = settings.smoothSurfaces ? 0 : 1;
-    if (ui::segmented(col.row(32), {"Smooth", "Faceted"}, style,
-                      {"Colors blend across the surface, with soft shading by slope.",
+    int surfaces = static_cast<int>(settings.surfaces);
+    if (ui::segmented(col.row(32), {"By style", "Smooth", "Faceted"}, surfaces,
+                      {"Each view style picks: smooth for Colorful and High contrast, faceted for Paper and "
+                       "Chalkboard.",
+                       "Colors blend across the surface, with soft shading by slope.",
                        "Flat cells, one color each: the grid of samples stays visible."})) {
-        settings.smoothSurfaces = (style == 0);
+        settings.surfaces = static_cast<UiSettings::Surfaces>(surfaces);
     }
     col.space(6.0f);
 
+    Rectangle dimRow = col.row(30);
+    ui::toggleRow(dimRow, "Fade unselected objects", settings.dimUnselected);
+    ui::tooltip(dimRow, "While something is selected, the other objects fade toward the background.");
     ui::toggleRow(col.row(30), "Explanatory tooltips", settings.tooltips);
     ui::toggleRow(col.row(30), "Status overlay", settings.showHud);
     col.space(4.0f);
@@ -74,6 +92,7 @@ SettingsActions SettingsPopover::draw(UiSettings& settings) {
     std::string where = ui::ellipsize(("Saved in " + Preferences::path()).c_str(), ui::FontRole::Small,
                                       col.width());
     ui::textIn(col.row(18), where.c_str(), ui::FontRole::Small, t.textFaint);
+    m_height = col.y() - m_bounds.y + ui::px(12.0f);
     return actions;
 }
 

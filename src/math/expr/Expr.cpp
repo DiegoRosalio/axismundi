@@ -1,4 +1,5 @@
 #include "math/expr/Expr.hpp"
+#include "math/Quaternion.hpp"
 #include "math/expr/Reference.hpp"
 
 #include <algorithm>
@@ -41,13 +42,16 @@ struct ParseError : std::runtime_error {
 struct FunctionInfo {
     const char* name;
     int minArgs, maxArgs;
+    // Common words added later (angle, axis...): an object may also have this name; the
+    // function is meant only when '(' follows
+    bool nameable = false;
 };
 
 const FunctionInfo kFunctions[] = {
     {"sin", 1, 1}, {"cos", 1, 1}, {"tan", 1, 1}, {"asin", 1, 1}, {"acos", 1, 1}, {"atan", 1, 1},
     {"sinh", 1, 1}, {"cosh", 1, 1}, {"tanh", 1, 1}, {"exp", 1, 1}, {"log", 1, 1}, {"ln", 1, 1},
     {"sqrt", 1, 1}, {"abs", 1, 1}, {"floor", 1, 1}, {"ceil", 1, 1}, {"atan2", 2, 2}, {"min", 2, 2},
-    {"max", 2, 2}, {"mod", 2, 2},
+    {"max", 2, 2}, {"mod", 2, 2}, {"sign", 1, 1},
     // blending (any value kind)
     {"lerp", 3, 3}, {"keys", 3, 33},
     // vectors
@@ -57,6 +61,9 @@ const FunctionInfo kFunctions[] = {
     {"roty", 1, 1}, {"rotz", 1, 1}, {"rot", 2, 2}, {"scale", 1, 3}, {"translate", 1, 3}, {"eye", 0, 1},
     // complex
     {"conj", 1, 1}, {"re", 1, 1}, {"im", 1, 1}, {"arg", 1, 1}, {"polar", 2, 2},
+    // quaternions (rotations)
+    {"quat", 1, 4}, {"qaxis", 2, 2}, {"rotate", 2, 2, true}, {"mat", 1, 1, true}, {"axis", 1, 1, true},
+    {"angle", 1, 1, true}, {"slerp", 3, 3},
 };
 
 } // namespace
@@ -86,7 +93,8 @@ bool isNameChar(char c) { return std::isalnum(static_cast<unsigned char>(c)) || 
 
 class Parser {
 public:
-    explicit Parser(const std::string& s, bool curveVariable = false) : m_s(s), m_curve(curveVariable) {}
+    explicit Parser(const std::string& s, unsigned variables = 0)
+        : m_s(s), m_curve((variables & kVarU) != 0), m_fieldZ((variables & kVarZ) != 0) {}
 
     NodePtr parseAll() {
         NodePtr n = parseExpr();
@@ -185,9 +193,9 @@ private:
             while (m_pos < m_s.size() && isNameChar(m_s[m_pos])) m_pos++;
             auto member = make(Node::Kind::Member);
             member->name = m_s.substr(start, m_pos - start);
-            if (member->name != "x" && member->name != "y" && member->name != "z") {
+            if (member->name != "x" && member->name != "y" && member->name != "z" && member->name != "w") {
                 m_pos = start;
-                fail("unknown component '." + member->name + "' (use .x, .y or .z)");
+                fail("unknown component '." + member->name + "' (use .x, .y, .z, or .w for quaternions)");
             }
             member->children.push_back(std::move(n));
             n = std::move(member);
@@ -266,7 +274,9 @@ private:
             while (m_pos < m_s.size() && isNameChar(m_s[m_pos])) m_pos++;
             std::string name = m_s.substr(start, m_pos - start);
 
-            if (const FunctionInfo* f = findFunction(name)) {
+            const FunctionInfo* f = findFunction(name);
+            if (f && f->nameable && peek() != '(') f = nullptr;  // an object with that name
+            if (f) {
                 if (peek() != '(') fail("expected '(' after " + name);
                 m_pos++;
                 auto call = make(Node::Kind::Call);
@@ -309,6 +319,7 @@ private:
             else if (name == "y") n->slot = 1;
             else if (name == "t") n->slot = 2;
             else if (name == "u" && m_curve) n->slot = 3;
+            else if (name == "z" && m_fieldZ) n->slot = 4;
             return n;
         }
         fail(std::string("unexpected '") + c + "'");
@@ -316,18 +327,20 @@ private:
 
     const std::string& m_s;
     bool m_curve = false;
+    bool m_fieldZ = false;
     size_t m_pos = 0;
 };
 
-void collectNames(const Node& n, std::set<std::string>& names, bool& x, bool& y, bool& t, bool& u) {
+void collectNames(const Node& n, std::set<std::string>& names, bool& x, bool& y, bool& t, bool& u, bool& z) {
     if (n.kind == Node::Kind::Name) {
         if (n.slot == 0) x = true;
         else if (n.slot == 1) y = true;
         else if (n.slot == 2) t = true;
         else if (n.slot == 3) u = true;
+        else if (n.slot == 4) z = true;
         else names.insert(n.name);
     }
-    for (const auto& c : n.children) collectNames(*c, names, x, y, t, u);
+    for (const auto& c : n.children) collectNames(*c, names, x, y, t, u, z);
 }
 
 // ---------------------------------------------------------------------------
@@ -378,9 +391,123 @@ Value scaleMatrix(const Value& m, double s) {
     return v;
 }
 
+// --- Quaternions (w + xi + yj + zk), in double precision ---------------------------
+struct Quat {
+    double w, x, y, z;
+};
+Quat toQuat(const Value& v) { return {v.re, v.qi, v.qj, v.qk}; }
+Value fromQuat(const Quat& q) { return Value::quat(q.w, q.x, q.y, q.z); }
+Quat qmul(const Quat& a, const Quat& b) {
+    // Hamilton product: i·j = k, j·k = i, k·i = j, i² = j² = k² = −1
+    return {a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z, a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+            a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x, a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w};
+}
+double qnorm(const Quat& q) { return std::sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z); }
+Quat qconj(const Quat& q) { return {q.w, -q.x, -q.y, -q.z}; }
+Quat qscale(const Quat& q, double s) { return {q.w * s, q.x * s, q.y * s, q.z * s}; }
+bool qinverse(const Quat& q, Quat& out) {
+    double n2 = q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z;
+    if (n2 < 1e-24) return false;
+    out = qscale(qconj(q), 1.0 / n2);
+    return true;
+}
+// Rotation matrix of q/|q|
+Matrix3D qmatrix(const Quat& q0) {
+    double n = qnorm(q0);
+    Quat q = qscale(q0, 1.0 / n);
+    double w = q.w, x = q.x, y = q.y, z = q.z;
+    auto f = [](double v) { return static_cast<float>(v); };
+    return Matrix3D({{
+        {{f(1 - 2 * (y * y + z * z)), f(2 * (x * y - w * z)), f(2 * (x * z + w * y))}},
+        {{f(2 * (x * y + w * z)), f(1 - 2 * (x * x + z * z)), f(2 * (y * z - w * x))}},
+        {{f(2 * (x * z - w * y)), f(2 * (y * z + w * x)), f(1 - 2 * (x * x + y * y))}},
+    }});
+}
+Quat qslerp(Quat a, Quat b, double s) {
+    a = qscale(a, 1.0 / qnorm(a));
+    b = qscale(b, 1.0 / qnorm(b));
+    double d = a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z;
+    if (d < 0) {  // the shorter way round (q and −q are the same rotation)
+        b = qscale(b, -1.0);
+        d = -d;
+    }
+    double ka, kb;
+    if (d > 0.9995) {
+        ka = 1 - s;
+        kb = s;
+    } else {
+        double th = std::acos(std::min(1.0, d)), sn = std::sin(th);
+        ka = std::sin((1 - s) * th) / sn;
+        kb = std::sin(s * th) / sn;
+    }
+    Quat r = {ka * a.w + kb * b.w, ka * a.x + kb * b.x, ka * a.y + kb * b.y, ka * a.z + kb * b.z};
+    return qscale(r, 1.0 / qnorm(r));
+}
+
+} // namespace
+
+bool rotationOf(const Value& v, Rotation& out) {
+    if (v.type != Type::Quaternion) return false;
+    Quat q = toQuat(v);
+    double n = qnorm(q);
+    if (n < 1e-12) return false;
+    q = qscale(q, 1.0 / n);
+    if (q.w < 0) q = qscale(q, -1.0);  // q and −q: the same rotation; the angle is then in [0, π]
+    double s = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z);
+    out.norm = n;
+    out.angle = 2 * std::atan2(s, q.w);
+    out.hasAxis = s > 1e-9;
+    out.axis = out.hasAxis ? Vector3D(static_cast<float>(q.x / s), static_cast<float>(q.y / s), static_cast<float>(q.z / s))
+                           : Vector3D(0, 0, 1);
+    out.matrix = qmatrix(q);
+    return true;
+}
+
+namespace {
+
+Value quaternionOp(char op, const Value& a, const Value& b) {
+    bool qa = a.type == Type::Quaternion, qb = b.type == Type::Quaternion;
+    // A real number is the quaternion w + 0i + 0j + 0k
+    Quat x = qa ? toQuat(a) : Quat{a.re, 0, 0, 0};
+    Quat y = qb ? toQuat(b) : Quat{b.re, 0, 0, 0};
+    switch (op) {
+        case '+': return fromQuat({x.w + y.w, x.x + y.x, x.y + y.y, x.z + y.z});
+        case '-': return fromQuat({x.w - y.w, x.x - y.x, x.y - y.y, x.z - y.z});
+        case '*': return fromQuat(qmul(x, y));
+        case '/': {
+            Quat inv;
+            if (!qinverse(y, inv)) return Value::fail("division by the zero quaternion");
+            return fromQuat(qmul(x, inv));
+        }
+        case '^': {
+            if (!qa || qb || std::fabs(b.re - std::round(b.re)) > 1e-9 || std::fabs(b.re) > 64)
+                return Value::fail("quaternion powers must be whole numbers (q^2, q^-1)");
+            int n = static_cast<int>(std::lround(b.re));
+            Quat base = x;
+            if (n < 0) {
+                if (!qinverse(x, base)) return Value::fail("the zero quaternion has no inverse");
+                n = -n;
+            }
+            Quat r = {1, 0, 0, 0};
+            for (int k = 0; k < n; k++) r = qmul(r, base);
+            return fromQuat(r);
+        }
+    }
+    return Value::fail("cannot compute that with quaternions");
+}
+
 Value binaryOp(char op, const Value& a, const Value& b) {
     if (!a.ok()) return a;
     if (!b.ok()) return b;
+
+    // Quaternions, with real numbers
+    if (a.type == Type::Quaternion || b.type == Type::Quaternion) {
+        const Value& other = a.type == Type::Quaternion ? b : a;
+        if (other.type == Type::Quaternion || other.isRealNumber()) return quaternionOp(op, a, b);
+        if (other.type == Type::Vector) return Value::fail("quaternion and vector: use rotate(q, v) to turn a vector");
+        if (other.type == Type::Matrix) return Value::fail("quaternion and matrix: use mat(q) to get its matrix");
+        return Value::fail("quaternions and complex numbers don't mix: write quat(re, im, 0, 0)");
+    }
 
     // Numbers (real or complex)
     if (a.isNumber() && b.isNumber()) {
@@ -524,7 +651,12 @@ Value callFunction(const std::string& name, const std::vector<Value>& args) {
         if (v.type == Type::Scalar) return Value::scalar(std::fabs(v.re));
         if (v.type == Type::Complex) return Value::scalar(std::abs(toComplex(v)));
         if (v.type == Type::Vector) return Value::scalar(v.vector.magnitude());
-        return Value::fail("abs needs a number or a vector");
+        if (v.type == Type::Quaternion) return Value::scalar(qnorm(toQuat(v)));
+        return Value::fail("abs needs a number, a vector or a quaternion");
+    }
+    if (name == "sign") {
+        if (!realArg(0, x)) return Value::fail("sign needs a real number");
+        return Value::scalar(x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0);
     }
     if (name == "mod") {
         if (!realArg(0, x) || !realArg(1, y)) return Value::fail("mod needs two real numbers");
@@ -550,11 +682,18 @@ Value callFunction(const std::string& name, const std::vector<Value>& args) {
             if (!step.ok()) return step;
             return binaryOp('+', a, step);
         };
-        if (name == "lerp") return blend(arg(0), arg(1), s);
+        if (name == "lerp") {
+            // Rotations blend along the shortest arc (slerp)
+            if (arg(0).type == Type::Quaternion && arg(1).type == Type::Quaternion)
+                return fromQuat(qslerp(toQuat(arg(0)), toQuat(arg(1)), s));
+            return blend(arg(0), arg(1), s);
+        }
         // keys(s, A, B, C, ...): s from 0 to 1 runs through the values in order
         size_t n = args.size() - 1;
         double pos = std::clamp(s, 0.0, 1.0) * static_cast<double>(n - 1);
         size_t i = std::min(static_cast<size_t>(pos), n - 2);
+        if (arg(1 + i).type == Type::Quaternion && arg(2 + i).type == Type::Quaternion)
+            return fromQuat(qslerp(toQuat(arg(1 + i)), toQuat(arg(2 + i)), pos - static_cast<double>(i)));
         return blend(arg(1 + i), arg(2 + i), pos - static_cast<double>(i));
     }
     if (name == "atan2" || name == "min" || name == "max") {
@@ -572,15 +711,27 @@ Value callFunction(const std::string& name, const std::vector<Value>& args) {
     if (name == "norm") {
         if (arg(0).type == Type::Vector) return Value::scalar(arg(0).vector.magnitude());
         if (arg(0).isNumber()) return Value::scalar(std::abs(toComplex(arg(0))));
+        if (arg(0).type == Type::Quaternion) return Value::scalar(qnorm(toQuat(arg(0))));
         return Value::fail("norm needs a vector");
     }
     if (name == "normalize" || name == "unit") {
+        if (arg(0).type == Type::Quaternion) {
+            Quat q = toQuat(arg(0));
+            double n = qnorm(q);
+            if (n < 1e-12) return Value::fail("the zero quaternion has no direction");
+            return fromQuat(qscale(q, 1.0 / n));
+        }
         if (arg(0).type != Type::Vector) return Value::fail(name + " needs a vector");
         if (arg(0).vector.magnitude() < 1e-12f) return Value::fail("the zero vector has no direction");
         return Value::vec(arg(0).vector.normalized());
     }
 
     // Matrices
+    if (name == "inv" && arg(0).type == Type::Quaternion) {
+        Quat r;
+        if (!qinverse(toQuat(arg(0)), r)) return Value::fail("the zero quaternion has no inverse");
+        return fromQuat(r);
+    }
     if (name == "det" || name == "tr" || name == "trace" || name == "inv" || name == "transpose") {
         const Value& m = arg(0);
         if (m.type != Type::Matrix) return Value::fail(name + " needs a matrix");
@@ -648,6 +799,65 @@ Value callFunction(const std::string& name, const std::vector<Value>& args) {
         return Value::fail("eye needs 3 or 4");
     }
 
+    // Quaternions
+    if (name == "conj" && arg(0).type == Type::Quaternion) return fromQuat(qconj(toQuat(arg(0))));
+    if (name == "quat") {
+        if (args.size() == 4) {
+            double c[4];
+            for (int k = 0; k < 4; k++)
+                if (!realArg(k, c[k])) return Value::fail("quat(w, x, y, z) needs four real numbers");
+            return Value::quat(c[0], c[1], c[2], c[3]);
+        }
+        if (args.size() == 1 && arg(0).type == Type::Matrix) {
+            Matrix3D m = arg(0).matrix3();
+            // Only rotation matrices have a quaternion: columns of length 1, at right angles, det = +1
+            Matrix3D mtm = m.transposed() * m;
+            double off = 0;
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++) off = std::max(off, std::fabs(mtm.m[i][j] - (i == j ? 1.0 : 0.0)));
+            if (off > 1e-3 || m.determinant() < 0)
+                return Value::fail("quat(M) needs a rotation matrix (columns of length 1 at right angles, det = 1)");
+            Quaternion q = Quaternion::fromMatrix(m).normalized();
+            if (q.w < 0) q = {-q.w, -q.x, -q.y, -q.z};  // the one with w ≥ 0
+            return Value::quat(q.w, q.x, q.y, q.z);
+        }
+        if (args.size() == 1 && arg(0).isRealNumber()) return Value::quat(arg(0).re, 0, 0, 0);
+        return Value::fail("quat needs (w, x, y, z) or a rotation matrix");
+    }
+    if (name == "qaxis") {
+        if (arg(0).type != Type::Vector || !realArg(1, x)) return Value::fail("qaxis needs an axis vector and an angle");
+        Vector3D a = arg(0).vector;
+        double len = a.magnitude();
+        if (len < 1e-12) return Value::fail("qaxis needs a non-zero axis");
+        double s = std::sin(x / 2) / len;
+        return Value::quat(std::cos(x / 2), a.x * s, a.y * s, a.z * s);
+    }
+    if (name == "rotate" || name == "mat" || name == "axis" || name == "angle") {
+        if (arg(0).type != Type::Quaternion) return Value::fail(name + " needs a quaternion first, e.g. qaxis([0, 0, 1], pi/2)");
+        Quat q = toQuat(arg(0));
+        double n = qnorm(q);
+        if (n < 1e-12) return Value::fail("the zero quaternion is not a rotation");
+        q = qscale(q, 1.0 / n);
+        if (name == "mat") return Value::mat3(qmatrix(q));
+        if (name == "rotate") {
+            if (args.size() < 2 || arg(1).type != Type::Vector) return Value::fail("rotate needs a quaternion and a vector");
+            return Value::vec(qmatrix(q).transform(arg(1).vector));  // q v q⁻¹
+        }
+        // Angle in [0, π]; q and −q are the same rotation, so use the half with w ≥ 0
+        if (q.w < 0) q = qscale(q, -1.0);
+        double s = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z);
+        if (name == "angle") return Value::scalar(2 * std::atan2(s, q.w));
+        if (s < 1e-9) return Value::fail("no rotation (angle 0): every axis works");
+        return Value::vec(Vector3D(static_cast<float>(q.x / s), static_cast<float>(q.y / s), static_cast<float>(q.z / s)));
+    }
+    if (name == "slerp") {
+        if (arg(0).type != Type::Quaternion || arg(1).type != Type::Quaternion || !realArg(2, x))
+            return Value::fail("slerp needs two quaternions and an amount from 0 to 1");
+        if (qnorm(toQuat(arg(0))) < 1e-12 || qnorm(toQuat(arg(1))) < 1e-12)
+            return Value::fail("slerp: the zero quaternion is not a rotation");
+        return fromQuat(qslerp(toQuat(arg(0)), toQuat(arg(1)), x));
+    }
+
     // Complex
     if (name == "conj" || name == "re" || name == "im" || name == "arg") {
         Value v = needNumber(arg(0), name.c_str());
@@ -674,16 +884,19 @@ Value evalNode(const Node& n, const Resolver* resolver, const Slots* slots) {
         case Node::Kind::Name: {
             if (n.slot >= 0) {
                 if (slots) {
-                    if (n.slot == 0 && slots->hasX) return Value::scalar(slots->x);
+                    if (n.slot == 0 && slots->hasX)
+                        return slots->xIm != 0.0 ? Value::complex(slots->x, slots->xIm) : Value::scalar(slots->x);
                     if (n.slot == 1 && slots->hasY) return Value::scalar(slots->y);
                     if (n.slot == 2 && slots->hasT) return Value::scalar(slots->t);
                     if (n.slot == 3 && slots->hasU) return Value::scalar(slots->u);
+                    if (n.slot == 4 && slots->hasZ) return Value::scalar(slots->z);
                 }
             }
             Value v;
             if (resolver && resolver->lookup(n.name, v)) return v;
             if (n.slot == 2) return Value::fail("t (the scene time) is not available here");
             if (n.slot == 3) return Value::fail("u is only available in curves");
+            if (n.slot == 4) return Value::fail("z is only available in vector fields");
             if (n.slot >= 0) return Value::fail(n.name + " is only available in plots");
             return Value::fail("unknown name '" + n.name + "'");
         }
@@ -707,7 +920,11 @@ Value evalNode(const Node& n, const Resolver* resolver, const Slots* slots) {
         case Node::Kind::Member: {
             Value v = evalNode(*n.children[0], resolver, slots);
             if (!v.ok()) return v;
-            if (v.type != Type::Vector) return Value::fail("." + n.name + " needs a vector");
+            if (v.type == Type::Quaternion) {
+                return Value::scalar(n.name == "w" ? v.re : n.name == "x" ? v.qi : n.name == "y" ? v.qj : v.qk);
+            }
+            if (v.type != Type::Vector) return Value::fail("." + n.name + " needs a vector or a quaternion");
+            if (n.name == "w") return Value::fail(".w is for quaternions; vectors have .x, .y and .z");
             return Value::scalar(n.name == "x" ? v.vector.x : n.name == "y" ? v.vector.y : v.vector.z);
         }
         case Node::Kind::List: {
@@ -767,16 +984,16 @@ Program::~Program() = default;
 Program::Program(Program&&) noexcept = default;
 Program& Program::operator=(Program&&) noexcept = default;
 
-bool Program::compile(const std::string& text, bool curveVariable) {
+bool Program::compile(const std::string& text, unsigned variables) {
     m_text = text;
     m_root.reset();
     m_error.clear();
     m_names.clear();
-    m_usesX = m_usesY = m_usesT = m_usesU = false;
+    m_usesX = m_usesY = m_usesT = m_usesU = m_usesZ = false;
     try {
-        Parser parser(m_text, curveVariable);
+        Parser parser(m_text, variables);
         m_root = parser.parseAll();
-        collectNames(*m_root, m_names, m_usesX, m_usesY, m_usesT, m_usesU);
+        collectNames(*m_root, m_names, m_usesX, m_usesY, m_usesT, m_usesU, m_usesZ);
         return true;
     } catch (const ParseError& e) {
         m_error = e.what();
@@ -790,7 +1007,8 @@ Value Program::eval(const Resolver* resolver, const Slots* slots) const {
 }
 
 bool isReservedName(const std::string& name) {
-    return findFunction(name) != nullptr || name == "pi" || name == "e" || name == "i" || name == "x" ||
+    const FunctionInfo* f = findFunction(name);
+    return (f != nullptr && !f->nameable) || name == "pi" || name == "e" || name == "i" || name == "x" ||
            name == "y" || name == "t";
 }
 

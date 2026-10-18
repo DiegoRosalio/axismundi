@@ -19,7 +19,7 @@ float chips(Rectangle area, const char* const* labels, int count, int& active) {
         Rectangle r = {x, y, w, h};
         bool selected = (active == i);
         bool hover = ui::hovered(r);
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) active = i;
+        if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) active = i;
         ui::fillRounded(r, h / 2, selected ? t.accent : hover ? t.hover : t.panelAlt);
         if (!selected) ui::strokeRounded(r, h / 2, ui::pxi(1.0f), t.border);
         ui::textIn(r, labels[i], ui::FontRole::Small, selected ? t.onAccent : t.text, ui::Align::Center);

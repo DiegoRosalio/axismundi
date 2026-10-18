@@ -1,4 +1,5 @@
 #include "rendering/PlotRenderer.hpp"
+#include "math/Contour.hpp"
 #include "rendering/Labels.hpp"
 #include "rendering/WorldMapping.hpp"
 #include "ui/core/Theme.hpp"
@@ -24,9 +25,11 @@ bool usable(double v) {
 // 2D plots sit a hair above the floor so they are not hidden by the grid
 constexpr float kLift = 0.004f;
 
-Color curveColor(const PlotSpec& s) { return s.color.a ? s.color : ui::theme().curve; }
+Color curveColor(const PlotSpec& s) {
+    return s.color.a ? s.color : s.curveDefault.a ? s.curveDefault : ui::theme().curve;
+}
 Color surfaceColor(const PlotSpec& s) {
-    if (!s.color.a) return ui::theme().surface;
+    if (!s.color.a) return s.surfaceDefault.a ? s.surfaceDefault : ui::theme().surface;
     Color c = s.color;
     c.a = 230;
     return c;
@@ -37,23 +40,20 @@ float normalize(float v, float lo, float hi) {
     return std::clamp((v - lo) / (hi - lo), 0.0f, 1.0f);
 }
 
-Color shaded(Color c, float shade) {
-    shade = std::clamp(shade, 0.0f, 1.2f);
-    auto ch = [&](unsigned char v) { return static_cast<unsigned char>(std::min(255.0f, v * shade)); };
-    return {ch(c.r), ch(c.g), ch(c.b), c.a};
-}
-
-// Light from above and slightly in front, in world space (y up)
-Vector3 lightDir() {
-    return Vector3Normalize({0.35f, 0.85f, 0.4f});
-}
-
-Material& plotMaterial() {
-    static Material material = LoadMaterialDefault();  // vertex colors, white texture
-    return material;
-}
+using mesh::lightDir;
+using mesh::shaded;
 
 } // namespace
+
+Color PlotRenderer::heatColor(const PlotSpec& spec, float t) {
+    Color c = heatColor(t);
+    if (spec.heatSoften <= 0.0f) return c;
+    Color w = spec.heatSoftenTo;
+    auto mix = [&](unsigned char a, unsigned char b) {
+        return static_cast<unsigned char>(a + (b - a) * spec.heatSoften);
+    };
+    return {mix(c.r, w.r), mix(c.g, w.g), mix(c.b, w.b), c.a};
+}
 
 Color PlotRenderer::heatColor(float t) {
     t = std::clamp(t, 0.0f, 1.0f);
@@ -83,76 +83,8 @@ PlotRenderer::~PlotRenderer() {
     releaseMeshes();
 }
 
-void PlotRenderer::MeshData::add(Vector3 p, Color c) {
-    positions.insert(positions.end(), {p.x, p.y, p.z});
-    colors.insert(colors.end(), {c.r, c.g, c.b, c.a});
-}
-
-void PlotRenderer::addTube(MeshData& mesh, Vector3 a, Vector3 b, float radius, Color color) const {
-    Vector3 d = Vector3Subtract(b, a);
-    float len = Vector3Length(d);
-    if (len < 1e-6f) return;
-    d = Vector3Scale(d, 1.0f / len);
-    Vector3 up = std::fabs(d.y) < 0.9f ? Vector3{0, 1, 0} : Vector3{1, 0, 0};
-    Vector3 u = Vector3Normalize(Vector3CrossProduct(d, up));
-    Vector3 v = Vector3CrossProduct(d, u);
-    const int sides = 6;
-    Vector3 light = lightDir();
-    for (int k = 0; k < sides; k++) {
-        float a0 = 2.0f * PI * k / sides, a1 = 2.0f * PI * (k + 1) / sides;
-        Vector3 n0 = Vector3Add(Vector3Scale(u, std::cos(a0)), Vector3Scale(v, std::sin(a0)));
-        Vector3 n1 = Vector3Add(Vector3Scale(u, std::cos(a1)), Vector3Scale(v, std::sin(a1)));
-        Vector3 nMid = Vector3Normalize(Vector3Add(n0, n1));
-        Color c = shaded(color, 0.78f + 0.3f * Vector3DotProduct(nMid, light));
-        Vector3 p0 = Vector3Add(a, Vector3Scale(n0, radius)), p1 = Vector3Add(a, Vector3Scale(n1, radius));
-        Vector3 q0 = Vector3Add(b, Vector3Scale(n0, radius)), q1 = Vector3Add(b, Vector3Scale(n1, radius));
-        mesh.add(p0, c);
-        mesh.add(q0, c);
-        mesh.add(q1, c);
-        mesh.add(p0, c);
-        mesh.add(q1, c);
-        mesh.add(p1, c);
-    }
-}
-
-void PlotRenderer::upload(MeshData& data) {
-    if (data.count() < 3 || (!data.indices.empty() && data.indices.size() < 3)) return;
-    Mesh mesh = {};
-    mesh.vertexCount = static_cast<int>(data.count());
-    mesh.triangleCount = static_cast<int>(data.indices.empty() ? data.count() / 3 : data.indices.size() / 3);
-    mesh.vertices = static_cast<float*>(MemAlloc(static_cast<unsigned>(data.positions.size() * sizeof(float))));
-    mesh.colors = static_cast<unsigned char*>(MemAlloc(static_cast<unsigned>(data.colors.size())));
-    std::memcpy(mesh.vertices, data.positions.data(), data.positions.size() * sizeof(float));
-    std::memcpy(mesh.colors, data.colors.data(), data.colors.size());
-    if (!data.indices.empty()) {
-        mesh.indices = static_cast<unsigned short*>(
-            MemAlloc(static_cast<unsigned>(data.indices.size() * sizeof(unsigned short))));
-        std::memcpy(mesh.indices, data.indices.data(), data.indices.size() * sizeof(unsigned short));
-    }
-    UploadMesh(&mesh, false);
-    m_meshes.push_back(mesh);
-    data = MeshData{};
-}
-
-void PlotRenderer::releaseMeshes() {
-    for (Mesh& mesh : m_meshes) {
-        if (IsWindowReady()) {
-            UnloadMesh(mesh);
-        } else {
-            // The GL context is gone (app shutdown): only free the CPU copies
-            MemFree(mesh.vertices);
-            MemFree(mesh.colors);
-            MemFree(mesh.indices);
-            MemFree(mesh.vboId);
-        }
-    }
-    m_meshes.clear();
-}
-
 size_t PlotRenderer::vertexCount() const {
-    size_t n = 0;
-    for (const Mesh& m : m_meshes) n += static_cast<size_t>(m.vertexCount);
-    return n;
+    return m_meshSet.vertexCount();
 }
 
 bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver) {
@@ -232,7 +164,26 @@ bool PlotRenderer::rebuild(const PlotSpec& spec, const expr::Resolver* resolver)
     MeshData tubes;
     tubes.positions.reserve(m_curve.size() * 36 * 3);
     tubes.colors.reserve(m_curve.size() * 36 * 4);
-    for (const auto& seg : m_curve) addTube(tubes, seg.a, seg.b, 0.03f, seg.color);
+    // Print preview: dash patterns along curves drawn in order (implicit curves stay solid)
+    bool dashing = spec.print && spec.dash != 0 && spec.type != PlotType::Implicit;
+    float pattern[4] = {1, 0, 0, 0};
+    switch (spec.dash) {
+        case 1: pattern[0] = 0.25f, pattern[1] = 0.15f, pattern[2] = 0.25f, pattern[3] = 0.15f; break;
+        case 2: pattern[0] = 0.06f, pattern[1] = 0.1f, pattern[2] = 0.06f, pattern[3] = 0.1f; break;
+        case 3: pattern[0] = 0.25f, pattern[1] = 0.1f, pattern[2] = 0.06f, pattern[3] = 0.1f; break;
+        default: pattern[0] = 0.25f, pattern[1] = 0.3f, pattern[2] = 0.25f, pattern[3] = 0.3f; break;
+    }
+    float period = pattern[0] + pattern[1] + pattern[2] + pattern[3], along = 0.0f;
+    for (const auto& seg : m_curve) {
+        float segLen = Vector3Distance(seg.a, seg.b);
+        float mid = std::fmod(along + segLen / 2, period);
+        along += segLen;
+        if (dashing) {
+            bool on = mid < pattern[0] || (mid >= pattern[0] + pattern[1] && mid < pattern[0] + pattern[1] + pattern[2]);
+            if (!on) continue;
+        }
+        mesh::addTube(tubes, seg.a, seg.b, spec.print ? 0.02f : 0.03f * spec.tubeScale, seg.color);
+    }
     m_curve.clear();
     m_curve.shrink_to_fit();
     upload(tubes);
@@ -264,7 +215,7 @@ void PlotRenderer::buildFunction2D(const PlotSpec& spec, const Expression& f) {
 
         float x0 = spec.xMin + (spec.xMax - spec.xMin) * i / n;
         float x1 = spec.xMin + (spec.xMax - spec.xMin) * (i + 1) / n;
-        Color c = spec.heatmap ? heatColor(normalize((ys[i] + ys[i + 1]) / 2, m_minValue, m_maxValue))
+        Color c = spec.heatmap ? heatColor(spec, normalize((ys[i] + ys[i + 1]) / 2, m_minValue, m_maxValue))
                                : curveColor(spec);
         m_curve.push_back({mathToWorld(x0, ys[i], kLift), mathToWorld(x1, ys[i + 1], kLift), c});
     }
@@ -295,7 +246,7 @@ void PlotRenderer::buildParametric(const PlotSpec& spec, const Expression& ex, c
         const Sample& b = pts[i + 1];
         if (!a.ok || !b.ok) continue;
         // Color by height (math z)
-        Color c = spec.heatmap ? heatColor(normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : curveColor(spec);
+        Color c = spec.heatmap ? heatColor(spec, normalize((a.z + b.z) / 2, m_minValue, m_maxValue)) : curveColor(spec);
         m_curve.push_back({mathToWorld(a.x, a.y, a.z), mathToWorld(b.x, b.y, b.z), c});
     }
 }
@@ -339,7 +290,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
             float dzdy = (zAt(i, j + 1) - zAt(i, j - 1)) / ((j > 0 && j < ny ? 2.0f : 1.0f) * dy);
             Vector3 n = Vector3Normalize(mathToWorld(-dzdx, -dzdy, 1.0f));
             float shade = 0.6f + 0.45f * std::fabs(Vector3DotProduct(n, light));
-            Color base = spec.heatmap ? heatColor(normalize(z[idx(i, j)], m_minValue, m_maxValue)) : plain;
+            Color base = spec.heatmap ? heatColor(spec, normalize(z[idx(i, j)], m_minValue, m_maxValue)) : plain;
             if (spec.heatmap) base.a = 245;
             colors[idx(i, j)] = shaded(base, shade);
         }
@@ -347,12 +298,15 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
 
     auto point = [&](int i, int j) { return mathToWorld(xAt(i), yAt(j), z[idx(i, j)]); };
     // About one wire line per unit, at most 60 per direction
-    auto wireStep = [](int n, float span) {
-        int lines = std::clamp(static_cast<int>(std::lround(span)), 8, 60);
+    auto wireStep = [&spec](int n, float span) {
+        // Print preview: the export's mesh (about 30 lines per direction); otherwise ~1 per unit
+        int lines = spec.print ? 30 : std::clamp(static_cast<int>(std::lround(span)), 8, 60);
         return std::max(1, n / lines);
     };
     const int stepX = wireStep(nx, spec.xMax - spec.xMin), stepY = wireStep(ny, spec.yMax - spec.yMin);
-    const Color wire = Fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
+    const Color wire = spec.print ? Color{0, 0, 0, 220}
+                       : spec.wire.a ? spec.wire
+                                     : Fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
     // Indexed meshes share each vertex between its cells. raylib indices are
     // 16-bit, so the grid is split into bands of rows under 65536 vertices.
     const int rowsPerBand = std::max(1, 65535 / (nx + 1) - 1);
@@ -384,7 +338,13 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
                 bool cellOk = ok[idx(i, j)] && ok[idx(i + 1, j)] && ok[idx(i + 1, j + 1)] && ok[idx(i, j + 1)];
                 if (!cellOk) continue;
                 float avg = (z[idx(i, j)] + z[idx(i + 1, j)] + z[idx(i + 1, j + 1)] + z[idx(i, j + 1)]) / 4.0f;
-                Color c = spec.heatmap ? heatColor(normalize(avg, m_minValue, m_maxValue)) : plain;
+                Color c = spec.heatmap ? heatColor(spec, normalize(avg, m_minValue, m_maxValue)) : plain;
+                if (spec.print) {
+                    // Paper: white, or grays by height like the export's gray shading
+                    float g = spec.grayShading ? 0.55f + 0.42f * normalize(avg, m_minValue, m_maxValue) : 1.0f;
+                    unsigned char v = static_cast<unsigned char>(255.0f * g);
+                    c = {v, v, v, 255};
+                }
                 Vector3 p00 = point(i, j), p10 = point(i + 1, j), p11 = point(i + 1, j + 1), p01 = point(i, j + 1);
                 m_triangles.add(p00, c);
                 m_triangles.add(p10, c);
@@ -403,7 +363,19 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
         for (int k = 0; k < count; k += stride) {
             int k1 = std::min(k + stride, count);
             int ia = i0 + di * k, ja = j0 + dj * k, ib = i0 + di * k1, jb = j0 + dj * k1;
-            if (ok[idx(ia, ja)] && ok[idx(ib, jb)]) m_wireframe.push_back({point(ia, ja), point(ib, jb), wire});
+            if (!ok[idx(ia, ja)] || !ok[idx(ib, jb)]) continue;
+            if (spec.print) {
+                // Lift the mesh a little off both sides of the white faces, so the depth test
+                // does not hide half of it
+                for (float lift : {0.012f, -0.012f}) {
+                    Vector3 a = point(ia, ja), b = point(ib, jb);
+                    a.y += lift;
+                    b.y += lift;
+                    m_wireframe.push_back({a, b, wire});
+                }
+            } else {
+                m_wireframe.push_back({point(ia, ja), point(ib, jb), wire});
+            }
         }
     };
     for (int j = 0; j <= ny; j += stepY) wireLine(0, j, 1, 0, nx, alongX);
@@ -441,7 +413,7 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
                 if (!std::isfinite(c)) continue;
                 // Compress the range so values near zero still show contrast
                 float t = 0.5f + 0.5f * static_cast<float>(std::tanh(3.0 * c / maxAbs));
-                Color col = Fade(heatColor(t), 0.35f);
+                Color col = Fade(heatColor(spec, t), 0.35f);
                 Vector3 a = mathToWorld(xAt(i), yAt(j), kLift / 2), b = mathToWorld(xAt(i1), yAt(j), kLift / 2);
                 Vector3 d = mathToWorld(xAt(i1), yAt(j1), kLift / 2), e = mathToWorld(xAt(i), yAt(j1), kLift / 2);
                 m_triangles.add(a, col);
@@ -454,61 +426,21 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
         }
     }
 
-    // Marching squares. Corners: 0 = (i,j), 1 = (i+1,j), 2 = (i+1,j+1), 3 = (i,j+1).
-    // Edges: 0 = bottom (0-1), 1 = right (1-2), 2 = top (2-3), 3 = left (3-0).
-    for (int j = 0; j < ny; j++) {
-        for (int i = 0; i < nx; i++) {
-            double c[4] = {v[idx(i, j)], v[idx(i + 1, j)], v[idx(i + 1, j + 1)], v[idx(i, j + 1)]};
-            if (!std::isfinite(c[0]) || !std::isfinite(c[1]) || !std::isfinite(c[2]) || !std::isfinite(c[3]))
-                continue;
-            Vector3 p[4] = {{xAt(i), yAt(j), 0}, {xAt(i + 1), yAt(j), 0},
-                            {xAt(i + 1), yAt(j + 1), 0}, {xAt(i), yAt(j + 1), 0}};
-
-            int mask = (c[0] > 0) | ((c[1] > 0) << 1) | ((c[2] > 0) << 2) | ((c[3] > 0) << 3);
-            if (mask == 0 || mask == 15) continue;
-
-            auto edgePoint = [&](int e) {
-                int a = e, b = (e + 1) % 4;
-                double t = c[a] / (c[a] - c[b]);
-                return Vector3{
-                    static_cast<float>(p[a].x + (p[b].x - p[a].x) * t),
-                    static_cast<float>(p[a].y + (p[b].y - p[a].y) * t),
-                    0.0f,
-                };
-            };
-            auto emit = [&](int e0, int e1) {
-                Vector3 a = edgePoint(e0), b = edgePoint(e1);
-                m_curve.push_back({mathToWorld(a.x, a.y, kLift), mathToWorld(b.x, b.y, kLift), curveColor(spec)});
-            };
-
-            double center = (c[0] + c[1] + c[2] + c[3]) / 4.0;
-            switch (mask) {
-                case 1: case 14: emit(3, 0); break;
-                case 2: case 13: emit(0, 1); break;
-                case 3: case 12: emit(3, 1); break;
-                case 4: case 11: emit(1, 2); break;
-                case 6: case 9:  emit(0, 2); break;
-                case 7: case 8:  emit(3, 2); break;
-                case 5:  // corners 0 and 2 positive
-                    if (center > 0) { emit(0, 1); emit(2, 3); }
-                    else            { emit(3, 0); emit(1, 2); }
-                    break;
-                case 10: // corners 1 and 3 positive
-                    if (center > 0) { emit(3, 0); emit(1, 2); }
-                    else            { emit(0, 1); emit(2, 3); }
-                    break;
-                default: break;
-            }
-        }
+    // Level-zero contour (math/Contour)
+    for (const ContourSegment& seg : marchingSquares(v, nx, ny, spec.xMin, spec.xMax, spec.yMin, spec.yMax)) {
+        m_curve.push_back({mathToWorld(static_cast<float>(seg.x0), static_cast<float>(seg.y0), kLift),
+                           mathToWorld(static_cast<float>(seg.x1), static_cast<float>(seg.y1), kLift),
+                           curveColor(spec)});
     }
 }
 
-void PlotRenderer::draw() const {
-    rlDrawRenderBatchActive();
-    rlDisableBackfaceCulling();  // surfaces are visible from above and below
-    for (const Mesh& mesh : m_meshes) DrawMesh(mesh, plotMaterial(), MatrixIdentity());
-    rlEnableBackfaceCulling();
-    for (const auto& s : m_wireframe) DrawLine3D(s.a, s.b, s.color);
+void PlotRenderer::draw(float fade) const {
+    m_meshSet.draw(fade);
+    for (const auto& s : m_wireframe) {
+        Color c = s.color;
+        c.a = static_cast<unsigned char>(c.a * std::clamp(fade, 0.0f, 1.0f));
+        DrawLine3D(s.a, s.b, c);
+    }
 }
 
 void PlotRenderer::drawAxes(float length) const {

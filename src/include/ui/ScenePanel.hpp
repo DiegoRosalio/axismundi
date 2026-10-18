@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scene/Scene.hpp"
+#include "ui/core/Layout.hpp"
 #include "view/SceneView.hpp"
 #include <raylib.h>
 #include <functional>
@@ -17,6 +18,15 @@ struct ScenePanelRequests {
     Rectangle colorAnchor = {0, 0, 0, 0};
     bool openTime = false;       // "Time panel" link in a parameter's inspector
     bool openReference = false;  // formula reference button in the inspector header
+    bool loadDemo = false;       // "Demo scene" in the empty objects list
+    bool toggleSolo = false;     // solo button: show only the selection
+    bool soloOff = false;        // "Show all" turned solo off
+    // Open the big formula editor for an object field (the expand button or Ctrl+Enter)
+    bool openFormula = false;
+    scene::ObjectId formulaObject = scene::kNoObject;
+    std::string formulaKey;      // field key
+    std::string formulaText;     // text to start from (the unsaved edit, if any)
+    std::function<bool(const std::string&)> formulaCommit;
     std::string message;         // e.g. a rejected rename
     bool messageIsError = false;
 };
@@ -38,6 +48,7 @@ public:
     void cancelEditing() { m_activeId = -1; }
 
     void setEasingOpen(bool open) { m_easingOpen = open; }
+    void setSolo(bool solo) { m_solo = solo; }  // show-only-the-selection state, for the list
 
 private:
     // One editable text: the object it belongs to and what committing does
@@ -54,14 +65,60 @@ private:
     // Text field bound to a string; returns its height used (design units handled inside)
     void editText(Rectangle r, int id, const std::string& current, bool invalid,
                   std::function<bool(const std::string&)> commit);
-    // "label [field]" row for an object field, with the field's error underneath; returns the bottom y
+    // Wrapping multi-line field for formulas (with Ctrl+Enter = big editor)
+    void editFormula(Rectangle r, int id, const std::string& current, bool invalid,
+                     std::function<bool(const std::string&)> commit, scene::ObjectId object, const std::string& key);
+    void editField(Rectangle r, int id, const std::string& current, bool invalid,
+                   std::function<bool(const std::string&)> commit, scene::ObjectId object, const std::string& key,
+                   bool shortField);
+    // "label [field ⤢]" row for an object field, with the field's error underneath; returns the bottom y
     float fieldRow(float x, float y, float width, scene::SceneObject& obj, const std::string& key, scene::Scene& scene,
                    float labelWidth = 74.0f);
     static int fieldId(const scene::SceneObject& obj, const std::string& key);
 
+    // The inspector content of each object type (ScenePanelInspectors.cpp)
+    struct InspectorContext {
+        ui::Column& col;
+        scene::SceneObject& o;
+        scene::Scene& sc;
+        scene::SpaceKind kind;
+        const view::SceneView& view;
+    };
+    void rangeRow(InspectorContext& c, const char* lo, const char* hi, const char* label);
+    bool toggleProp(InspectorContext& c, const char* text, const char* key, bool current, const char* tip);
+    void inspectVector(InspectorContext& c);
+    void inspectMatrix(InspectorContext& c);
+    void inspectEigen(InspectorContext& c);
+    void inspectPlot(InspectorContext& c);
+    void inspectEpicycles(InspectorContext& c);
+    void inspectFourierSeries(InspectorContext& c);
+    void inspectFrame(InspectorContext& c);
+    void inspectTangent(InspectorContext& c);
+    void inspectTangentPlane(InspectorContext& c);
+    void inspectVelocity(InspectorContext& c);
+    void inspectTaylor(InspectorContext& c);
+    void inspectNewton(InspectorContext& c);
+    void inspectIntegral(InspectorContext& c);
+    void inspectQuaternion(InspectorContext& c);
+    void inspectField(InspectorContext& c);
+    void inspectParameter(InspectorContext& c);
+    void inspectComplex(InspectorContext& c);
+    void inspectProduct(InspectorContext& c);
+
+public:
+    // One row per object type: how the inspector draws its own part, and the objects list's one-line
+    // summary. `inspect` points to one of the member functions above; call it as (this->*inspect)(ctx).
+    struct TypeUi {
+        void (ScenePanel::*inspect)(InspectorContext&) = nullptr;
+        std::string (*summary)(const scene::SceneObject&) = nullptr;  // nullptr: the value's summary
+    };
+    static const TypeUi* typeUi(const std::string& typeId);  // nullptr for an unknown type
+
+private:
+
     scene::SpaceKind m_kind = scene::SpaceKind::Euclidean3D;
     int m_activeId = -1;
-    char m_buffer[256] = {};
+    char m_buffer[1024] = {};  // the text being edited (formulas can be long)
     std::vector<Editable> m_editables;      // drawn this frame, in order (for Tab)
     std::vector<Editable> m_lastEditables;  // from the previous frame
     ScenePanelRequests m_requests;
@@ -70,6 +127,7 @@ private:
     int m_exampleIndex = 0;
     bool m_sliderDirty = false;  // a slider changed the scene; commit on release
     bool m_easingOpen = false;   // easing grid in the parameter inspector
+    bool m_solo = false;
 };
 
 } // namespace linalg

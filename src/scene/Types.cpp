@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
+#include <limits>
 #include <cstdio>
 
 namespace linalg::scene {
@@ -133,6 +134,42 @@ MatrixObject::MatrixObject() : SceneObject("matrix") {
 
 void MatrixObject::setSize(int n) {
     setProp("size", static_cast<double>(n == 4 ? 4 : 3));
+}
+
+void MatrixObject::setCells(const Matrix4D& m, int n) {
+    setByFormula(false);
+    setSize(n);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+            float v = m.m[i][j];
+            if (std::fabs(v) < 1e-6f) v = 0.0f;  // no "-0" or float noise in the cells
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%.6g", v);
+            setField(cellKey(i, j), buf);
+        }
+}
+
+void MatrixObject::applyPreset(const Matrix3D& p) {
+    Matrix4D P = Matrix4D::identity();
+    bool identity = true;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) {
+            P.m[i][j] = p.m[i][j];
+            if (std::fabs(p.m[i][j] - (i == j ? 1.0f : 0.0f)) > 1e-9f) identity = false;
+        }
+    int n = size();
+    const expr::Value& v = value();
+    if (v.ok() && v.type == expr::Type::Matrix) n = v.size;
+    if (identity) {
+        setCells(Matrix4D::identity(), n);
+        return;
+    }
+    Matrix4D current = Matrix4D::identity();
+    if (v.ok() && v.type == expr::Type::Matrix) {
+        for (int i = 0; i < v.size; i++)
+            for (int j = 0; j < v.size; j++) current.m[i][j] = v.matrix.m[i][j];
+    }
+    setCells(P * current, n);
 }
 
 void MatrixObject::setByFormula(bool formula) {
@@ -344,6 +381,9 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"eigen", "Eigenvectors", "Linear algebra", "E", spaceBit(SpaceKind::Euclidean3D),
          "The directions a matrix only stretches",
          [] { return std::make_unique<EigenObject>(); }},
+        {"quaternion", "Quaternion (rotation)", "Linear algebra", "q", spaceBit(SpaceKind::Euclidean3D),
+         "A rotation in four numbers: an axis and an angle, e.g. qaxis([0, 0, 1], pi/2)",
+         [] { return std::make_unique<QuaternionObject>(); }},
         {"function", "Function y = f(x)", "Plots", "f", spaceBit(SpaceKind::Euclidean3D),
          "The graph of a function of x",
          [] { return std::make_unique<PlotObject>(PlotObject::Kind::Function); }},
@@ -356,12 +396,45 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"implicit", "Implicit curve f(x, y) = 0", "Plots", "g", spaceBit(SpaceKind::Euclidean3D),
          "All points where f(x, y) = 0",
          [] { return std::make_unique<PlotObject>(PlotObject::Kind::Implicit); }},
+        {"field", "Vector field F(x, y, z)", "Fields", "F", spaceBit(SpaceKind::Euclidean3D),
+         "Arrows of F at every point, with flow lines and moving particles",
+         [] { return std::make_unique<VectorFieldObject>(); }},
+        {"doubleintegral", "Volume under z = f(x, y)", "Calculus", "V", spaceBit(SpaceKind::Euclidean3D),
+         "A double integral: Riemann boxes next to the exact volume",
+         [] { return std::make_unique<DoubleIntegralObject>(); }},
+        {"lineintegral", "Work ∫ F·dr along a curve", "Calculus", "W", spaceBit(SpaceKind::Euclidean3D),
+         "A line integral: how much a vector field pushes along a path",
+         [] { return std::make_unique<LineIntegralObject>(); }},
+        {"frame", "Moving frame on a curve", "Calculus", "P", spaceBit(SpaceKind::Euclidean3D),
+         "Tangent, normal, binormal, curvature and torsion at a point of a curve",
+         [] { return std::make_unique<FrameObject>(); }},
+        {"tangent", "Tangent line on y = f(x)", "Calculus", "T", spaceBit(SpaceKind::Euclidean3D),
+         "The derivative as a slope: the tangent at a point, the graph of f', a secant shrinking to it",
+         [] { return std::make_unique<TangentObject>(); }},
+        {"tangentplane", "Tangent plane and gradient", "Calculus", "G", spaceBit(SpaceKind::Euclidean3D),
+         "Partial derivatives of z = f(x, y): the tangent plane and the arrow pointing uphill",
+         [] { return std::make_unique<TangentPlaneObject>(); }},
+        {"velocity", "Velocity on a curve", "Calculus", "R", spaceBit(SpaceKind::Euclidean3D),
+         "r'(u) and r''(u): how fast a point moves along a curve, and how it speeds up or turns",
+         [] { return std::make_unique<VelocityObject>(); }},
+        {"taylor", "Taylor polynomial of f(x)", "Calculus", "p", spaceBit(SpaceKind::Euclidean3D),
+         "f near a point as a polynomial: add terms one by one and watch it fit farther out",
+         [] { return std::make_unique<TaylorObject>(); }},
+        {"newton", "Newton's method on f(x)", "Calculus", "r", spaceBit(SpaceKind::Euclidean3D),
+         "Find where f = 0 by following tangent lines down to the x axis, step by step",
+         [] { return std::make_unique<NewtonObject>(); }},
+        {"fourierseries", "Fourier series of f(x)", "Fourier", "S", spaceBit(SpaceKind::Euclidean3D),
+         "f rebuilt from sine and cosine waves: the partial sums and the spectrum",
+         [] { return std::make_unique<FourierSeriesObject>(); }},
         {"complex", "Complex number", "Basics", "z", spaceBit(SpaceKind::Complex),
          "A point of the complex plane, such as 2 + i or exp(i*theta)",
          [] { return std::make_unique<ComplexObject>(); }},
         {"product", "Product z₁·z₂", "Operations", "w", spaceBit(SpaceKind::Complex),
          "A product drawn as a rotation plus a scaling",
          [] { return std::make_unique<ProductObject>(); }},
+        {"epicycles", "Fourier epicycles", "Fourier", "E", spaceBit(SpaceKind::Complex),
+         "A closed curve drawn by spinning circles (its Fourier series)",
+         [] { return std::make_unique<EpicyclesObject>(); }},
     };
     return types;
 }

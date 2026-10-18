@@ -1,7 +1,11 @@
 #pragma once
 
+// Turns a plot (function, curve, surface, implicit curve) into GPU meshes once, then draws them every frame.
+// SceneView keeps one PlotRenderer per plot object and rebuilds it only when the object or the style changes.
+
 #include "math/Expression.hpp"
 #include "math/expr/Expr.hpp"
+#include "rendering/MeshBuilder.hpp"
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -29,7 +33,20 @@ struct PlotSpec {
     int samplesY = 60;             // cells along y (surfaces, implicit curves)
     bool heatmap = true;
     bool smooth = true;            // surfaces: blended colors + shading, or flat-colored cells
-    Color color = {0, 0, 0, 0};    // without heat map (alpha 0: theme color)
+    // Black-and-white print preview (matches the LaTeX export): curves in `color` with a dash
+    // pattern (0 solid, 1 dashed, 2 dotted, 3 dash-dotted, 4 loosely dashed); surfaces white
+    // (or gray by height) with a black mesh
+    bool print = false;
+    int dash = 0;
+    bool grayShading = false;
+    Color color = {0, 0, 0, 0};    // without heat map (alpha 0: the default below)
+    // Defaults from the view style (alpha 0: theme colors)
+    Color curveDefault = {0, 0, 0, 0};
+    Color surfaceDefault = {0, 0, 0, 0};
+    Color wire = {0, 0, 0, 0};     // surface mesh lines
+    float tubeScale = 1.0f;        // curve tube thickness
+    float heatSoften = 0.0f;       // 0..1: blend heat-map colors toward heatSoftenTo (pastel styles)
+    Color heatSoftenTo = {255, 255, 255, 255};
 };
 
 // Builds plot geometry from a PlotSpec and draws it.
@@ -56,12 +73,15 @@ public:
 
     bool is3D() const { return m_type == PlotType::Surface || m_type == PlotType::Parametric; }
 
-    void draw() const;
+    // `fade` < 1 draws the plot translucent (other objects while something is selected)
+    void draw(float fade = 1.0f) const;
     void drawAxes(float length) const;
     void drawLabels(const Camera3D& camera, float axisLength, bool showAxes) const;
 
     // Map an RGB heat ramp (blue -> cyan -> green -> yellow -> red), t in [0, 1]
     static Color heatColor(float t);
+    // The heat color blended toward spec.heatSoftenTo by spec.heatSoften (view styles)
+    static Color heatColor(const PlotSpec& spec, float t);
 
     size_t vertexCount() const;  // GPU vertices of the meshes (for the inspector)
 
@@ -70,18 +90,9 @@ private:
         Vector3 a, b;
         Color color;
     };
-    // Triangles collected on the CPU, then uploaded as one mesh
-    struct MeshData {
-        std::vector<float> positions;
-        std::vector<unsigned char> colors;
-        std::vector<unsigned short> indices;  // empty: plain triangle list
-        void add(Vector3 p, Color c);
-        size_t count() const { return positions.size() / 3; }
-    };
-    void addTube(MeshData& mesh, Vector3 a, Vector3 b, float radius, Color color) const;
-    // Upload to the GPU and keep the mesh in m_meshes; frees the CPU data
-    void upload(MeshData& data);
-    void releaseMeshes();
+    using MeshData = mesh::MeshData;
+    void upload(MeshData& data) { m_meshSet.upload(data); }
+    void releaseMeshes() { m_meshSet.release(); }
 
     const expr::Resolver* m_resolver = nullptr;
     double m_time = 0.0;
@@ -98,7 +109,7 @@ private:
     std::vector<Segment> m_wireframe;  // thin lines, drawn as lines
     MeshData m_triangles;              // heat map background (plain triangles)
     size_t m_filled = 0;               // triangles collected (surface + heat map)
-    std::vector<Mesh> m_meshes;        // GPU meshes: surface chunks, heat map, tubes
+    mesh::MeshSet m_meshSet;           // GPU meshes: surface chunks, heat map, tubes
     float m_minValue = 0.0f;
     float m_maxValue = 0.0f;
     std::string m_error;

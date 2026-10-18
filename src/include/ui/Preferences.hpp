@@ -17,8 +17,11 @@ struct Preferences {
 // Settings that the settings popover edits
 struct UiSettings {
     bool tooltips = true;
+    bool dimUnselected = true;  // fade the other objects while something is selected
     bool showHud = true;
-    bool smoothSurfaces = true;  // surfaces: smooth shading, or flat cells (faceted)
+    enum class Surfaces { StyleDefault, Smooth, Faceted };
+    Surfaces surfaces = Surfaces::StyleDefault;  // smooth shading or flat cells; default: the view style's
+    bool flyCamera = false;  // false: orbit camera (drag, wheel); true: fly camera (Tab, mouse look, WASD)
 };
 
 } // namespace linalg

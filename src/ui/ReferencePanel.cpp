@@ -53,15 +53,16 @@ std::string compact(const expr::Value& v) {
             }
             return s + "]";
         }
+        case Type::Quaternion: return v.summary();
         case Type::Error: return v.error;
     }
     return "";
 }
 
-expr::Value evaluate(const std::string& text, const expr::Resolver* resolver, double time, bool curve,
+expr::Value evaluate(const std::string& text, const expr::Resolver* resolver, double time, unsigned variables,
                      std::string& error) {
     expr::Program p;
-    if (!p.compile(text, curve)) {
+    if (!p.compile(text, variables)) {
         error = p.error();
         return expr::Value::fail(error);
     }
@@ -70,7 +71,8 @@ expr::Value evaluate(const std::string& text, const expr::Resolver* resolver, do
     slots.y = 2.0;
     slots.t = time;
     slots.u = 0.5;
-    slots.hasX = slots.hasY = slots.hasT = slots.hasU = true;
+    slots.z = 3.0;
+    slots.hasX = slots.hasY = slots.hasT = slots.hasU = slots.hasZ = true;
     expr::Value v = p.eval(resolver, &slots);
     if (!v.ok()) error = v.error;
     return v;
@@ -97,7 +99,7 @@ float ReferencePanel::drawContent(Rectangle area, const expr::Resolver* resolver
     std::string tryError;
     expr::Value tried;
     bool hasTry = m_try[0] != '\0';
-    if (hasTry) tried = evaluate(m_try, resolver, time, false, tryError);
+    if (hasTry) tried = evaluate(m_try, resolver, time, 0, tryError);
     ui::textField(tryBox, m_try, sizeof(m_try), kTryId, m_activeId, hasTry && !tried.ok());
     ui::anchor("reference.try", tryBox);
     if (!hasTry && m_activeId != kTryId)
@@ -187,7 +189,8 @@ float ReferencePanel::drawContent(Rectangle area, const expr::Resolver* resolver
                 if (hover) ui::fillRounded(r, ui::px(6.0f), t.hover);
                 if (ui::clicked(r)) setTryText(e->example);
                 std::string error;
-                expr::Value v = evaluate(e->example, resolver, time, sec.title.find("Time") == 0, error);
+                expr::Value v = evaluate(e->example, resolver, time,
+                                         sec.title.find("Time") == 0 ? (expr::kVarU | expr::kVarZ) : 0u, error);
                 Rectangle inner = {r.x + ui::px(12), r.y, r.width - ui::px(20), r.height};
                 Rectangle eg = ui::takeLeft(inner, 30.0f, 4.0f);
                 ui::textIn(eg, "e.g.", ui::FontRole::Small, t.textFaint);

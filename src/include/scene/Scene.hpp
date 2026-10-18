@@ -57,7 +57,8 @@ public:
     void save(SceneData& data, bool withTimeline = true) const;
     // Loads v2 data, or converts a v1 file (one matrix, vectors A and B, ...)
     bool load(const SceneData& data, std::string& error);
-    void resetToDefault();
+    void resetToDefault();     // demo objects; the history baseline becomes this state
+    void loadDefaultScene();   // demo objects as an undoable step
 
     // --- Undo -------------------------------------------------------------------
     // Record the current state as a step (call after each user change)
@@ -66,6 +67,10 @@ public:
     bool canRedo() const { return !m_redo.empty(); }
     void undo();
     void redo();
+    // Forget the history and make the current state the starting point
+    void clearHistory();
+    // Remove every object from both spaces (one undo step when committed)
+    void clearAll();
 
 private:
     void restore(const SceneData& data);

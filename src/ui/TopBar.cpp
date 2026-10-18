@@ -20,7 +20,15 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
 
     Rectangle bar = {ui::px(ui::kPad), 0, w - 2 * ui::px(ui::kPad), h};
 
-    // Brand: a small accent mark and the name
+    // Side bar toggle, then the brand: a small accent mark and the name
+    Rectangle side = ui::takeLeft(bar, 30.0f, 10.0f);
+    side.y = (h - ui::px(30.0f)) / 2;
+    side.height = ui::px(30.0f);
+    if (ui::iconButton(side, ui::Icon::Sidebar, !state.sidebarCollapsed)) actions.toggleSidebar = true;
+    ui::anchor("topbar.sidebar", side);
+    ui::tooltip(side, state.sidebarCollapsed ? "Show the objects list and the inspector (Ctrl+B)"
+                                             : "Hide the side bar to give the view the whole window (Ctrl+B)",
+                "Side bar");
     Rectangle mark = ui::takeLeft(bar, 22.0f, 10.0f);
     float m = ui::px(18.0f);
     Rectangle markBox = {mark.x, (h - m) / 2, m, m};
@@ -95,6 +103,10 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     ui::anchor("topbar.play", last);
     ui::tooltip(last, state.playing ? "Pause the scene clock (P)" : "Play the scene clock (P)", "Play / pause");
     divider();
+    if (rightButton(ui::Icon::Export, state.exportVisible)) actions.toggleExport = true;
+    ui::anchor("topbar.export", last);
+    ui::tooltip(last, "Export the scene as a black-and-white LaTeX figure (PGFPlots) for your documents (Ctrl+E)",
+                "Export to LaTeX");
     if (rightButton(ui::Icon::Camera, false)) actions.screenshot = true;
     ui::tooltip(last, "Save a PNG of the window in the current folder (F12; Shift+F12 for the 3D view only)",
                 "Screenshot");

@@ -9,7 +9,7 @@ class App;
 
 // What a step's check can look at besides the app itself
 struct TutorialContext {
-    bool cameraModeUsed = false;  // camera mode was entered during this step
+    bool cameraModeUsed = false;  // the camera was moved (orbit drag/zoom) or fly mode entered during this step
 };
 
 struct TutorialStep {

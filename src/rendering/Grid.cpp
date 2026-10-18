@@ -10,7 +10,7 @@ namespace linalg {
 
 Grid::Grid(int size, float spacing)
     : m_size(size), m_spacing(spacing),
-      m_gridColor({200, 200, 200, 100}),
+      m_gridColor({0, 0, 0, 0}),
       m_showGrid(true), m_showAxes(true) {}
 
 namespace {
@@ -18,8 +18,7 @@ namespace {
 // Lines every unit, stronger every 5 units, fading toward the edge.
 // toWorld maps grid coordinates (u, v) to a world point.
 template <typename ToWorld>
-void drawFadingGrid(int size, float spacing, ToWorld toWorld) {
-    const Color base = ui::theme().grid;
+void drawFadingGrid(int size, float spacing, ToWorld toWorld, Color base) {
     const float extent = size * spacing;
     // Minor lines fade out sooner, so a large grid shows only major lines far away
     const float minorReach = std::min(extent, 25.0f * spacing);
@@ -64,12 +63,12 @@ void drawFadingGrid(int size, float spacing, ToWorld toWorld) {
 void Grid::draw() const {
     if (!m_showGrid) return;
     // The floor: world XZ (the math xy-plane)
-    drawFadingGrid(m_size, m_spacing, [](float u, float v) { return Vector3{u, 0.0f, v}; });
+    drawFadingGrid(m_size, m_spacing, [](float u, float v) { return Vector3{u, 0.0f, v}; }, m_gridColor.a ? m_gridColor : ui::theme().grid);
 }
 
 void Grid::drawPlaneXY() const {
     if (!m_showGrid) return;
-    drawFadingGrid(m_size, m_spacing, [](float u, float v) { return Vector3{u, v, 0.0f}; });
+    drawFadingGrid(m_size, m_spacing, [](float u, float v) { return Vector3{u, v, 0.0f}; }, m_gridColor.a ? m_gridColor : ui::theme().grid);
 }
 
 void Grid::drawAxes(float axisLength) const {

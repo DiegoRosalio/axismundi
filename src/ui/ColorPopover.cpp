@@ -44,7 +44,7 @@ ColorPopover::Result ColorPopover::draw() {
     if (y + h > GetScreenHeight() - ui::px(8)) y = m_anchor.y - h - ui::px(8);  // open upwards
     m_bounds = {std::max(ui::px(8), x), std::max(ui::px(8), y), w, h};
 
-    if (!m_justOpened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+    if (!m_justOpened && ui::mousePressed(MOUSE_BUTTON_LEFT) &&
         !CheckCollisionPointRec(GetMousePosition(), m_bounds)) {
         m_open = false;
         return result;
