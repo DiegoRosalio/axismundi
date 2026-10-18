@@ -1,6 +1,6 @@
-// Drawing of the richer object types (quaternions, integrals, frames, Fourier); the basic ones are
-// in SceneView.cpp
-#include "view/SceneView.hpp"
+// The calculus objects: volume under a surface, work along a curve, the moving frame, the tangent line,
+// the tangent plane with the gradient, velocity and acceleration
+#include "view/ObjectViews.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
@@ -10,74 +10,38 @@
 #include <raymath.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace linalg::view {
 
 using scene::SceneObject;
 using namespace draw;
 
-void SceneView::drawQuaternion(const scene::QuaternionObject& o, bool selected, Color c, bool fade, bool print,
-                               int printStyle) {
-    expr::Rotation r;
-    if (!expr::rotationOf(o.value(), r)) return;
-    const ViewStyle& st = activeStyle();
-    const float k = print ? 0.8f : st.lineScale;
-    const Color muted = print ? Color{150, 150, 150, 255} : (fade ? faded(st.muted) : st.muted);
-    if (o.showBasis()) {
-        if (print) {
-            for (int axisIndex = 0; axisIndex < 3; axisIndex++) {
-                Vector3D e(axisIndex == 0 ? 1.0f : 0.0f, axisIndex == 1 ? 1.0f : 0.0f, axisIndex == 2 ? 1.0f : 0.0f);
-                printArrow({0, 0, 0}, mathToWorld(r.matrix.transform(e)), c, dashOf(printStyle), selected);
-            }
-        } else {
-            basis(embed3(r.matrix), 1.0f, selected, fade);
-        }
-    }
-    if (o.showAxis() && r.hasAxis) {
-        // The axis: a dashed line through the origin, an arrow along +axis
-        Vector3D a = r.axis;
-        if (print) {
-            printLine(mathToWorld(a * -2.6f), mathToWorld(a * 2.6f), c, 1, 0.008f);
-            printArrow({0, 0, 0}, mathToWorld(a * kQuatAxisLength), c, 0, selected);
-        } else {
-            dashed(mathToWorld(a * -2.6f), mathToWorld(a * 2.6f), withAlpha(c, 200), 0.1f);
-            if (selected) DrawCylinderEx({0, 0, 0}, mathToWorld(a * kQuatAxisLength), 0.06f * k, 0.06f * k, 10, withAlpha(c, 60));
-            VectorRenderer::drawArrow(Vector3D::zero(), toVec(mathToWorld(a * kQuatAxisLength)), c, 0.02f * k, 0.17f);
-        }
-        // The angle: an arc around the axis, from a direction at right angles to the axis
-        Vector3D u = perpendicular(a) * 1.0f;
-        auto pts = arcPoints(Vector3D::zero(), a, u, r.angle);
-        Color arc = c;
-        if (print) {
-            for (size_t n = 1; n < pts.size(); n++) printLine(mathToWorld(pts[n - 1]), mathToWorld(pts[n]), arc, 0, 0.01f);
-        } else {
-            angleArc(pts, 0.018f * k, arc);
-            DrawLine3D({0, 0, 0}, mathToWorld(pts.front()), withAlpha(arc, 140));
-            DrawLine3D({0, 0, 0}, mathToWorld(pts.back()), withAlpha(arc, 140));
-        }
-    }
-    if (o.actsOnVector()) {
-        const scene::Field* vf = o.field("v");
-        if (vf && vf->value.type == expr::Type::Vector) {
-            Vector3D v = vf->value.vector, w = r.matrix.transform(v);
-            // v (before), q v q⁻¹ (after), and the circle its tip follows around the axis
-            Vector3D along = r.axis * r.axis.dot(v);
-            auto path = arcPoints(along, r.axis, v - along, r.angle);
-            if (print) {
-                printArrow({0, 0, 0}, mathToWorld(v), muted, 2, false);
-                printArrow({0, 0, 0}, mathToWorld(w), c, 0, false);
-                for (size_t n = 1; n < path.size(); n++) printLine(mathToWorld(path[n - 1]), mathToWorld(path[n]), muted, 2, 0.006f);
-            } else {
-                arrow({0, 0, 0}, mathToWorld(v), muted, false);
-                arrow({0, 0, 0}, mathToWorld(w), c, false);
-                for (size_t n = 1; n < path.size(); n += 2) DrawLine3D(mathToWorld(path[n - 1]), mathToWorld(path[n]), c);
-            }
-        }
+namespace {
+
+// A curve on the floor (like y = f(x)) from (x, y) samples; NaN or huge values leave gaps
+void floorPolyline(const std::vector<std::pair<double, double>>& pts, Color col, float radius, bool dashedLine) {
+    auto at = [](double x, double y) { return mathToWorld(static_cast<float>(x), static_cast<float>(y), 0.006f); };
+    for (size_t i = 1; i < pts.size(); i++) {
+        const auto &a = pts[i - 1], &b = pts[i];
+        if (!std::isfinite(a.second) || !std::isfinite(b.second) || std::fabs(a.second) > 100 || std::fabs(b.second) > 100)
+            continue;
+        if (dashedLine && (i / 4) % 2 == 1) continue;
+        if (radius <= 0) DrawLine3D(at(a.first, a.second), at(b.first, b.second), col);
+        else DrawCylinderEx(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
     }
 }
 
+// A straight line through (x, y) with slope m on the floor, `half` units long on each side
+void floorLine(double x, double y, double m, double half, Color col, float radius) {
+    double dx = half / std::sqrt(1 + m * m);
+    Vector3 a = mathToWorld(static_cast<float>(x - dx), static_cast<float>(y - m * dx), 0.01f);
+    Vector3 b = mathToWorld(static_cast<float>(x + dx), static_cast<float>(y + m * dx), 0.01f);
+    if (radius <= 0) DrawLine3D(a, b, col);
+    else DrawCylinderEx(a, b, radius, radius, 5, col);
+}
 
-void SceneView::drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color c, bool fade, bool print, Color ink) {
+void drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color c, bool fade, bool print, Color ink) {
     const ViewStyle& st = activeStyle();
     if (o.showBoxes()) {
         Color up = print ? Color{215, 215, 215, 255} : withAlpha(c, 120);
@@ -98,8 +62,7 @@ void SceneView::drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color c
             for (size_t i = 1; i < l.size(); i++) DrawLine3D(w3(l[i - 1]), w3(l[i]), line);
     }
 }
-
-void SceneView::drawLineIntegral(const scene::LineIntegralObject& o, Color c, bool fade, bool print, Color ink,
+void drawLineIntegral(const scene::LineIntegralObject& o, Color c, bool fade, bool print, Color ink,
                                  bool selected) {
     const ViewStyle& st = activeStyle();
     const auto& path = o.path();
@@ -134,8 +97,7 @@ void SceneView::drawLineIntegral(const scene::LineIntegralObject& o, Color c, bo
     }
     DrawSphere(w3(o.marker()), 0.08f * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
 }
-
-void SceneView::drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
+void drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
     const ViewStyle& st = activeStyle();
     float k = print ? 0.8f : st.lineScale;
     const auto& curve = o.curve();
@@ -187,104 +149,7 @@ void SceneView::drawFrame(const scene::FrameObject& o, Color c, bool fade, bool 
     }
     DrawSphere(p, (selected ? 0.11f : 0.08f) * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
 }
-
-void SceneView::drawEpicycles(const scene::EpicyclesObject& o, Color c, bool fade, bool print, Color ink,
-                              bool selected) {
-    const ViewStyle& st = activeStyle();
-    auto at = [](const fourier::cplx& z) { return Vector3{static_cast<float>(z.real()), static_cast<float>(z.imag()), 0}; };
-    // The target curve, faint
-    Color faint = print ? Color{200, 200, 200, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 110);
-    const auto& target = o.target();
-    for (size_t i = 0; i < target.size(); i++) DrawLine3D(at(target[i]), at(target[(i + 1) % target.size()]), faint);
-    if (!o.error().empty() || o.terms().empty()) return;
-    int count = o.circles() + 1;  // with the center term
-    double u = o.angle();
-    // The traced path: the last lap up to the tip (a function of the time, so scrubbing works)
-    Color path = print ? ink : (fade ? faded(c) : c);
-    double start = std::max(0.0, u - 2 * PI);
-    int steps = std::max(2, static_cast<int>((u - start) / 0.01));
-    fourier::cplx prev = fourier::evaluate(o.terms(), start, count);
-    for (int i = 1; i <= steps; i++) {
-        fourier::cplx next = fourier::evaluate(o.terms(), start + (u - start) * i / steps, count);
-        if (print) DrawLine3D(at(prev), at(next), path);
-        else DrawCylinderEx(at(prev), at(next), 0.02f * st.lineScale, 0.02f * st.lineScale, 5, path);
-        prev = next;
-    }
-    // The circles and their radius arms, largest first
-    auto centers = fourier::chain(o.terms(), u, count);
-    Color ring = print ? Color{150, 150, 150, 255} : withAlpha(fade ? faded(st.text) : st.text, 70);
-    Color arm = print ? Color{90, 90, 90, 255} : withAlpha(fade ? faded(st.text) : st.text, 200);
-    for (size_t i = 1; i < centers.size(); i++) {
-        double r = std::abs(o.terms()[i].c);
-        Vector3 center = at(centers[i - 1]);
-        if (r > 0.02) {
-            const int seg = 64;
-            for (int k = 0; k < seg; k++) {
-                float a0 = 2.0f * PI * k / seg, a1 = 2.0f * PI * (k + 1) / seg;
-                DrawLine3D({center.x + static_cast<float>(r) * std::cos(a0), center.y + static_cast<float>(r) * std::sin(a0), 0},
-                           {center.x + static_cast<float>(r) * std::cos(a1), center.y + static_cast<float>(r) * std::sin(a1), 0},
-                           ring);
-            }
-        }
-        DrawLine3D(center, at(centers[i]), arm);
-    }
-    Vector3 tip = at(centers.back());
-    DrawSphere(tip, (selected ? 0.1f : 0.07f) * std::sqrt(st.lineScale), print ? ink : (fade ? faded(c) : c));
-}
-
-void SceneView::drawFourierSeries(const scene::FourierSeriesObject& o, Color c, bool fade, bool print, Color ink) {
-    const ViewStyle& st = activeStyle();
-    // On the floor like y = f(x), a hair above it
-    auto at = [](double x, double y) { return mathToWorld(static_cast<float>(x), static_cast<float>(y), 0.006f); };
-    auto polyline = [&](const std::vector<std::pair<double, double>>& pts, Color col, float radius) {
-        for (size_t i = 1; i < pts.size(); i++) {
-            const auto &a = pts[i - 1], &b = pts[i];
-            if (!std::isfinite(a.second) || !std::isfinite(b.second) || std::fabs(a.second) > 100 || std::fabs(b.second) > 100)
-                continue;
-            if (radius <= 0) DrawLine3D(at(a.first, a.second), at(b.first, b.second), col);
-            else DrawCylinderEx(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
-        }
-    };
-    if (o.showHarmonics()) {
-        Color h = print ? Color{170, 170, 170, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 150);
-        for (const auto& harm : o.harmonics()) polyline(harm, h, 0.0f);
-    }
-    if (o.showOriginal()) polyline(o.original(), print ? Color{120, 120, 120, 255} : (fade ? faded(st.muted) : st.muted),
-                                   print ? 0.0f : 0.012f * st.lineScale);
-    polyline(o.sum(), print ? ink : (fade ? faded(c) : c), print ? 0.0f : 0.025f * st.lineScale);
-}
-
-// --- Derivatives ------------------------------------------------------------------------
-
-namespace {
-// A curve on the floor (like y = f(x)) from (x, y) samples; NaN or huge values leave gaps
-void floorPolyline(const std::vector<std::pair<double, double>>& pts, Color col, float radius, bool dashedLine) {
-    auto at = [](double x, double y) { return mathToWorld(static_cast<float>(x), static_cast<float>(y), 0.006f); };
-    for (size_t i = 1; i < pts.size(); i++) {
-        const auto &a = pts[i - 1], &b = pts[i];
-        if (!std::isfinite(a.second) || !std::isfinite(b.second) || std::fabs(a.second) > 100 || std::fabs(b.second) > 100)
-            continue;
-        if (dashedLine && (i / 4) % 2 == 1) continue;
-        if (radius <= 0) DrawLine3D(at(a.first, a.second), at(b.first, b.second), col);
-        else DrawCylinderEx(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
-    }
-}
-
-// A straight line through (x, y) with slope m on the floor, `half` units long on each side
-void floorLine(double x, double y, double m, double half, Color col, float radius) {
-    double dx = half / std::sqrt(1 + m * m);
-    Vector3 a = mathToWorld(static_cast<float>(x - dx), static_cast<float>(y - m * dx), 0.01f);
-    Vector3 b = mathToWorld(static_cast<float>(x + dx), static_cast<float>(y + m * dx), 0.01f);
-    if (radius <= 0) DrawLine3D(a, b, col);
-    else DrawCylinderEx(a, b, radius, radius, 5, col);
-}
-}  // namespace
-
-Color SceneView::derivativeColor(const scene::SceneObject& o) {
-    return paletteColor(activeStyle().vectors, o.paletteIndex + 1);
-}
-
-void SceneView::drawTangent(const scene::TangentObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
+void drawTangent(const scene::TangentObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
     const ViewStyle& st = activeStyle();
     const float k = print ? 0.8f : st.lineScale;
     auto shade = [&](Color col) { return print ? ink : (fade ? faded(col) : col); };
@@ -319,8 +184,7 @@ void SceneView::drawTangent(const scene::TangentObject& o, Color c, bool fade, b
     DrawSphere(mathToWorld(static_cast<float>(x0), static_cast<float>(y0), 0.01f), (selected ? 0.11f : 0.08f) * std::sqrt(k),
                shade(c));
 }
-
-void SceneView::drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bool fade, bool print, Color ink,
+void drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bool fade, bool print, Color ink,
                                  bool selected) {
     const ViewStyle& st = activeStyle();
     const float k = print ? 0.8f : st.lineScale;
@@ -372,8 +236,7 @@ void SceneView::drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bo
     }
     DrawSphere(pw, (selected ? 0.1f : 0.075f) * std::sqrt(k), shade(c));
 }
-
-void SceneView::drawVelocity(const scene::VelocityObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
+void drawVelocity(const scene::VelocityObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
     const ViewStyle& st = activeStyle();
     const float k = print ? 0.8f : st.lineScale;
     auto shade = [&](Color col) { return print ? ink : (fade ? faded(col) : col); };
@@ -406,6 +269,156 @@ void SceneView::drawVelocity(const scene::VelocityObject& o, Color c, bool fade,
     if (o.showVelocity())
         VectorRenderer::drawArrow(toVec(pw), toVec(tipOf(o.velocity())), shade(c), 0.026f * k, 0.2f);
     DrawSphere(pw, (selected ? 0.11f : 0.08f) * std::sqrt(k), shade(c));
+}
+
+// The picking/label handle of the derivative objects: their point (none while in error)
+template <class T>
+bool pointOf(const SceneObject& o, Vector3& out) {
+    if (!o.error().empty()) return false;
+    out = mathToWorld(static_cast<const T&>(o).point());
+    return true;
+}
+
+// The anchor as a zero-length segment (a click near the point picks)
+void pickAnchor(const SceneObject& o, const DrawOptions& options, std::vector<Segment>& out) {
+    Vector3 p;
+    if (SceneView::anchorPoint(o, options, p)) out.push_back({p, p});
+}
+
+std::string valueLabel(const SceneObject& o) {
+    char text[96];
+    snprintf(text, sizeof(text), "%s = %.3f", o.name().c_str(), o.value().re);
+    return text;
+}
+
+} // namespace
+
+void registerCalculusViews(ObjectViewTable& t) {
+    ObjectView volume;
+    volume.palette = Palette::Plots;
+    volume.draw = [](const SceneObject& o, const DrawContext& c) {
+        if (!o.error().empty()) return;
+        drawDoubleIntegral(static_cast<const scene::DoubleIntegralObject&>(o), c.color, c.dim, c.print,
+                           c.print ? c.color : BLACK);
+    };
+    volume.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        // Above the middle of the region, just over the tallest box
+        auto& d = static_cast<const scene::DoubleIntegralObject&>(o);
+        integrals::Rect r = d.rect();
+        double top = 0;
+        for (const auto& b : d.riemann().boxes) top = std::max(top, b.height);
+        out = mathToWorld(static_cast<float>((r.x0 + r.x1) / 2), static_cast<float>((r.y0 + r.y1) / 2),
+                          static_cast<float>(top) + 0.3f);
+        return true;
+    };
+    volume.label = valueLabel;
+    volume.pick = [](const SceneObject& o, const DrawOptions& options, std::vector<Segment>& out) {
+        Vector3 top;
+        if (SceneView::anchorPoint(o, options, top)) out.push_back({{top.x, 0.0f, top.z}, top});
+    };
+    t["doubleintegral"] = volume;
+
+    ObjectView work;
+    work.palette = Palette::Plots;
+    work.draw = [](const SceneObject& o, const DrawContext& c) {
+        if (!o.error().empty()) return;
+        drawLineIntegral(static_cast<const scene::LineIntegralObject&>(o), c.color, c.dim, c.print,
+                         c.print ? c.color : BLACK, c.print ? false : c.selected);
+    };
+    work.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        out = mathToWorld(static_cast<const scene::LineIntegralObject&>(o).marker());
+        return true;
+    };
+    work.label = valueLabel;
+    work.pick = [](const SceneObject& o, const DrawOptions&, std::vector<Segment>& out) {
+        const auto& path = static_cast<const scene::LineIntegralObject&>(o).path();
+        for (size_t i = 4; i < path.size(); i += 4) out.push_back({mathToWorld(path[i - 4].p), mathToWorld(path[i].p)});
+    };
+    t["lineintegral"] = work;
+
+    ObjectView frame;
+    frame.palette = Palette::Vectors;
+    frame.draw = [](const SceneObject& o, const DrawContext& c) {
+        drawFrame(static_cast<const scene::FrameObject&>(o), c.color, c.dim, c.print, c.print ? c.color : BLACK,
+                  c.print ? false : c.selected);
+    };
+    frame.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        out = w3(static_cast<const scene::FrameObject&>(o).frame().p);
+        return true;
+    };
+    frame.label = [](const SceneObject& o) -> std::string {
+        const geometry::Frame& f = static_cast<const scene::FrameObject&>(o).frame();
+        char text[96];
+        snprintf(text, sizeof(text), "%s  κ = %.3g  τ = %.3g", o.name().c_str(), f.kappa,
+                 std::fabs(f.tau) < 5e-5 ? 0.0 : f.tau);
+        return text;
+    };
+    frame.pick = [](const SceneObject& o, const DrawOptions&, std::vector<Segment>& out) {
+        const auto& fr = static_cast<const scene::FrameObject&>(o).frame();
+        out.push_back({mathToWorld(fr.p), mathToWorld(geometry::add(fr.p, fr.T))});
+    };
+    t["frame"] = frame;
+
+    ObjectView tangent;
+    tangent.palette = Palette::Plots;
+    tangent.draw = [](const SceneObject& o, const DrawContext& c) {
+        drawTangent(static_cast<const scene::TangentObject&>(o), c.color, c.dim, c.print, c.print ? c.color : BLACK,
+                    c.selected);
+    };
+    tangent.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        if (!o.error().empty()) return false;
+        auto& tg = static_cast<const scene::TangentObject&>(o);
+        out = mathToWorld(static_cast<float>(tg.x0()), static_cast<float>(tg.y0()), 0.0f);
+        return true;
+    };
+    tangent.label = [](const SceneObject& o) -> std::string {
+        char text[96];
+        snprintf(text, sizeof(text), "%s  f'(%.3g) = %.3g", o.name().c_str(),
+                 static_cast<const scene::TangentObject&>(o).x0(), o.value().re);
+        return text;
+    };
+    tangent.pick = pickAnchor;
+    t["tangent"] = tangent;
+
+    ObjectView plane;
+    plane.palette = Palette::Plots;
+    plane.draw = [](const SceneObject& o, const DrawContext& c) {
+        drawTangentPlane(static_cast<const scene::TangentPlaneObject&>(o), c.color, c.dim, c.print,
+                         c.print ? c.color : BLACK, c.selected);
+    };
+    plane.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        return pointOf<scene::TangentPlaneObject>(o, out);
+    };
+    plane.label = [](const SceneObject& o) -> std::string {
+        auto& g = static_cast<const scene::TangentPlaneObject&>(o);
+        char text[96];
+        snprintf(text, sizeof(text), "%s  grad f = (%.3g, %.3g)", o.name().c_str(), g.fx(), g.fy());
+        return text;
+    };
+    plane.pick = pickAnchor;
+    t["tangentplane"] = plane;
+
+    ObjectView velocity;
+    velocity.palette = Palette::Vectors;
+    velocity.draw = [](const SceneObject& o, const DrawContext& c) {
+        drawVelocity(static_cast<const scene::VelocityObject&>(o), c.color, c.dim, c.print, c.print ? c.color : BLACK,
+                     c.selected);
+    };
+    velocity.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
+        return pointOf<scene::VelocityObject>(o, out);
+    };
+    velocity.label = [](const SceneObject& o) -> std::string {
+        char text[96];
+        snprintf(text, sizeof(text), "%s  speed %.3g", o.name().c_str(), o.value().vector.magnitude());
+        return text;
+    };
+    velocity.pick = [](const SceneObject& o, const DrawOptions& options, std::vector<Segment>& out) {
+        Vector3 p;
+        if (!SceneView::anchorPoint(o, options, p)) return;
+        auto& r = static_cast<const scene::VelocityObject&>(o);  // the point and the velocity arrow
+        out.push_back({p, mathToWorld(geometry::add(r.point(), geometry::scale(r.velocity(), r.arrowScale())))});
+    };
+    t["velocity"] = velocity;
 }
 
 } // namespace linalg::view

@@ -21,6 +21,8 @@ Color withAlpha(Color c, unsigned char a);
 Color faded(Color c);
 Color mixColor(Color a, Color b, float k);
 Color paletteColor(const std::vector<Color>& palette, int index);
+// The second color of an object: f', the gradient, the acceleration
+Color derivativeColor(const scene::SceneObject& o);
 
 // Arrow between two world points; selected arrows are thicker with a halo
 void arrow(Vector3 from, Vector3 to, Color color, bool selected);

@@ -68,7 +68,7 @@ Everything without raylib is unit-tested in `tests/test_math.cpp` (`make test`).
 |--------|-------|
 | A formula function | `math/expr/Expr.cpp` (table + `callFunction`), a `Reference.cpp` entry (the test insists) |
 | A value kind | `math/expr/Value`, operators in `binaryOp`, `checkExpect`, `sameValue`, summaries |
-| An object type | `scene/Types*` (class + registry), `SceneView`/`SceneViewObjects` (drawing, Paper, labels, `anchorPoint`), `AppInput` picking, an `inspect<Type>` method, optional templates/analysis/gallery/lesson, a `LatexExport` branch + the Auto 2D rule, tests and tour steps |
+| An object type | `scene/Types*` (class + registry), one `ObjectView` entry in `view/objects/<Family>.cpp` (drawing, Paper, label, anchor, picking), an `inspect<Type>` method + its `ScenePanel::typeUi` row, optional templates/analysis/gallery/lesson, a `LatexExport` branch + the Auto 2D rule, tests and tour steps |
 | A view style | `view/ViewStyle.cpp` (`kStyles` + a `case` in `styleFor`) |
 | A panel | a content function in `ui/`, registered in `App` with the `PanelManager`, a top bar button |
 | A lesson | append to `edu/Tutorial.cpp` (finished lessons are a bitmask by position) and add walk solutions to `tools/lesson_walk.py` |

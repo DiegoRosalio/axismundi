@@ -44,15 +44,13 @@ public:
 
     // Theme palette color for an object (or its custom color)
     static Color colorOf(const scene::SceneObject& object);
-    static Color derivativeColor(const scene::SceneObject& o);  // f', the gradient, the acceleration
     // Whether an object is drawn: visible, and selected when solo is on
     static bool shown(const DrawOptions& options, const scene::SceneObject& object);
     // Value a matrix object is drawn with (taking the override into account)
     static Matrix4D displayedMatrix(const scene::SceneObject& object, const DrawOptions& options);
 
     // World position of an object's handle (arrow tip, point), for labels and picking
-    static bool anchorPoint(const scene::SceneObject& object, scene::SpaceKind kind, const DrawOptions& options,
-                            Vector3& out);
+    static bool anchorPoint(const scene::SceneObject& object, const DrawOptions& options, Vector3& out);
 
     // Plot status (error text and value range) for the inspector
     const PlotRenderer* plot(scene::ObjectId id) const;
@@ -62,21 +60,9 @@ public:
 private:
     void drawEuclidean(scene::Space& space, const DrawOptions& options);
     void drawComplex(scene::Space& space, const DrawOptions& options);
-    void drawEuclideanPrint(scene::Space& space, const DrawOptions& options);
-    void drawComplexPrint(scene::Space& space, const DrawOptions& options);
     void drawLabelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera);
-    void drawQuaternion(const scene::QuaternionObject& o, bool selected, Color color, bool fade, bool print,
-                        int printStyle);
-    void drawEpicycles(const scene::EpicyclesObject& o, Color color, bool fade, bool print, Color ink, bool selected);
-    void drawFourierSeries(const scene::FourierSeriesObject& o, Color color, bool fade, bool print, Color ink);
-    void drawFrame(const scene::FrameObject& o, Color color, bool fade, bool print, Color ink, bool selected);
-    void drawTangent(const scene::TangentObject& o, Color color, bool fade, bool print, Color ink, bool selected);
-    void drawTangentPlane(const scene::TangentPlaneObject& o, Color color, bool fade, bool print, Color ink,
-                          bool selected);
-    void drawVelocity(const scene::VelocityObject& o, Color color, bool fade, bool print, Color ink, bool selected);
-    void drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color color, bool fade, bool print, Color ink);
-    void drawLineIntegral(const scene::LineIntegralObject& o, Color color, bool fade, bool print, Color ink,
-                          bool selected);
+    // The objects themselves, each through its type's ObjectView (view/objects/*.cpp)
+    void drawObjects(const scene::Space& space, const DrawOptions& options, bool numbersOnly) const;
     void updatePlots(scene::Space& space);
     void updateFields(scene::Space& space);
 

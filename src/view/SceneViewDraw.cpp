@@ -16,7 +16,7 @@ using scene::SceneObject;
 Vector3D toVec(Vector3 v) { return {v.x, v.y, v.z}; }
 
 Vector3 w3(const integrals::D3& p) {
-    return mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+    return mathToWorld(p);
 }
 
 
@@ -119,6 +119,10 @@ void printArrow(Vector3 from, Vector3 to, Color color, int dash, bool selected) 
 
 Color paletteColor(const std::vector<Color>& palette, int index) {
     return palette[static_cast<size_t>(index) % palette.size()];
+}
+
+Color derivativeColor(const scene::SceneObject& o) {
+    return paletteColor(activeStyle().vectors, o.paletteIndex + 1);
 }
 
 void basis(const Matrix4D& m, float alpha, bool selected, bool fade) {

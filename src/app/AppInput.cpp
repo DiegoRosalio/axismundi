@@ -1,6 +1,7 @@
 // App: Keyboard and mouse: camera/UI mode, shortcuts, picking objects in the view (the rest of App is in App.cpp)
 #include "app/App.hpp"
 #include "view/ViewStyle.hpp"
+#include "view/ObjectViews.hpp"
 #include "app/Tour.hpp"
 #include "edu/Examples.hpp"
 #include "math/Decompositions.hpp"
@@ -300,7 +301,7 @@ void App::focusSelection() {
     scene::ObjectId id = m_scene.selection(kind).primary();
     const SceneObject* o = id == scene::kNoObject ? nullptr : m_scene.space(kind).find(id);
     Vector3 p{0, 0, 0};
-    if (o && view::SceneView::anchorPoint(*o, kind, drawOptions(), p)) {
+    if (o && view::SceneView::anchorPoint(*o, drawOptions(), p)) {
         m_camera.focus(p);
     } else {
         m_camera.focus(p);
@@ -324,57 +325,16 @@ void App::pickAt(Vector2 mouse) {
         }
     };
 
+    // Each type says which segments a click should be near (view/objects/*.cpp)
+    std::vector<view::Segment> segments;
     for (const auto& obj : m_scene.space(kind).objects()) {
         const SceneObject& o = *obj;
         if (!view::SceneView::shown(options, o) || !o.value().ok()) continue;
-        if (kind == SpaceKind::Euclidean3D) {
-            if (o.typeId() == "vector") {
-                Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
-                consider(mathToWorld(tail), mathToWorld(tail + o.value().vector), o.id());
-            } else if (o.typeId() == "frame") {
-                const auto& fr = static_cast<const scene::FrameObject&>(o).frame();
-                Vector3 p = mathToWorld(static_cast<float>(fr.p.x), static_cast<float>(fr.p.y), static_cast<float>(fr.p.z));
-                Vector3 q = mathToWorld(static_cast<float>(fr.p.x + fr.T.x), static_cast<float>(fr.p.y + fr.T.y),
-                                        static_cast<float>(fr.p.z + fr.T.z));
-                consider(p, q, o.id());
-            } else if (o.typeId() == "tangent" || o.typeId() == "tangentplane" || o.typeId() == "velocity") {
-                Vector3 p;
-                if (view::SceneView::anchorPoint(o, kind, options, p)) {
-                    Vector3 q = p;
-                    if (o.typeId() == "velocity") {
-                        auto& r = static_cast<const scene::VelocityObject&>(o);
-                        auto v = r.velocity();
-                        double s = r.arrowScale();
-                        q = mathToWorld(static_cast<float>(r.point().x + v.x * s), static_cast<float>(r.point().y + v.y * s),
-                                        static_cast<float>(r.point().z + v.z * s));
-                    }
-                    consider(p, q, o.id());
-                }
-            } else if (o.typeId() == "lineintegral") {
-                const auto& path = static_cast<const scene::LineIntegralObject&>(o).path();
-                auto w = [](const integrals::D3& p) {
-                    return mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-                };
-                for (size_t i = 4; i < path.size(); i += 4) consider(w(path[i - 4].p), w(path[i].p), o.id());
-            } else if (o.typeId() == "doubleintegral") {
-                Vector3 top;
-                if (view::SceneView::anchorPoint(o, kind, options, top)) {
-                    Vector3 floor = {top.x, 0.0f, top.z};
-                    consider(floor, top, o.id());
-                }
-            } else if (o.typeId() == "quaternion") {
-                expr::Rotation r;
-                if (static_cast<const scene::QuaternionObject&>(o).showAxis() && expr::rotationOf(o.value(), r) && r.hasAxis)
-                    consider({0, 0, 0}, mathToWorld(r.axis * 2.0f), o.id());
-            } else if (o.typeId() == "matrix") {
-                Matrix4D m = view::SceneView::displayedMatrix(o, options);
-                Vector3D origin = m.transform(Vector3D::zero());
-                for (Vector3D e : {Vector3D(1, 0, 0), Vector3D(0, 1, 0), Vector3D(0, 0, 1)})
-                    consider(mathToWorld(origin), mathToWorld(origin + m.transformDirection(e)), o.id());
-            }
-        } else if (o.value().isNumber() && o.typeId() != "parameter") {
-            consider({0, 0, 0}, {static_cast<float>(o.value().re), static_cast<float>(o.value().im), 0}, o.id());
-        }
+        const view::ObjectView* ov = view::objectView(o.typeId());
+        if (!ov || !ov->pick) continue;
+        segments.clear();
+        ov->pick(o, options, segments);
+        for (const auto& [a, b] : segments) consider(a, b, o.id());
     }
 
     bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);

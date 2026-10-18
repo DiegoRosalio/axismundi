@@ -109,9 +109,11 @@ src/
   text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
                       LabelLayout (placing screen labels without overlaps)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table)
-  view/SceneView      draws a space's objects (per-type), labels (laid out, no overlaps), colors, selection
-                      halo + fading, solo filter (`shown`), plot cache, Paper = the print path (DrawOptions.print);
-                      SceneViewObjects.cpp draws the richer types, SceneViewDraw.{hpp,cpp} the shared helpers
+  view/SceneView      draws a space: axes, the plot/field caches, labels (laid out, no overlaps), selection
+                      halo + fading, solo filter (`shown`), Paper = the print path (DrawOptions.print); each object
+                      through its type's ObjectView (view/ObjectViews.hpp: draw, anchor, label, pick, palette),
+                      registered per family in view/objects/{Basics,Complex,Quaternion,Calculus,Fourier}.cpp;
+                      SceneViewDraw.{hpp,cpp} the shared drawing helpers
   view/ViewStyle      view styles as data (Colorful, Paper, High contrast, Chalkboard): `styleFor(id, theme)`,
                       `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
@@ -246,10 +248,11 @@ section order.
    `setProp(...)`; override `computeValue()` (and `fieldActive()` if fields depend on a mode); implement
    `makeEmpty()`. Register it in `objectTypes()` (id, label, category, base name, spaces, description).
 2. New value kinds go in `expr::Value` (+ operators/functions in `src/math/expr/Expr.cpp`).
-3. Drawing: a branch in `view/SceneView.cpp` (`drawEuclidean` / `drawComplex`, labels, `anchorPoint`
-   for picking, `colorOf` palette).
-4. Inspector: an `inspect<Type>` method in `ScenePanelInspectors.cpp` plus its dispatch line in
-   `ScenePanel::drawInspector` (reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
+3. Drawing: one `ObjectView` entry in `view/objects/<Family>.cpp` (its `register…Views` function): `palette`,
+   `draw` (normal and Paper via `ctx.print`), `anchor` (label + picking handle), `label` text, `pick`
+   segments. SceneView and App's picking loop over the objects and call these; no if-chains to extend.
+4. Inspector: an `inspect<Type>` method in `ScenePanelInspectors.cpp` plus its row in `ScenePanel::typeUi`
+   (inspector + list summary; reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
    optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
 5. Tests in `tests/test_math.cpp` (model + evaluation), tour step + screenshots for the UI.
 6. LaTeX export: a branch in `exportLatex` + the Auto 2D rule + Paper drawing (see LaTeX export).
