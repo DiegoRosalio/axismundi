@@ -103,6 +103,17 @@ private:
     void inspectComplex(InspectorContext& c);
     void inspectProduct(InspectorContext& c);
 
+public:
+    // One row per object type: how the inspector draws its own part, and the objects list's one-line
+    // summary. `inspect` points to one of the member functions above; call it as (this->*inspect)(ctx).
+    struct TypeUi {
+        void (ScenePanel::*inspect)(InspectorContext&) = nullptr;
+        std::string (*summary)(const scene::SceneObject&) = nullptr;  // nullptr: the value's summary
+    };
+    static const TypeUi* typeUi(const std::string& typeId);  // nullptr for an unknown type
+
+private:
+
     scene::SpaceKind m_kind = scene::SpaceKind::Euclidean3D;
     int m_activeId = -1;
     char m_buffer[1024] = {};  // the text being edited (formulas can be long)

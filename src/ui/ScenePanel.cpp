@@ -7,6 +7,7 @@
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
 #include <algorithm>
+#include <map>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -26,64 +27,11 @@ std::string fmt(double v) {
     return buf;
 }
 
-// One-line description for the objects list
+// One-line description for the objects list (each type's summary is in ScenePanel::typeUi)
 std::string summaryOf(const SceneObject& o) {
-    const std::string& type = o.typeId();
     if (!o.error().empty()) return o.error();
-    if (type == "parameter") {
-        const auto& p = static_cast<const scene::ParameterObject&>(o);
-        const char* how = p.mode() == scene::ParameterObject::Mode::Formula
-                              ? "f(t)"
-                              : p.mode() == scene::ParameterObject::Mode::Animate ? "animated" : "slider";
-        return std::string(how) + " = " + fmt(p.number());
-    }
-    if (type == "eigen") {
-        const scene::Field* f = o.field("of");
-        return "eigenvectors of " + (f ? f->text : std::string("?"));
-    }
-    if (type == "function") return "y = " + o.field("f")->text;
-    if (type == "surface") return "z = " + o.field("f")->text;
-    if (type == "implicit") return o.field("f")->text + " = 0";
-    if (type == "curve") return "curve in u";
-    if (type == "field") return "F = " + o.field("F")->text;
-    if (type == "doubleintegral" || type == "lineintegral") return "= " + o.value().summary();
-    if (type == "fourierseries") return "N = " + std::to_string(static_cast<const scene::FourierSeriesObject&>(o).terms()) + " terms";
-    if (type == "epicycles") return std::to_string(static_cast<const scene::EpicyclesObject&>(o).circles()) + " circles";
-    if (type == "tangent" || type == "tangentplane" || type == "velocity") {
-        if (!o.error().empty()) return "error";
-        char buf[64];
-        if (type == "tangent")
-            snprintf(buf, sizeof(buf), "slope %.3g at x = %.3g", o.value().re,
-                     static_cast<const scene::TangentObject&>(o).x0());
-        else if (type == "tangentplane")
-            snprintf(buf, sizeof(buf), "grad f = (%.3g, %.3g)", static_cast<const scene::TangentPlaneObject&>(o).fx(),
-                     static_cast<const scene::TangentPlaneObject&>(o).fy());
-        else
-            snprintf(buf, sizeof(buf), "speed %.3g at u = %.3g", o.value().vector.magnitude(),
-                     static_cast<const scene::VelocityObject&>(o).u0());
-        return buf;
-    }
-    if (type == "frame") {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "κ = %.3g at u = %.3g", static_cast<const scene::FrameObject&>(o).frame().kappa,
-                 static_cast<const scene::FrameObject&>(o).u0());
-        return buf;
-    }
-    if (type == "quaternion") {
-        expr::Rotation r;
-        if (!expr::rotationOf(o.value(), r)) return o.value().summary();
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.0f° rotation", r.angle * 180.0 / 3.14159265358979);
-        return buf;
-    }
-    if (type == "product") return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
-    if (type == "vector" && static_cast<const scene::VectorObject&>(o).byFormula()) {
-        return o.field("value")->text + " = " + o.value().summary();
-    }
-    if (type == "matrix" && static_cast<const scene::MatrixObject&>(o).byFormula()) {
-        return o.field("value")->text;
-    }
-    return o.value().summary();
+    const ScenePanel::TypeUi* ui = ScenePanel::typeUi(o.typeId());
+    return ui && ui->summary ? ui->summary(o) : o.value().summary();
 }
 
 const char* typeLabel(const SceneObject& o) {
@@ -412,6 +360,80 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
     return col.y();
 }
 
+
+const ScenePanel::TypeUi* ScenePanel::typeUi(const std::string& typeId) {
+    using O = const SceneObject&;  // a short name for the parameter type below
+    // Lambdas with no capture ([]) convert to plain function pointers, so they fit TypeUi::summary.
+    // `static` builds the table once, the first time it is needed.
+    static const std::map<std::string, TypeUi> table = {
+        {"vector", {&ScenePanel::inspectVector, [](O o) -> std::string {
+             if (!static_cast<const scene::VectorObject&>(o).byFormula()) return o.value().summary();
+             return o.field("value")->text + " = " + o.value().summary();
+         }}},
+        {"matrix", {&ScenePanel::inspectMatrix, [](O o) -> std::string {
+             return static_cast<const scene::MatrixObject&>(o).byFormula() ? o.field("value")->text : o.value().summary();
+         }}},
+        {"eigen", {&ScenePanel::inspectEigen, [](O o) -> std::string { return "eigenvectors of " + o.field("of")->text; }}},
+        {"function", {&ScenePanel::inspectPlot, [](O o) -> std::string { return "y = " + o.field("f")->text; }}},
+        {"surface", {&ScenePanel::inspectPlot, [](O o) -> std::string { return "z = " + o.field("f")->text; }}},
+        {"implicit", {&ScenePanel::inspectPlot, [](O o) -> std::string { return o.field("f")->text + " = 0"; }}},
+        {"curve", {&ScenePanel::inspectPlot, [](O) -> std::string { return "curve in u"; }}},
+        {"field", {&ScenePanel::inspectField, [](O o) -> std::string { return "F = " + o.field("F")->text; }}},
+        {"parameter", {&ScenePanel::inspectParameter, [](O o) -> std::string {
+             const auto& p = static_cast<const scene::ParameterObject&>(o);
+             const char* how = p.mode() == scene::ParameterObject::Mode::Formula   ? "f(t)"
+                               : p.mode() == scene::ParameterObject::Mode::Animate ? "animated"
+                                                                                  : "slider";
+             return std::string(how) + " = " + fmt(p.number());
+         }}},
+        {"quaternion", {&ScenePanel::inspectQuaternion, [](O o) -> std::string {
+             expr::Rotation r;
+             if (!expr::rotationOf(o.value(), r)) return o.value().summary();
+             char buf[64];
+             snprintf(buf, sizeof(buf), "%.0f° rotation", r.angle * 180.0 / 3.14159265358979);
+             return buf;
+         }}},
+        {"doubleintegral", {&ScenePanel::inspectIntegral, [](O o) -> std::string { return "= " + o.value().summary(); }}},
+        {"lineintegral", {&ScenePanel::inspectIntegral, [](O o) -> std::string { return "= " + o.value().summary(); }}},
+        {"frame", {&ScenePanel::inspectFrame, [](O o) -> std::string {
+             const auto& f = static_cast<const scene::FrameObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "κ = %.3g at u = %.3g", f.frame().kappa, f.u0());
+             return buf;
+         }}},
+        {"tangent", {&ScenePanel::inspectTangent, [](O o) -> std::string {
+             char buf[64];
+             snprintf(buf, sizeof(buf), "slope %.3g at x = %.3g", o.value().re,
+                      static_cast<const scene::TangentObject&>(o).x0());
+             return buf;
+         }}},
+        {"tangentplane", {&ScenePanel::inspectTangentPlane, [](O o) -> std::string {
+             const auto& g = static_cast<const scene::TangentPlaneObject&>(o);
+             char buf[64];
+             snprintf(buf, sizeof(buf), "grad f = (%.3g, %.3g)", g.fx(), g.fy());
+             return buf;
+         }}},
+        {"velocity", {&ScenePanel::inspectVelocity, [](O o) -> std::string {
+             char buf[64];
+             snprintf(buf, sizeof(buf), "speed %.3g at u = %.3g", o.value().vector.magnitude(),
+                      static_cast<const scene::VelocityObject&>(o).u0());
+             return buf;
+         }}},
+        {"fourierseries", {&ScenePanel::inspectFourierSeries, [](O o) -> std::string {
+             return "N = " + std::to_string(static_cast<const scene::FourierSeriesObject&>(o).terms()) + " terms";
+         }}},
+        {"complex", {&ScenePanel::inspectComplex, nullptr}},
+        {"product", {&ScenePanel::inspectProduct, [](O o) -> std::string {
+             return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
+         }}},
+        {"epicycles", {&ScenePanel::inspectEpicycles, [](O o) -> std::string {
+             return std::to_string(static_cast<const scene::EpicyclesObject&>(o).circles()) + " circles";
+         }}},
+    };
+    auto it = table.find(typeId);
+    return it == table.end() ? nullptr : &it->second;
+}
+
 float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc, SpaceKind kind,
                                 const view::SceneView& view) {
     const ui::Theme& t = ui::theme();
@@ -465,39 +487,7 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
 
     // --- Type-specific content (ScenePanelInspectors.cpp) ------------------------
     InspectorContext ctx{col, o, sc, kind, view};
-    if (type == "vector") {
-        inspectVector(ctx);
-    } else if (type == "matrix") {
-        inspectMatrix(ctx);
-    } else if (type == "eigen") {
-        inspectEigen(ctx);
-    } else if (dynamic_cast<scene::PlotObject*>(&o)) {
-        inspectPlot(ctx);
-    } else if (type == "epicycles") {
-        inspectEpicycles(ctx);
-    } else if (type == "fourierseries") {
-        inspectFourierSeries(ctx);
-    } else if (type == "frame") {
-        inspectFrame(ctx);
-    } else if (type == "tangent") {
-        inspectTangent(ctx);
-    } else if (type == "tangentplane") {
-        inspectTangentPlane(ctx);
-    } else if (type == "velocity") {
-        inspectVelocity(ctx);
-    } else if (type == "doubleintegral" || type == "lineintegral") {
-        inspectIntegral(ctx);
-    } else if (type == "quaternion") {
-        inspectQuaternion(ctx);
-    } else if (type == "field") {
-        inspectField(ctx);
-    } else if (type == "parameter") {
-        inspectParameter(ctx);
-    } else if (type == "complex") {
-        inspectComplex(ctx);
-    } else if (type == "product") {
-        inspectProduct(ctx);
-    }
+    if (const TypeUi* tu = typeUi(type); tu && tu->inspect) (this->*tu->inspect)(ctx);
 
     if (!o.error().empty() && type != "matrix" && type != "field" && !dynamic_cast<scene::PlotObject*>(&o)) {
         bool shown = false;

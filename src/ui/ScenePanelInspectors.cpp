@@ -56,15 +56,13 @@ bool ScenePanel::toggleProp(InspectorContext& c, const char* text, const char* k
 }
 
 void ScenePanel::inspectVector(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    SpaceKind kind = c.kind;
+    scene::ObjectId oid = c.o.id();
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     auto& v = static_cast<scene::VectorObject&>(o);
     int mode = v.byFormula() ? 1 : 0;
     if (ui::segmented(col.row(32), {"Components", "Formula"}, mode,
@@ -109,15 +107,13 @@ void ScenePanel::inspectVector(InspectorContext& c) {
 }
 
 void ScenePanel::inspectMatrix(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    SpaceKind kind = c.kind;
+    scene::ObjectId oid = c.o.id();
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     auto& m = static_cast<scene::MatrixObject&>(o);
     int mode = m.byFormula() ? 1 : 0;
     if (ui::segmented(col.row(32), {"Cells", "Formula"}, mode,
@@ -211,29 +207,22 @@ void ScenePanel::inspectMatrix(InspectorContext& c) {
 }
 
 void ScenePanel::inspectEigen(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
     col.setY(fieldRow(col.x(), col.y(), col.width(), o, "of", sc));
     note(col, "Dashed lines show the directions this matrix only stretches; the dots mark λv.", t.textMuted);
 }
 
 void ScenePanel::inspectPlot(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const view::SceneView& view = c.view;
+    const ui::Theme& t = ui::theme();
+    const std::string& type = c.o.typeId();
+    auto commit = [&sc]() { sc.commit(); };
     auto& p = static_cast<scene::PlotObject&>(o);
     bool curve = (type == "curve");
     if (curve) {
@@ -314,15 +303,11 @@ void ScenePanel::inspectPlot(InspectorContext& c) {
 }
 
 void ScenePanel::inspectEpicycles(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     auto& ep = static_cast<scene::EpicyclesObject&>(o);
     col.setY(fieldRow(col.x(), col.y(), col.width(), ep, "z", sc, 46.0f));
     ui::anchor("epicycles.z", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
@@ -364,15 +349,11 @@ void ScenePanel::inspectEpicycles(InspectorContext& c) {
 }
 
 void ScenePanel::inspectFourierSeries(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     auto& fs = static_cast<scene::FourierSeriesObject&>(o);
     col.setY(fieldRow(col.x(), col.y(), col.width(), fs, "f", sc, 52.0f));
     ui::anchor("series.f", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
@@ -447,15 +428,10 @@ void ScenePanel::inspectFourierSeries(InspectorContext& c) {
 }
 
 void ScenePanel::inspectFrame(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
     auto& fr = static_cast<scene::FrameObject&>(o);
     for (const char* k : {"x", "y", "z"}) col.setY(fieldRow(col.x(), col.y(), col.width(), fr, k, sc, 64.0f));
     ui::anchor("frame.curve", {col.x(), col.y() - ui::px(120), col.width(), ui::px(116)});
@@ -485,15 +461,12 @@ void ScenePanel::inspectFrame(InspectorContext& c) {
 }
 
 void ScenePanel::inspectIntegral(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    const std::string& type = c.o.typeId();
+    auto commit = [&sc]() { sc.commit(); };
     bool dbl = type == "doubleintegral";
     char buf[160];
     if (dbl) {
@@ -561,15 +534,11 @@ void ScenePanel::inspectIntegral(InspectorContext& c) {
 }
 
 void ScenePanel::inspectQuaternion(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     auto& qo = static_cast<scene::QuaternionObject&>(o);
     col.setY(fieldRow(col.x(), col.y(), col.width(), qo, "value", sc, 34.0f));
     ui::anchor("quaternion.value", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
@@ -621,15 +590,12 @@ void ScenePanel::inspectQuaternion(InspectorContext& c) {
 }
 
 void ScenePanel::inspectField(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const view::SceneView& view = c.view;
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     auto& fo = static_cast<scene::VectorFieldObject&>(o);
     col.setY(fieldRow(col.x(), col.y(), col.width(), fo, "F", sc, 92.0f));
     ui::anchor("field.formula", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
@@ -750,15 +716,13 @@ void ScenePanel::inspectField(InspectorContext& c) {
 }
 
 void ScenePanel::inspectParameter(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    SpaceKind kind = c.kind;
+    scene::ObjectId oid = c.o.id();
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     auto& p = static_cast<scene::ParameterObject&>(o);
     using PMode = scene::ParameterObject::Mode;
     Rectangle modeRow = col.row(30.0f);
@@ -877,15 +841,11 @@ void ScenePanel::inspectParameter(InspectorContext& c) {
 }
 
 void ScenePanel::inspectComplex(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     col.setY(fieldRow(col.x(), col.y(), col.width(), o, "value", sc, 52.0f));
     const expr::Value& v = o.value();
     if (v.isNumber()) {
@@ -913,15 +873,11 @@ void ScenePanel::inspectComplex(InspectorContext& c) {
 }
 
 void ScenePanel::inspectProduct(InspectorContext& c) {
-    [[maybe_unused]] ui::Column& col = c.col;
-    [[maybe_unused]] SceneObject& o = c.o;
-    [[maybe_unused]] scene::Scene& sc = c.sc;
-    [[maybe_unused]] SpaceKind kind = c.kind;
-    [[maybe_unused]] scene::ObjectId oid = c.o.id();
-    [[maybe_unused]] const view::SceneView& view = c.view;
-    [[maybe_unused]] const ui::Theme& t = ui::theme();
-    [[maybe_unused]] const std::string& type = c.o.typeId();
-    [[maybe_unused]] auto commit = [&sc]() { sc.commit(); };
+    ui::Column& col = c.col;
+    SceneObject& o = c.o;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto commit = [&sc]() { sc.commit(); };
     col.setY(fieldRow(col.x(), col.y(), col.width(), o, "a", sc, 104.0f));
     col.setY(fieldRow(col.x(), col.y(), col.width(), o, "b", sc, 104.0f));
     const scene::Field* fa = o.field("a");
