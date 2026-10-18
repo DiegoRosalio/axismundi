@@ -69,6 +69,8 @@ zoom; the View section adds grid walls, a polar grid for the complex plane, and 
   and the moving frame".
 - **Derivatives** (Add → Calculus): a tangent line with f' and a shrinking secant, the tangent plane and gradient
   of a surface, velocity and acceleration on a curve. Tutorial lesson "Derivatives: slopes and tangents".
+- **Taylor and Newton** (Add → Calculus): Taylor polynomials adding terms one by one, and Newton's method
+  stepping along tangents to a root. Tutorial lesson "Taylor polynomials and Newton's method".
 - **Integrals** (Add → Calculus): the volume under a surface as boxes next to the exact value, and the work of a
   vector field along a curve. Tutorial lesson "Integrals as volumes".
 - **Quaternions** (Add → Quaternion): rotations in four numbers, `qaxis([0, 0, 1], pi/2)`. The tutorial lesson

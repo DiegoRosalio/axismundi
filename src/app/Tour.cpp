@@ -313,6 +313,13 @@ void Tour::buildSteps() {
     step("16de_speed_turning", [](App& app) { runExample(app, "Speeding up vs turning"); }, 60);
     step("16df_derivatives_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 10);
     step("16dg_derivatives_reset", [](App& app) { app.view().style = view::StyleId::Colorful; }, 2);
+    // Taylor polynomials and Newton's method
+    step("16ta_taylor_sin", [](App& app) { runExample(app, "sin(x) term by term"); }, 330);
+    step("16tb_taylor_radius", [](App& app) { runExample(app, "Where the series stops working"); }, 330);
+    step("16tc_newton_sqrt2", [](App& app) { runExample(app, "Newton finds √2"); }, 200);
+    step("16td_newton_overshoot", [](App& app) { runExample(app, "Newton overshoots"); }, 200);
+    step("16te_newton_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 10);
+    step("16tf_taylor_reset", [](App& app) { app.view().style = view::StyleId::Colorful; }, 2);
     // Curves: the Frenet frame on a helix, the comb of an ellipse, an osculating circle
     step("16x_frame_helix", [](App& app) { runExample(app, "Frenet frame on a helix"); }, 40);
     step("16y_frame_ellipse", [](App& app) { runExample(app, "Curvature of an ellipse"); }, 20);

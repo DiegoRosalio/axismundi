@@ -100,6 +100,8 @@ Each space has its own list of objects. The side bar shows:
 | Tangent line on y = f(x) | 3D | f, At x (a formula), Secant h (0 = none), x range; Graph of f, Graph of f', Slope triangle; f'(x0), the line, f'' |
 | Tangent plane and gradient | 3D | z = f(x, y), At x / At y, ranges; Surface, Tangent plane, Slopes along x and y, Gradient, Normal; ∂f/∂x, ∂f/∂y |
 | Velocity on a curve | 3D | Curve x(u) y(u) z(u), u range, At u; Velocity, Acceleration, Split acceleration, Curve, Arrow scale; speed |
+| Taylor polynomial of f(x) | 3D | f, About x (a formula), Degree (a formula, 0..20), x range; Graph of f, Previous degree, Separate terms; the polynomial, its largest gap to f |
+| Newton's method on f(x) | 3D | f, Start x0, Steps (a formula, 0..30), x range; Graph of f; the table of x_k and f(x_k), why it stopped |
 | Volume under z = f(x, y) | 3D | f, x/y ranges, boxes per side (a formula), Left/Middle/Right rule, Boxes, Surface; boxes' sum, exact value, error |
 | Work ∫ F·dr | 3D | F(x, y, z), curve x(u) y(u) z(u), u range, Up to (0..1); work so far and over the whole path |
 | Quaternion | 3D | q = formula (e.g. `qaxis([0, 0, 1], pi/2)`); the four numbers, angle and axis, \|q\|; Axis and angle, Rotated basis, Acts on a vector; Next example |
@@ -201,6 +203,21 @@ Add → Calculus (or select a function, surface or curve and use its template).
 - At x / At y / At u are formulas: a slider or the clock moves the point. Gallery: secant becomes tangent, f and
   f', gradient points uphill, velocity on a helix, speeding up vs turning. Tutorial: "Derivatives: slopes and
   tangents". LaTeX export draws each (the tangent as a 2D figure).
+
+### Taylor polynomials and Newton's method
+Add → Calculus (or select a function and use its template).
+- **Taylor polynomial of f(x)**: the polynomial of degree N that copies f at the center a: the value, the slope,
+  the bending... (degree 1 is the tangent line). **Degree** and **About x** are formulas, so `min(floor(t), 15)`
+  adds a term every second and a slider moves the center. **Previous degree** draws the polynomial one degree
+  lower (faint), so you see what the newest term changes; **Separate terms** draws each term on its own. The
+  coefficients come from f on a small circle in the complex plane (accurate to degree 20); formulas that can't take
+  complex values (`floor`, `sign`, `mod`) or aren't smooth (`abs`) get degrees up to 4 from nearby values, and the
+  inspector says so. Example: 1/(1 + x²) only fits for |x| < 1, because 1 + x² = 0 at x = ±i.
+- **Newton's method on f(x)**: from **Start x0**, each step follows the tangent at (x, f(x)) down to the x axis.
+  **Steps** is a formula (the clock can reveal one step at a time). The value is the last x (a root estimate, usable
+  by name); the inspector lists every step and says why it stopped (converged, flat tangent, diverging).
+- Gallery: sin(x) term by term, e^x around a moving center, where the series stops working, Newton finds √2,
+  Newton overshoots. Tutorial: "Taylor polynomials and Newton's method". LaTeX export draws both (2D).
 
 ### Integrals
 Add → Calculus.

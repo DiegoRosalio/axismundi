@@ -436,6 +436,65 @@ std::vector<Example> build() {
                         app.setCameraView({0.0f, 9.0f, 5.0f}, {0, 0, 0});
                         app.restartTime(true);
                     }});
+    list.push_back({"sin(x) term by term", C::Plots,
+                    "Every second the Taylor polynomial of sin about 0 gains a term: x, x − x³/6, ... Each one fits "
+                    "sin a little farther from the center. The faint curve is the previous degree.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "taylor", "p",
+                                      {{"f", "sin(x)"}, {"a", "0"}, {"N", "min(floor(t), 15)"}, {"xmin", "-8"},
+                                       {"xmax", "8"}});
+                        app.select("p");
+                        app.setCameraView({0.0f, 12.0f, 6.5f}, {0, 0, -1.0f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"e^x around a moving center", C::Plots,
+                    "A degree-3 Taylor polynomial of e^x whose center slides back and forth: it always fits best near "
+                    "its center.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "taylor", "p",
+                                      {{"f", "exp(x)"}, {"a", "1.5sin(t/2)"}, {"N", "3"}, {"xmin", "-4"}, {"xmax", "3"}});
+                        app.select("p");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.5f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Where the series stops working", C::Plots,
+                    "1/(1 + x²) is smooth everywhere on the line, yet its Taylor polynomials about 0 only fit for "
+                    "|x| < 1: more terms make them worse beyond. The reason is off the line: 1 + x² = 0 at x = ±i.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "taylor", "p",
+                                      {{"f", "1/(1 + x^2)"}, {"a", "0"}, {"N", "min(2floor(t), 20)"}, {"xmin", "-2.5"},
+                                       {"xmax", "2.5"}});
+                        app.select("p");
+                        app.setCameraView({0.0f, 6.0f, 3.5f}, {0, 0, -0.5f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Newton finds √2", C::Plots,
+                    "Newton's method on x² − 2 from x0 = 3: each step follows the tangent down to the x axis. The "
+                    "steps land closer and closer to √2 ≈ 1.41421, the correct digits doubling each time.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "newton", "r",
+                                      {{"f", "x^2 - 2"}, {"x0", "3"}, {"steps", "min(floor(t), 6)"}, {"xmin", "-1"},
+                                       {"xmax", "3.2"}});
+                        app.select("r");
+                        app.setCameraView({1.2f, 13.0f, 2.0f}, {1.2f, 0, -3.2f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Newton overshoots", C::Plots,
+                    "On atan(x) from x0 = 1.5 the tangents are too flat: each step lands farther away on the other "
+                    "side, and the method runs off. Start nearer 0 and it works.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "newton", "r",
+                                      {{"f", "atan(x)"}, {"x0", "1.5"}, {"steps", "min(floor(t), 3)"}, {"xmin", "-7"},
+                                       {"xmax", "7"}});
+                        app.select("r");
+                        app.setCameraView({0.0f, 11.0f, 5.5f}, {0, 0, -0.5f});
+                        app.restartTime(true);
+                    }});
     list.push_back({"Frenet frame on a helix", C::Plots,
                     "T (red), N (green), B (blue) ride a helix as u0 follows the clock. A helix bends and twists "
                     "the same everywhere: κ and τ stay constant, and N always points at the axis.",

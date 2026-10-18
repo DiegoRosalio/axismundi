@@ -69,7 +69,9 @@ the slope triangle and the secant, in normal and Paper looks), an `anchor` (the 
 | Screenshot tour steps | `src/app/Tour.cpp` (`16da_secant_tangent`) |
 | User docs | `README.md`, `UI_GUIDE.md`, `FEATURES.md` |
 
-Only steps 1–4 are needed for a working type; the extras make it discoverable and checked.
+Only steps 1–4 are needed for a working type; the extras make it discoverable and checked. The Taylor polynomial
+and Newton's method objects (`TaylorObject`, `NewtonObject`, with their math in `src/math/Taylor.cpp`) were added the
+same way and make good second examples.
 
 ## Exercise: build a "midpoint" object
 

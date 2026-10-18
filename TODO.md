@@ -46,8 +46,8 @@ Vector fields and quaternions are in (see FEATURES.md); the rest later.
       regions, flux through a surface, Green's and Stokes' theorems side by side
 - [ ] Differential geometry, next: surfaces (Gaussian and mean curvature as coloring, principal directions; the
       tangent plane and normal exist now), arc length and reparametrization, evolutes
-- [ ] Derivatives, next: a `diff(f, x)` formula function, directional derivatives, Taylor polynomials growing
-      term by term, Newton's method stepping along tangents
+- [ ] Derivatives, next: a `diff(f, x)` formula function, directional derivatives, Taylor in two variables (the
+      quadratic approximation of a surface), Newton's method in the complex plane (basins of attraction)
 - [ ] Tensor visualization
 
 ### Next topics (ideas, 2026-10)

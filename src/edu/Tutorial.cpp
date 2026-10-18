@@ -647,6 +647,87 @@ std::vector<Lesson> build() {
          },
          "Select the velocity object; the switch is in the inspector.", "velocity.split"},
     }});
+
+    list.push_back({"Taylor polynomials and Newton's method", "Polynomials that copy f, tangents that find roots", {
+        {"Degree 1 is the tangent",
+         "A Taylor polynomial copies f near a center a: degree 0 matches the value, degree 1 also the slope (it is "
+         "the tangent line), degree 2 also the bending, and so on.",
+         [](App& app) {
+             app.setMode(AppMode::Space3D);
+             app.restartTime(false);
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "taylor", "p",
+                           {{"f", "exp(x)"}, {"a", "0"}, {"N", "1"}, {"xmin", "-3"}, {"xmax", "3"}});
+             app.select("p");
+             app.setCameraView({0.0f, 9.0f, 5.0f}, {0, 0, -1.5f});
+         },
+         nullptr, nullptr, nullptr, "taylor.N"},
+        {"Add terms",
+         "Each new term matches one more derivative. Watch the polynomial hug e^x farther from the center.",
+         nullptr, "Raise the degree to 5 or more.",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::TaylorObject*>(app.object("p"));
+             return p && p->error().empty() && p->degree() >= 5;
+         },
+         "Type 5 in Degree.", "taylor.N"},
+        {"Move the center",
+         "The polynomial is built from f's derivatives at the center, so it fits best there.",
+         nullptr, "Move the center to x = 2.",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::TaylorObject*>(app.object("p"));
+             return p && p->error().empty() && std::fabs(p->series().center - 2.0) < 0.01;
+         },
+         "Type 2 in About x.", "taylor.a"},
+        {"Where it stops working",
+         "Now f = 1/(1 + x²) about 0. It's smooth on the whole line, but the polynomials only fit for |x| < 1: "
+         "1 + x² = 0 at x = ±i, one unit away in the complex plane, and the series can't reach past that.",
+         [](App& app) {
+             if (auto* p = app.object("p")) {
+                 p->setField("f", "1/(1 + x^2)");
+                 p->setField("a", "0");
+                 p->setField("N", "6");
+             }
+             app.setCameraView({0.0f, 6.0f, 3.5f}, {0, 0, -0.5f});
+         },
+         "Raise the degree to 16: inside |x| < 1 it fits better, outside worse.",
+         [](App& app, const TutorialContext&) {
+             auto* p = dynamic_cast<scene::TaylorObject*>(app.object("p"));
+             return p && p->error().empty() && p->degree() >= 16;
+         },
+         "Type 16 in Degree.", "taylor.N"},
+        {"A Newton step",
+         "Newton's method finds where f = 0: from a guess x0, follow the tangent at (x0, f(x0)) down to the x "
+         "axis. Where it lands is the next guess.",
+         [](App& app) {
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "newton", "r",
+                           {{"f", "x^2 - 2"}, {"x0", "3"}, {"steps", "0"}, {"xmin", "-1"}, {"xmax", "3.2"}});
+             app.select("r");
+             app.setCameraView({1.2f, 13.0f, 2.0f}, {1.2f, 0, -3.2f});
+         },
+         "Take one step.",
+         [](App& app, const TutorialContext&) {
+             auto* r = dynamic_cast<scene::NewtonObject*>(app.object("r"));
+             return r && r->error().empty() && r->stepsAsked() >= 1;
+         },
+         "Type 1 in Steps.", "newton.steps"},
+        {"More steps",
+         "Near the root each step roughly doubles the number of correct digits.",
+         nullptr, "Take enough steps to get √2 to six decimals (1.414214).",
+         [](App& app, const TutorialContext&) {
+             auto* r = dynamic_cast<scene::NewtonObject*>(app.object("r"));
+             return r && r->error().empty() && std::fabs(r->value().re - std::sqrt(2.0)) < 5e-7;
+         },
+         "Try 4, 5, 6 steps and watch the table in the inspector.", "newton.steps"},
+        {"A bad start",
+         "Newton needs a tangent that meets the x axis. At the bottom of the parabola it's flat.",
+         nullptr, "Start at x0 = 0 and see why it can't take a step.",
+         [](App& app, const TutorialContext&) {
+             auto* r = dynamic_cast<scene::NewtonObject*>(app.object("r"));
+             return r && r->run().stop == taylor::NewtonStop::FlatTangent;
+         },
+         "Type 0 in Start x0.", "newton.x0"},
+    }});
     return list;
 }
 

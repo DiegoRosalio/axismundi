@@ -42,6 +42,8 @@ and worked calculations.
   - derivatives: the tangent line on y = f(x) with the graph of f' and a secant that shrinks into the tangent,
     the tangent plane and gradient of z = f(x, y), and velocity/acceleration along a curve (split into speeding
     up and turning);
+  - Taylor polynomials growing term by term (the convergence radius visible for 1/(1 + x²)) and Newton's method
+    stepping along tangents to a root;
   - calculus: the volume under z = f(x, y) as Riemann boxes next to the exact double integral (boxes refine as a
     parameter grows), and the work ∫ F·dr of a vector field along a curve, colored where F helps or opposes;
   - quaternions: rotations in four numbers (`qaxis([0, 0, 1], pi/2)`), drawn as their axis and angle with the

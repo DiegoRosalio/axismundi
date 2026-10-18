@@ -48,6 +48,15 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Templates (function, surface, curve), Analysis panel, gallery (5 examples), tutorial lesson, LaTeX export,
       Paper style; math in `math/Derivatives` (five-point stencils)
 
+## Taylor polynomials and Newton's method
+- [x] Taylor polynomial of f(x) about a center, degree 0..20 (formulas: a slider or the clock), coefficients by the
+      Cauchy integral formula (f on a complex circle that shrinks until two radii agree; finite differences up to
+      degree 4 for non-analytic formulas), previous degree and separate terms, largest gap to f
+- [x] Newton's method on f(x): the steps drawn as tangents down to the x axis, the iterates table, stop reasons
+      (converged, flat tangent, undefined, diverging); the value is the root estimate
+- [x] Templates, Analysis panel, gallery (5 examples), tutorial lesson, LaTeX export, Paper; the formula engine's x
+      can be complex (internal)
+
 ## Integrals
 - [x] Volume under z = f(x, y): Riemann boxes (left/middle/right, n per side as a formula) next to the precise value
       and the error; boxes below the floor in another color
