@@ -34,6 +34,7 @@ void testQuaternions();
 void testIntegrals();
 void testCurveGeometry();
 void testOrbitCamera();
+void testGridMath();
 void testDerivatives();
 void testFourier();
 void testAllObjectTypes();
@@ -71,6 +72,7 @@ int main() {
         {"Integrals", testIntegrals},
         {"Curve geometry", testCurveGeometry},
         {"Orbit camera", testOrbitCamera},
+        {"Grid math", testGridMath},
         {"Derivatives", testDerivatives},
         {"Fourier", testFourier},
         {"All object types", testAllObjectTypes},

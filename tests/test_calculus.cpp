@@ -1,5 +1,6 @@
 // Tests: Calculus and geometry: vector fields, integrals, curves (Frenet frame), derivatives, Fourier series, contours, the orbit camera math
 #include "TestSupport.hpp"
+#include "math/GridMath.hpp"
 
 void testVectorField() {
     using namespace field;
@@ -341,4 +342,53 @@ void testOrbitCamera() {
     // A degenerate view (eye on the target) stays usable
     cam.fromView({1, 1, 1}, {1, 1, 1});
     CHECK(std::isfinite(cam.position().x) && cam.distance() >= OrbitCamera::kMinDistance);
+}
+
+void testGridMath() {
+    using namespace grid;
+    // 900 px tall view, fovy 60°, 10 units away: the view is 2·10·tan 30° ≈ 11.55 units tall
+    CHECK_NEAR(pixelsPerUnit(10, 60, 900), 900 / (20 * std::tan(3.14159265358979 / 6)), 1e-9);
+    // Spacing: a power of 10, never closer than minPixels
+    for (double ppu : {0.37, 3.0, 12.0, 40.0, 77.7, 1000.0, 25000.0}) {
+        Level l = autoLevel(ppu, 12);
+        CHECK(l.spacing * ppu >= 12 * (1 - 1e-9));
+        CHECK(l.spacing * ppu < 120 * (1 + 1e-9));
+        double k = std::log10(l.spacing);
+        CHECK_NEAR(k, std::round(k), 1e-9);
+        CHECK(l.fade >= 0 && l.fade <= 1);
+    }
+    CHECK_NEAR(autoLevel(12, 12).spacing, 1.0, 1e-12);   // exactly at the limit: spacing 1, just fading in
+    CHECK_NEAR(autoLevel(12, 12).fade, 0.0, 1e-9);
+    CHECK_NEAR(autoLevel(120, 12).spacing, 0.1, 1e-12);  // zoomed in 10x: 0.1
+    CHECK_NEAR(autoLevel(1.2, 12).spacing, 10.0, 1e-9);  // zoomed out: 10
+    // Continuity: the line x = 10 keeps its strength while zooming across a power of 10
+    auto strengthOfTen = [](double ppu) {
+        Level l = autoLevel(ppu, 12);
+        double best = 0;
+        for (int j = 0; j < 3; j++) {
+            double s = l.spacing * std::pow(l.ratio, j);
+            double r = 10.0 / s;
+            if (std::fabs(r - std::round(r)) < 1e-6) best = std::max(best, familyStrength(j, l.fade));
+        }
+        return best;
+    };
+    for (double ppu : {1.2, 12.0, 120.0}) CHECK_NEAR(strengthOfTen(ppu * 1.0001), strengthOfTen(ppu * 0.9999), 1e-3);
+    CHECK_NEAR(familyStrength(0, 0), 0.0, 1e-12);   // the finest lines start invisible
+    CHECK_NEAR(familyStrength(2, 0.3), 1.0, 1e-12); // the widest are full
+    CHECK(familyStrength(1, 0.5) > familyStrength(0, 0.5));
+    Level f = fixedLevel(1, 5);
+    CHECK(f.spacing == 1 && f.fade == 1 && f.ratio == 5);
+    // Tick steps: 1, 2 or 5 × 10^k, at least minPixels apart
+    CHECK_NEAR(tickStep(100, 60), 1.0, 1e-12);
+    CHECK_NEAR(tickStep(40, 60), 2.0, 1e-12);
+    CHECK_NEAR(tickStep(20, 60), 5.0, 1e-12);
+    CHECK_NEAR(tickStep(7, 60), 10.0, 1e-12);
+    CHECK_NEAR(tickStep(500, 60), 0.2, 1e-12);
+    // Formatting
+    CHECK(formatTick(0.30000001, 0.1) == "0.3");
+    CHECK(formatTick(-2, 1) == "−2");
+    CHECK(formatTick(100, 50) == "100");
+    CHECK(formatTick(-1e-12, 0.5) == "0");
+    CHECK(formatTick(0.25, 0.05) == "0.25");
+    CHECK(formatTick(1.5, 0.5) == "1.5");
 }
