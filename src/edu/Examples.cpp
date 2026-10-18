@@ -365,7 +365,7 @@ std::vector<Example> build() {
                         app.addObject(AppMode::Space3D, "parameter", "n", {},
                                       {{"value", "5"}, {"min", "1"}, {"max", "40"}, {"step", "1"}});
                         app.addObject(AppMode::Space3D, "fourierseries", "S",
-                                      {{"f", "2floor(x/pi) + 1"}, {"N", "n"}}, {{"harmonics", "1"}});
+                                      {{"f", "sign(x)"}, {"N", "n"}}, {{"harmonics", "1"}});
                         app.select("S");
                         app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
                     }});

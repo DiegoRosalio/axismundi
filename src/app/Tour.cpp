@@ -355,7 +355,8 @@ void Tour::buildSteps() {
                                   {"Rotate and scale", "rotate_scale"}, {"Source and sink", "source_sink"},
                                   {"3D swirl", "swirl"}, {"Quarter turn (quaternion)", "quaternion"},
                                   {"Volume under a paraboloid", "volume"}, {"Path independence", "work"},
-                                  {"Frenet frame on a helix", "frenet"}};
+                                  {"Frenet frame on a helix", "frenet"}, {"Square wave from sines", "fourier_series"},
+                                  {"Epicycles draw a heart", "epicycles"}};
         for (const auto& n : names) {
             runExample(app, n[0]);
             app.scene().evaluate();

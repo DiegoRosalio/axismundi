@@ -126,6 +126,7 @@ std::vector<ReferenceSection> build() {
                      {"floor(x)   ceil(x)", "Round down / up.", "floor(2.7)"},
                      {"min(a, b)   max(a, b)", "Smaller / larger of two numbers.", "max(2, 5)"},
                      {"mod(a, b)", "Remainder, never negative for positive b: mod(t, 3) restarts every 3 s.", "mod(7, 3)"},
+                     {"sign(x)", "−1, 0 or 1: the sign of x. sign(x) is a square wave on [−π, π].", "sign(-2.5)"},
                  }});
 
     s.push_back({"Blending and morphing",

@@ -518,6 +518,53 @@ std::vector<Lesson> build() {
          },
          "It's a switch in P's inspector.", "frame.comb"},
     }});
+    list.push_back({"Fourier: sums of waves", "Square waves from sines, drawings from circles", {
+        {"One wave",
+         "Fourier's idea: any repeating shape is a sum of sine and cosine waves. Here a square wave (gray) is "
+         "approximated by its first wave only: S₁ = (4/π) sin x.",
+         [](App& app) {
+             app.setMode(AppMode::Space3D);
+             app.restartTime(false);
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "fourierseries", "S", {{"f", "sign(x)"}, {"N", "1"}},
+                           {{"harmonics", "1"}});
+             app.select("S");
+             app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
+         },
+         nullptr, nullptr, nullptr, "series.f"},
+        {"Add waves",
+         "Each new wave fixes some of the error. The corners get sharper, but a small overshoot stays at each "
+         "jump (the Gibbs phenomenon).",
+         nullptr, "Use at least 9 terms.",
+         [](App& app, const TutorialContext&) {
+             auto* s = dynamic_cast<scene::FourierSeriesObject*>(app.object("S"));
+             return s && s->terms() >= 9;
+         },
+         "Type 9 (or more) in Terms.", "series.N"},
+        {"The spectrum",
+         "The bars show how much of each wave k is in the sum. A square wave uses only odd k (1, 3, 5, …), "
+         "with heights 1, 1/3, 1/5, …",
+         nullptr, nullptr, nullptr, nullptr, "series.spectrum"},
+        {"Draw with circles",
+         "A closed curve in the plane is also a sum of waves: spinning circles, each turning k times per lap. "
+         "Added end to end, they trace the curve (epicycles).",
+         nullptr, "Add Fourier epicycles in the complex plane.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Complex).objects())
+                 if (o->typeId() == "epicycles" && o->error().empty()) return true;
+             return false;
+         },
+         "Switch to the complex plane (2), then Add → Fourier epicycles. Press P to play.", "objects.add"},
+        {"Sharper drawing",
+         "With more circles the drawing follows the curve more closely.",
+         nullptr, "Give the epicycles at least 30 circles.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Complex).objects())
+                 if (auto* e = dynamic_cast<scene::EpicyclesObject*>(o.get()); e && e->circles() >= 30) return true;
+             return false;
+         },
+         "Type 30 in Circles.", "epicycles.N"},
+    }});
     return list;
 }
 

@@ -533,6 +533,65 @@ void exportPlot(Figure& f, const scene::PlotObject& p, const Style& s, const sce
     }
 }
 
+// The Fourier series: f (dashed gray) and the partial sum S_N (the object's style)
+void exportFourierSeries(Figure& f, const scene::FourierSeriesObject& o, const Style& s, const Options& opt) {
+    std::string name = nameToLatex(o.name());
+    f.plots = true;
+    auto curve = [&](const std::vector<std::pair<double, double>>& pts, const std::string& style, size_t stride) {
+        f.body << (f.flat ? "\\addplot[" : "\\addplot3[") << style << "] coordinates {";
+        int k = 0;
+        for (size_t i = 0; i < pts.size(); i += stride, k++) {
+            double x = pts[i].first, y = pts[i].second;
+            bool ok = usable(y);
+            f.body << (k % 6 == 0 ? "\n  " : " ") << (ok ? f.coord(x, y, 0) : f.coord(NAN, NAN, NAN));
+            if (ok) f.extend(x, y, 0);
+        }
+        f.body << "\n};\n";
+    };
+    if (o.showOriginal()) curve(o.original(), "black!50, densely dashed, thin, forget plot", 2);
+    size_t stride = std::max<size_t>(1, o.sum().size() / static_cast<size_t>(std::max(2, opt.curveSamples * 2)));
+    curve(o.sum(), plotStyle(s, "thick"), stride);
+    legendEntry(f, name + "_{" + std::to_string(o.terms()) + "}", opt.legend);
+}
+
+// Epicycles: the target curve (light), the circles and arms at the current angle, the last lap traced
+void exportEpicycles(Figure& f, const scene::EpicyclesObject& o, const Style& s) {
+    const auto& target = o.target();
+    if (!target.empty()) {
+        f.body << "\\draw[black!25, thin] ";
+        for (size_t i = 0; i <= target.size(); i += 4) {
+            const auto& z = target[i % target.size()];
+            f.body << (i ? " -- " : "") << f.at(z.real(), z.imag());
+        }
+        f.body << " -- cycle;\n";
+    }
+    if (!o.error().empty() || o.terms().empty()) return;
+    int count = o.circles() + 1;
+    double u = o.angle();
+    double start = std::max(0.0, u - 2 * kPi);
+    if (u - start > 1e-6) {
+        f.body << "\\draw[" << s.dash << ", " << s.gray << ", thick] ";
+        int steps = std::max(2, static_cast<int>((u - start) / 0.03));
+        for (int i = 0; i <= steps; i++) {
+            auto z = fourier::evaluate(o.terms(), start + (u - start) * i / steps, count);
+            f.body << (i ? " -- " : "") << f.at(z.real(), z.imag());
+        }
+        f.body << ";\n";
+    }
+    auto centers = fourier::chain(o.terms(), u, count);
+    for (size_t i = 1; i < centers.size(); i++) {
+        double r = std::abs(o.terms()[i].c);
+        const auto& c = centers[i - 1];
+        if (r > 0.02) f.body << "\\draw[black!40, very thin] " << f.at(c.real(), c.imag()) << " circle[radius=" << num(r) << "];\n";
+        f.body << "\\draw[black!70, thin] " << f.at(c.real(), c.imag()) << " -- " << f.at(centers[i].real(), centers[i].imag())
+               << ";\n";
+    }
+    const auto& tip = centers.back();
+    f.body << "\\fill " << f.at(tip.real(), tip.imag()) << " circle[radius=1.5pt]"
+           << labelNode(f, {tip.real(), tip.imag(), 0}, 1, 1, nameToLatex(o.name())) << ";\n";
+}
+
+
 // Complex plane extras: arcs for angles, dashed projections, circle through z
 void arc(Figure& f, double radius, double from, double to, const std::string& options) {
     if (std::fabs(to - from) < 1e-6) return;
@@ -673,7 +732,7 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             flat = !objects.empty();
             for (const auto* o : objects) {
                 const std::string& t = o->typeId();
-                if (t == "function" || t == "implicit") continue;
+                if (t == "function" || t == "implicit" || t == "fourierseries") continue;
                 // Plane fields live on the floor (only F's x and y are used)
                 if (t == "field" && !static_cast<const scene::VectorFieldObject*>(o)->volume()) continue;
                 // A frame on a flat curve
@@ -724,7 +783,9 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
         Style s = styleFor(static_cast<int>(k));
         const std::string& t = o.typeId();
         f.body << "% " << o.name() << "\n";
-        if (complexPlane) {
+        if (complexPlane && t == "epicycles") {
+            exportEpicycles(f, static_cast<const scene::EpicyclesObject&>(o), s);
+        } else if (complexPlane) {
             exportComplex(f, o, s);
         } else if (t == "vector") {
             exportVector(f, o, s);
@@ -734,6 +795,8 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             exportEigen(f, o, s);
         } else if (auto* p = dynamic_cast<const scene::PlotObject*>(&o)) {
             exportPlot(f, *p, s, space, opt);
+        } else if (auto* fsr = dynamic_cast<const scene::FourierSeriesObject*>(&o)) {
+            exportFourierSeries(f, *fsr, s, opt);
         } else if (auto* fo = dynamic_cast<const scene::FrameObject*>(&o)) {
             exportFrame(f, *fo, s);
         } else if (auto* di = dynamic_cast<const scene::DoubleIntegralObject*>(&o)) {

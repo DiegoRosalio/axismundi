@@ -41,6 +41,9 @@ walk = r'''    auto solve = [](App& app, size_t L, size_t K) -> bool {
         if (title == "Flatten it") { if (auto* o = app.object("P")) o->setField("z", "0"); return true; }
         if (title == "Tighter turns") { if (auto* o = app.object("P")) { o->setField("x", "0.5cos(u)"); o->setField("y", "0.5sin(u)"); } return true; }
         if (title == "Comb the curvature") { if (auto* o = app.object("P")) o->setProp("comb", true); return true; }
+        if (title == "Add waves") { if (auto* o = app.object("S")) o->setField("N", "9"); return true; }
+        if (title == "Draw with circles") { app.setMode(AppMode::Complex); app.addObject(AppMode::Complex, "epicycles", "E"); return true; }
+        if (title == "Sharper drawing") { if (auto* o = app.object("E", AppMode::Complex)) o->setField("N", "30"); return true; }
         if (title == "Add a surface") { app.addObject(AppMode::Space3D, "surface", "S"); return true; }
         if (title == "Use a parameter") { app.addObject(AppMode::Space3D, "parameter", "k"); if (auto* o = app.object("S")) o->setField("f", "sin(k*x)"); return true; }
         return false;

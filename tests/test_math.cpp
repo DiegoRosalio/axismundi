@@ -1231,6 +1231,28 @@ void testLatexExport() {
         save("quaternion-flat", qr.code);
     }
 
+    // Fourier: the series is a 2D figure with f and the sum; epicycles draw circles in the complex plane
+    {
+        Scene fsc2;
+        fsc2.clearAll();
+        auto* S = fsc2.add(SpaceKind::Euclidean3D, "fourierseries", "S");
+        S->setField("f", "sign(x)");
+        S->setField("N", "9");
+        auto* E = fsc2.add(SpaceKind::Complex, "epicycles", "E");
+        fsc2.timeline().time = 4.0;
+        fsc2.evaluate();
+        (void)E;
+        latex::Options fo2;
+        fo2.standalone = true;
+        latex::Result r1 = latex::exportLatex(fsc2.space(SpaceKind::Euclidean3D), fsc2.selection(SpaceKind::Euclidean3D), fo2);
+        CHECK(r1.exported == 1 && r1.flat && r1.code.find("densely dashed") != std::string::npos);
+        CHECK(r1.code.find("S_{9}") != std::string::npos);
+        save("fourier-series", r1.code);
+        latex::Result r2 = latex::exportLatex(fsc2.space(SpaceKind::Complex), fsc2.selection(SpaceKind::Complex), fo2);
+        CHECK(r2.exported == 1 && r2.code.find("circle[radius=") != std::string::npos);
+        save("fourier-epicycles", r2.code);
+    }
+
     // Moving frame: T, N, B and the osculating circle; a flat curve is a 2D figure (no B)
     {
         Scene gsc;

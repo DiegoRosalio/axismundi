@@ -818,7 +818,7 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
             m_activeId = -1;
             static const char* kFns[] = {
-                "2floor(x/pi) + 1",            // square wave
+                "sign(x)",            // square wave
                 "x",                           // sawtooth
                 "abs(x)",                      // triangle
                 "abs(sin(x))",                 // rectified sine

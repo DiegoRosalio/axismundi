@@ -51,7 +51,7 @@ const FunctionInfo kFunctions[] = {
     {"sin", 1, 1}, {"cos", 1, 1}, {"tan", 1, 1}, {"asin", 1, 1}, {"acos", 1, 1}, {"atan", 1, 1},
     {"sinh", 1, 1}, {"cosh", 1, 1}, {"tanh", 1, 1}, {"exp", 1, 1}, {"log", 1, 1}, {"ln", 1, 1},
     {"sqrt", 1, 1}, {"abs", 1, 1}, {"floor", 1, 1}, {"ceil", 1, 1}, {"atan2", 2, 2}, {"min", 2, 2},
-    {"max", 2, 2}, {"mod", 2, 2},
+    {"max", 2, 2}, {"mod", 2, 2}, {"sign", 1, 1},
     // blending (any value kind)
     {"lerp", 3, 3}, {"keys", 3, 33},
     // vectors
@@ -653,6 +653,10 @@ Value callFunction(const std::string& name, const std::vector<Value>& args) {
         if (v.type == Type::Vector) return Value::scalar(v.vector.magnitude());
         if (v.type == Type::Quaternion) return Value::scalar(qnorm(toQuat(v)));
         return Value::fail("abs needs a number, a vector or a quaternion");
+    }
+    if (name == "sign") {
+        if (!realArg(0, x)) return Value::fail("sign needs a real number");
+        return Value::scalar(x > 0 ? 1.0 : x < 0 ? -1.0 : 0.0);
     }
     if (name == "mod") {
         if (!realArg(0, x) || !realArg(1, y)) return Value::fail("mod needs two real numbers");
