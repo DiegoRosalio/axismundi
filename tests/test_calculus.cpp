@@ -1,6 +1,7 @@
 // Tests: Calculus and geometry: vector fields, integrals, curves (Frenet frame), derivatives, Fourier series, contours, the orbit camera math
 #include "TestSupport.hpp"
 #include "math/GridMath.hpp"
+#include "math/Taylor.hpp"
 
 void testVectorField() {
     using namespace field;
@@ -391,4 +392,78 @@ void testGridMath() {
     CHECK(formatTick(-1e-12, 0.5) == "0");
     CHECK(formatTick(0.25, 0.05) == "0.25");
     CHECK(formatTick(1.5, 0.5) == "1.5");
+}
+
+void testTaylor() {
+    using namespace taylor;
+    auto pair = [](auto realFn, auto complexFn) {
+        RealFunction f = [=](double x, double& y) { y = realFn(x); return std::isfinite(y); };
+        ComplexFunction fc = [=](cplx z, cplx& w) { w = complexFn(z); return true; };
+        return std::make_pair(f, fc);
+    };
+    // sin about 0: 0, 1, 0, -1/6, 0, 1/120, ... up to degree 15
+    auto [sinR, sinC] = pair([](double x) { return std::sin(x); }, [](cplx z) { return std::sin(z); });
+    Series s;
+    CHECK(coefficients(sinC, sinR, 0.0, 15, s));
+    CHECK(s.complexMethod && s.coeffs.size() == 16);
+    double fact = 1;
+    for (int k = 0; k <= 15; k++) {
+        if (k > 0) fact *= k;
+        double expect = (k % 2 == 0) ? 0.0 : ((k / 2) % 2 == 0 ? 1.0 : -1.0) / fact;
+        CHECK_NEAR(s.coeffs[static_cast<size_t>(k)], expect, 1e-11);
+    }
+    CHECK_NEAR(evaluate(s, 2.0), std::sin(2.0), 1e-6);  // degree 15 is very close at x = 2
+    CHECK(std::fabs(evaluate(s, 2.0, 3) - std::sin(2.0)) > 0.1);  // degree 3 isn't
+    // e^x about 1: e / k!
+    auto [expR, expC] = pair([](double x) { return std::exp(x); }, [](cplx z) { return std::exp(z); });
+    CHECK(coefficients(expC, expR, 1.0, 10, s));
+    fact = 1;
+    for (int k = 0; k <= 10; k++) {
+        if (k > 0) fact *= k;
+        CHECK_NEAR(s.coeffs[static_cast<size_t>(k)], std::exp(1.0) / fact, 1e-9);
+    }
+    // A polynomial is its own Taylor polynomial: x^3 - 2x about 2 -> 4 + 10(x-2) + 6(x-2)^2 + (x-2)^3
+    auto [pR, pC] = pair([](double x) { return x * x * x - 2 * x; }, [](cplx z) { return z * z * z - 2.0 * z; });
+    CHECK(coefficients(pC, pR, 2.0, 5, s));
+    CHECK_NEAR(s.coeffs[0], 4, 1e-10);
+    CHECK_NEAR(s.coeffs[1], 10, 1e-10);
+    CHECK_NEAR(s.coeffs[2], 6, 1e-10);
+    CHECK_NEAR(s.coeffs[3], 1, 1e-10);
+    CHECK_NEAR(s.coeffs[4], 0, 1e-10);
+    // 1/(1+x^2) about 0: 1, 0, -1, 0, 1, ...; the circle must stay inside the poles at ±i
+    auto [rR, rC] = pair([](double x) { return 1 / (1 + x * x); }, [](cplx z) { return 1.0 / (1.0 + z * z); });
+    CHECK(coefficients(rC, rR, 0.0, 10, s));
+    CHECK(s.complexMethod && s.radius < 1.0);
+    for (int k = 0; k < static_cast<int>(s.coeffs.size()); k++)
+        CHECK_NEAR(s.coeffs[static_cast<size_t>(k)], k % 2 ? 0.0 : (k % 4 == 0 ? 1.0 : -1.0), 1e-7);
+    // abs: not analytic -> finite differences up to degree 4; floor: no complex values at all
+    auto [aR, aC] = pair([](double x) { return std::fabs(x); }, [](cplx z) { return cplx(std::abs(z), 0); });
+    CHECK(coefficients(aC, aR, 1.0, 8, s));
+    CHECK(!s.complexMethod && s.coeffs.size() == 5);
+    CHECK_NEAR(s.coeffs[1], 1.0, 1e-8);
+    RealFunction floorR = [](double x, double& y) { y = std::floor(x); return true; };
+    ComplexFunction noComplex = [](cplx, cplx&) { return false; };
+    CHECK(coefficients(noComplex, floorR, 0.5, 6, s));
+    CHECK(!s.complexMethod && s.note.find("complex") != std::string::npos);
+    RealFunction lnR = [](double x, double& y) { if (x <= 0) return false; y = std::log(x); return true; };
+    CHECK(!coefficients(noComplex, lnR, -1.0, 3, s));  // undefined at the center
+
+    // Newton: x^2 - 2 from 1 -> sqrt 2, the error roughly squaring each step
+    RealFunction g = [](double x, double& y) { y = x * x - 2; return true; };
+    NewtonRun run = newton(g, 1.0, 8);
+    CHECK(run.stop == NewtonStop::Converged);
+    CHECK_NEAR(run.steps.back().x, std::sqrt(2.0), 1e-12);
+    CHECK(run.steps.size() <= 8);
+    double e2 = std::fabs(run.steps[2].x - std::sqrt(2.0)), e3 = std::fabs(run.steps[3].x - std::sqrt(2.0));
+    CHECK(e3 < 10 * e2 * e2);  // quadratic convergence
+    NewtonRun two = newton(g, 1.0, 2);
+    CHECK(two.stop == NewtonStop::Steps && two.steps.size() == 3);  // x0, x1, x2
+    CHECK_NEAR(two.steps[1].x, 1.5, 1e-9);
+    // From x0 = 0 the tangent is flat
+    CHECK(newton(g, 0.0, 5).stop == NewtonStop::FlatTangent);
+    // atan from 1.5 overshoots farther and farther
+    RealFunction at = [](double x, double& y) { y = std::atan(x); return true; };
+    NewtonRun away = newton(at, 1.5, 30);
+    CHECK(away.stop == NewtonStop::Diverging || std::fabs(away.steps.back().x) > 100);
+    CHECK(std::fabs(away.steps[2].x) > std::fabs(away.steps[1].x));
 }

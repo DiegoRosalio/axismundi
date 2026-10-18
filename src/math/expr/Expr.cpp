@@ -884,7 +884,8 @@ Value evalNode(const Node& n, const Resolver* resolver, const Slots* slots) {
         case Node::Kind::Name: {
             if (n.slot >= 0) {
                 if (slots) {
-                    if (n.slot == 0 && slots->hasX) return Value::scalar(slots->x);
+                    if (n.slot == 0 && slots->hasX)
+                        return slots->xIm != 0.0 ? Value::complex(slots->x, slots->xIm) : Value::scalar(slots->x);
                     if (n.slot == 1 && slots->hasY) return Value::scalar(slots->y);
                     if (n.slot == 2 && slots->hasT) return Value::scalar(slots->t);
                     if (n.slot == 3 && slots->hasU) return Value::scalar(slots->u);

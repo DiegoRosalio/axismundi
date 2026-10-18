@@ -1,5 +1,6 @@
 // Tests: The formula engine: parsing, values, functions, blending, the field variable z, quaternion formulas and the formula reference
 #include "TestSupport.hpp"
+#include <complex>
 
 void testExpression() {
     Expression e;
@@ -146,6 +147,22 @@ void testExprEngine() {
     CHECK(evalText("[1, 2, 3]").summary() == "(1, 2, 3)");
     CHECK(evalText("1 - 2i").summary() == "1 − 2i");
     CHECK(evalText("-i").summary() == "−i");
+    // x may be complex (the Taylor object samples f on a circle in the complex plane)
+    {
+        expr::Program cp;
+        CHECK(cp.compile("sin(x) + x^2"));
+        expr::Slots cs;
+        cs.x = 1.0;
+        cs.xIm = 0.5;
+        cs.hasX = true;
+        expr::Value cv = cp.eval(nullptr, &cs);
+        std::complex<double> cz(1.0, 0.5), expect = std::sin(cz) + cz * cz;
+        CHECK(cv.type == expr::Type::Complex);
+        CHECK_NEAR(cv.re, expect.real(), 1e-12);
+        CHECK_NEAR(cv.im, expect.imag(), 1e-12);
+        cs.xIm = 0.0;
+        CHECK(cp.eval(nullptr, &cs).type == expr::Type::Scalar);  // a real x stays real
+    }
 }
 
 void testBlendFunctions() {

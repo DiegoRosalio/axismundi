@@ -35,6 +35,7 @@ void testIntegrals();
 void testCurveGeometry();
 void testOrbitCamera();
 void testGridMath();
+void testTaylor();
 void testDerivatives();
 void testFourier();
 void testAllObjectTypes();
@@ -73,6 +74,7 @@ int main() {
         {"Curve geometry", testCurveGeometry},
         {"Orbit camera", testOrbitCamera},
         {"Grid math", testGridMath},
+        {"Taylor, Newton", testTaylor},
         {"Derivatives", testDerivatives},
         {"Fourier", testFourier},
         {"All object types", testAllObjectTypes},

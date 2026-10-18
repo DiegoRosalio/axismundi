@@ -19,6 +19,8 @@ public:
 // z (vector fields)
 struct Slots {
     double x = 0.0, y = 0.0, t = 0.0, u = 0.0, z = 0.0;
+    // x may be complex (x + i·xIm): the Taylor object samples f on a small circle in the complex plane
+    double xIm = 0.0;
     bool hasX = false, hasY = false, hasT = false, hasU = false, hasZ = false;
 };
 
