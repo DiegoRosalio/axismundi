@@ -50,7 +50,8 @@ and worked calculations.
   - vector fields `F(x, y, z)` (e.g. `[-y, x, 0]`) on the floor or in a box: arrows scaled and colored by
     strength, flow lines kept evenly apart, and particles that drift along the flow while the clock plays;
     exported to LaTeX as PGFPlots quiver plots.
-  - a floor grid from ±5 to ±100 units, with major lines every 5 units.
+  - an endless grid that adapts to the zoom (lines every 0.1 … 100), numbers on the axes, optional grid walls and a
+    polar grid for the complex plane.
 - **Complex plane** (key 2): complex numbers (e.g. `2 + i`, `z1*z2`, `exp(i*theta)`), with optional circle,
   cos/sin projections and the helix of e^(it), and products drawn as a rotation plus a scaling.
 

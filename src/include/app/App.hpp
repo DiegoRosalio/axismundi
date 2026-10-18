@@ -12,6 +12,7 @@
 #include "math/Vector3D.hpp"
 #include "rendering/CameraController.hpp"
 #include "rendering/Grid.hpp"
+#include "rendering/GridShader.hpp"
 #include "scene/Scene.hpp"
 #include "ui/AddMenu.hpp"
 #include "ui/AppMode.hpp"
@@ -193,6 +194,10 @@ private:
     void savePreferences();
 
     float viewportLeft() const;
+    // Zoom: pixels one unit covers at the view center; the grid spacing and the tick step follow it
+    double pixelsPerUnit() const;
+    double tickStep() const;
+    void drawGrid();
     float viewportRight() const;
 
     AppOptions m_options;
@@ -200,7 +205,8 @@ private:
     scene::Scene m_scene;
     view::SceneView m_sceneView;
     CameraController m_camera;
-    Grid m_grid;
+    Grid m_grid;              // the line grid: used when the shader grid can't run
+    GridShader m_gridShader;  // the endless, adaptive grid
     TimePanel m_timePanel;
     InfoPanel m_infoPanel;
     ViewPanel m_viewPanel;

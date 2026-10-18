@@ -98,6 +98,8 @@ click 290 83; click 56 203;        shot 60_vector_selected
 drag 1000 300 1180 380;           shot 61_orbit_keeps_selection  # turned; v still selected
 rdrag 1000 300 900 250;           shot 62_panned                 # right-drag slides the view
 wheel 1000 300 4 4;               shot 63_zoomed_in              # wheel up: closer
+wheel 1000 300 5 10;              shot 63b_zoomed_out            # wheel down: farther; grid lines and numbers spread out
+wheel 1000 300 4 10
 key period;                       shot 64_focus_on_v             # . : v's tip is the orbit center
 click 1566 25; click 1499 283;    shot 65_settings_fly           # Settings > Camera > Fly
 key Escape; key Tab; hover 900 450; xdotool mousemove_relative 60 0 sleep 0.2 mousemove_relative 60 -20

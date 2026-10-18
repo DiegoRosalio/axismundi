@@ -16,7 +16,13 @@ struct ViewSettings {
     bool showAxes = true;
     bool showLabels = true;
     float axisLength = 5.0f;
-    float gridSize = 10.0f;  // the grid reaches from -gridSize to +gridSize
+    // Grid (endless, drawn by rendering/GridShader): spacing follows the zoom, or lines every unit
+    bool gridAuto = true;
+    bool gridFloor = true;     // 3D: the floor (math xy)
+    bool gridWallXZ = false;   // 3D: the wall y = 0
+    bool gridWallYZ = false;   // 3D: the wall x = 0
+    bool gridPolar = false;    // complex plane: circles and rays instead of squares
+    bool showNumbers = true;   // numbers along the axes
     view::StyleId style = view::StyleId::Colorful;  // how the 3D view is drawn (saved in the scene)
     bool soloSelection = false;  // show only the selected objects (not saved)
 };

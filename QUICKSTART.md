@@ -48,8 +48,8 @@ The **Time panel** (P to play or pause) runs the clock for everything at once an
 something by hand, select it and use Add → Morph from identity / Grow from zero: you get a slider `s` and a
 `lerp` formula.
 
-Plot **Detail** is per unit of the range, so wide plots stay smooth. **Grid size** (View section) makes the
-floor grid larger.
+Plot **Detail** is per unit of the range, so wide plots stay smooth. The grid and the axis numbers follow the
+zoom; the View section adds grid walls, a polar grid for the complex plane, and a fixed 1-unit spacing.
 
 ## The two spaces
 

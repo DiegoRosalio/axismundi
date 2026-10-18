@@ -32,6 +32,8 @@ struct DrawOptions {
     bool dimUnselected = false;
     // Show only the selected objects (when the selection is not empty)
     bool solo = false;
+    // Distance between tick marks on the complex plane's axes (follows the zoom, math/GridMath tickStep)
+    double tickStep = 1.0;
 };
 
 // Draws the objects of a space. 3D space: math coordinates with z up (see

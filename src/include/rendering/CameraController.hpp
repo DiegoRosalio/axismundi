@@ -54,6 +54,11 @@ public:
     // along the same direction instead, so orbiting turns around something visible
     static Vector3 pivotAlong(Vector3 position, Vector3 target, AppMode space);
 
+    // The point the view is about (the orbit pivot; in fly mode where the view meets the floor) and how far
+    // the camera is from it: the grid and the axis numbers pick their spacing from this distance
+    Vector3 viewCenter() const;
+    float viewDistance() const;
+
     // Orbit helpers (they also work from fly mode, by switching the view only)
     void focus(Vector3 worldPoint);
     void frontView();

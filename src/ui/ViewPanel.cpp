@@ -18,7 +18,44 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
     ui::toggleRow(col.row(30), "Grid", m_settings.showGrid, "G");
     ui::toggleRow(col.row(30), "Axes", m_settings.showAxes);
     ui::toggleRow(col.row(30), "Labels", m_settings.showLabels, "L");
-    (void)mode;
+    if (m_settings.showGrid) {
+        // Spacing: follows the zoom, or fixed lines every unit (stronger every 5)
+        Rectangle row = col.row(30);
+        Rectangle label = ui::takeLeft(row, 92.0f, 8.0f);
+        ui::textIn(label, "Grid spacing", ui::FontRole::Body, t.text);
+        int spacing = m_settings.gridAuto ? 0 : 1;
+        if (ui::segmented(row, {"Auto", "1 unit"}, spacing,
+                          {"Lines get closer as you zoom in (0.1, 0.01...) and wider as you zoom out (10, 100...).",
+                           "A line every unit, stronger every 5: easy to count."}))
+            m_settings.gridAuto = spacing == 0;
+        ui::anchor("view.gridspacing", {label.x, row.y, row.x + row.width - label.x, row.height});
+        if (mode == AppMode::Space3D) {
+            // Which planes carry a grid: the floor, and the two walls through the origin
+            auto planes = ui::splitRow(col.row(ui::kRowHeight), {1, 1, 1}, 6.0f);
+            struct PlaneButton { const char* text; bool* value; const char* tip; };
+            PlaneButton buttons[3] = {
+                {"Floor xy", &m_settings.gridFloor, "The grid on the floor (z = 0)."},
+                {"Wall xz", &m_settings.gridWallXZ, "A grid on the wall y = 0 (behind the x and z axes)."},
+                {"Wall yz", &m_settings.gridWallYZ, "A grid on the wall x = 0 (behind the y and z axes)."}};
+            for (int k = 0; k < 3; k++) {
+                if (ui::button(planes[k], buttons[k].text, *buttons[k].value ? ui::ButtonKind::Primary
+                                                                             : ui::ButtonKind::Secondary))
+                    *buttons[k].value = !*buttons[k].value;
+                ui::tooltip(planes[k], buttons[k].tip, buttons[k].text);
+            }
+            ui::anchor("view.gridplanes", {planes[0].x, planes[0].y, planes[2].x + planes[2].width - planes[0].x,
+                                           planes[0].height});
+        } else {
+            int polar = m_settings.gridPolar ? 1 : 0;
+            Rectangle prow = col.row(30);
+            if (ui::segmented(prow, {"Square grid", "Polar grid"}, polar,
+                              {"Lines parallel to the real and imaginary axes.",
+                               "Circles around 0 (|z| = constant) and rays every 15° (arg z = constant)."}))
+                m_settings.gridPolar = polar == 1;
+            ui::anchor("view.gridpolar", prow);
+        }
+    }
+    ui::toggleRow(col.row(30), "Numbers on axes", m_settings.showNumbers);
     col.space(4.0f);
 
     // Style: 2x2 cards, each with a swatch of the style's board and palette
@@ -42,17 +79,6 @@ float ViewPanel::draw(float x, float y, float width, AppMode mode) {
     snprintf(lengthText, sizeof(lengthText), "%.1f", m_settings.axisLength);
     ui::textIn(value, lengthText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
 
-    // Grid size
-    row = col.row(30);
-    label = ui::takeLeft(row, 92.0f, 8.0f);
-    value = ui::takeRight(row, 36.0f, 8.0f);
-    ui::textIn(label, "Grid size", ui::FontRole::Body, t.text);
-    if (ui::slider(row, m_settings.gridSize, 5.0f, 100.0f)) m_settings.gridSize = std::round(m_settings.gridSize);
-    ui::anchor("view.gridsize", row);
-    ui::tooltip({label.x, row.y, value.x + value.width - label.x, row.height},
-                "How far the grid reaches from the origin, in units. Lines every unit, stronger every 5.", "Grid size");
-    snprintf(lengthText, sizeof(lengthText), "±%.0f", m_settings.gridSize);
-    ui::textIn(value, lengthText, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
     col.space(6.0f);
 
     Rectangle reset = col.row(ui::kRowHeight);
@@ -128,7 +154,12 @@ void ViewPanel::saveState(SceneData& data) const {
     putBool(data, "view.axes", m_settings.showAxes);
     putBool(data, "view.labels", m_settings.showLabels);
     putFloat(data, "view.axis_length", m_settings.axisLength);
-    putFloat(data, "view.grid_size", m_settings.gridSize);
+    putBool(data, "view.grid_auto", m_settings.gridAuto);
+    putBool(data, "view.grid_floor", m_settings.gridFloor);
+    putBool(data, "view.grid_wall_xz", m_settings.gridWallXZ);
+    putBool(data, "view.grid_wall_yz", m_settings.gridWallYZ);
+    putBool(data, "view.grid_polar", m_settings.gridPolar);
+    putBool(data, "view.numbers", m_settings.showNumbers);
     data["view.style"] = view::styleKey(m_settings.style);
 }
 
@@ -140,8 +171,13 @@ void ViewPanel::loadState(const SceneData& data) {
         if (m_settings.axisLength < 1.0f) m_settings.axisLength = 1.0f;
         if (m_settings.axisLength > 20.0f) m_settings.axisLength = 20.0f;
     }
-    if (getFloat(data, "view.grid_size", m_settings.gridSize))
-        m_settings.gridSize = std::clamp(std::round(m_settings.gridSize), 5.0f, 100.0f);
+    // view.grid_size (older files) is ignored: the grid is endless now
+    getBool(data, "view.grid_auto", m_settings.gridAuto);
+    getBool(data, "view.grid_floor", m_settings.gridFloor);
+    getBool(data, "view.grid_wall_xz", m_settings.gridWallXZ);
+    getBool(data, "view.grid_wall_yz", m_settings.gridWallYZ);
+    getBool(data, "view.grid_polar", m_settings.gridPolar);
+    getBool(data, "view.numbers", m_settings.showNumbers);
     // Files without a style (older ones) keep the current style
     std::string style;
     if (getString(data, "view.style", style)) m_settings.style = view::styleFromKey(style, m_settings.style);

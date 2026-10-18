@@ -1,4 +1,5 @@
 #include "rendering/CameraController.hpp"
+#include <algorithm>
 #include <cmath>
 #include <raymath.h>
 
@@ -56,6 +57,15 @@ Vector3 CameraController::pivotAlong(Vector3 position, Vector3 target, AppMode s
         if (s > 0.5f && s < 50.0f) return Vector3Add(position, Vector3Scale(dir, s));
     }
     return Vector3Add(position, Vector3Scale(dir, 8.0f));
+}
+
+Vector3 CameraController::viewCenter() const {
+    if (m_mode == CameraMode::Orbit) return m_camera.target;
+    return pivotAlong(m_camera.position, m_camera.target, m_space);
+}
+
+float CameraController::viewDistance() const {
+    return std::max(0.3f, Vector3Distance(m_camera.position, viewCenter()));
 }
 
 void CameraController::setMode(CameraMode mode) {

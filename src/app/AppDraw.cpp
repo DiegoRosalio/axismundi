@@ -1,5 +1,7 @@
 // App: Drawing: the 3D scene and labels, the UI frame, floating panels, HUD, toasts (the rest of App is in App.cpp)
 #include "app/App.hpp"
+#include "view/AxisNumbers.hpp"
+#include "math/GridMath.hpp"
 #include "view/ViewStyle.hpp"
 #include "app/Tour.hpp"
 #include "edu/Examples.hpp"
@@ -36,6 +38,7 @@ view::DrawOptions App::drawOptions() const {
     // Not while a lesson or the breakdown highlights things itself
     o.dimUnselected = m_uiSettings.dimUnselected && !m_tutorialWindow.visible() && !breakdownActive();
     o.solo = m_viewPanel.settings().soloSelection;
+    o.tickStep = tickStep();
     const SceneObject* target = targetMatrix();
     if (target && m_mode == AppMode::Space3D) {
         if (breakdownActive()) {
@@ -53,15 +56,72 @@ void App::drawScene() {
     BeginMode3D(m_camera.camera());
     // The print preview shows the grid only when the export has one, in light gray
     bool print = view::activeStyle().print;
-    if (!print || m_exportPanel.options().grid) {
-        if (m_mode == AppMode::Space3D) m_grid.draw();
-        else m_grid.drawPlaneXY();
-    }
+    if (!print || m_exportPanel.options().grid) drawGrid();
     m_sceneView.draw3D(m_scene.space(spaceKind()), drawOptions());
     EndMode3D();
 }
 
+double App::pixelsPerUnit() const {
+    return grid::pixelsPerUnit(m_camera.viewDistance(), m_camera.camera().fovy, GetScreenHeight());
+}
+
+double App::tickStep() const {
+    return grid::tickStep(pixelsPerUnit(), 70.0);  // numbers at least 70 px apart at the view center
+}
+
+void App::drawGrid() {
+    const ViewSettings& v = m_viewPanel.settings();
+    if (!v.showGrid) return;
+    const view::ViewStyle& style = view::activeStyle();
+    Color color = style.grid.a ? style.grid : ui::theme().grid;
+    float distance = m_camera.viewDistance();
+    float reach = std::max(12.0f, distance * 6.0f);  // far enough to fill the view
+    if (!m_gridShader.valid()) {
+        // The line grid: fixed lines every unit, as far as the view reaches
+        m_grid.setSize(std::clamp(static_cast<int>(reach), 10, 100));
+        if (m_mode == AppMode::Space3D) m_grid.draw();
+        else m_grid.drawPlaneXY();
+        return;
+    }
+    GridSpec spec;
+    spec.color = color;
+    spec.radius = reach;
+    spec.level = v.gridAuto ? grid::autoLevel(pixelsPerUnit(), 14.0) : grid::fixedLevel(1.0, 5.0);
+    Vector3 c = m_camera.viewCenter();
+    if (m_mode == AppMode::Space3D) {
+        // Each plane's square is centered on the point of that plane closest to the view center
+        if (v.gridFloor) {
+            spec.center = {c.x, 0.0f, c.z};
+            m_gridShader.draw(GridPlane::WorldXZ, spec);
+        }
+        if (v.gridWallXZ) {
+            spec.center = {c.x, c.y, 0.0f};
+            m_gridShader.draw(GridPlane::WorldXY, spec);
+        }
+        if (v.gridWallYZ) {
+            spec.center = {0.0f, c.y, c.z};
+            m_gridShader.draw(GridPlane::WorldYZ, spec);
+        }
+    } else {
+        spec.center = {c.x, c.y, 0.0f};
+        spec.polar = v.gridPolar;
+        m_gridShader.draw(GridPlane::WorldXY, spec);
+    }
+}
+
 void App::drawSceneLabels() {
+    const ViewSettings& v = m_viewPanel.settings();
+    if (v.showNumbers && v.showAxes) {
+        view::AxisNumbersSpec numbers;
+        numbers.space = spaceKind();
+        numbers.step = tickStep();
+        numbers.axisLength = v.axisLength;
+        numbers.viewCenter = m_camera.viewCenter();
+        numbers.reach = std::max(12.0f, m_camera.viewDistance() * 6.0f);
+        const view::ViewStyle& style = view::activeStyle();
+        numbers.color = style.print ? Color{90, 90, 90, 255} : style.muted;
+        view::drawAxisNumbers(m_camera.camera(), numbers);
+    }
     m_sceneView.drawLabels(m_scene.space(spaceKind()), drawOptions(), m_camera.camera());
 }
 

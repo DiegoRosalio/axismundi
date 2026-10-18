@@ -325,11 +325,14 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
             float r = 0.015f * t.lineScale;
             DrawCylinderEx({-extent, 0, 0}, {extent, 0, 0}, r, r, 6, t.axisX);
             DrawCylinderEx({0, -extent, 0}, {0, extent, 0}, r, r, 6, t.axisY);
-            for (int i = -static_cast<int>(extent); i <= static_cast<int>(extent); i++) {
+            // Tick marks at the step the axis numbers use (at most 400 per axis)
+            double step = std::max(options.tickStep, extent / 200.0);
+            float tick = std::min(0.08f, static_cast<float>(step) * 0.3f);
+            for (int i = -static_cast<int>(extent / step); i <= static_cast<int>(extent / step); i++) {
                 if (i == 0) continue;
-                float f = static_cast<float>(i);
-                DrawLine3D({f, -0.08f, 0}, {f, 0.08f, 0}, t.axisX);
-                DrawLine3D({-0.08f, f, 0}, {0.08f, f, 0}, t.axisY);
+                float f = static_cast<float>(i * step);
+                DrawLine3D({f, -tick, 0}, {f, tick, 0}, t.axisX);
+                DrawLine3D({-tick, f, 0}, {tick, f, 0}, t.axisY);
             }
         }
         // Unit circle

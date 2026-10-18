@@ -106,6 +106,9 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
       drag never changes the selection; old scene files get a pivot where their view meets the floor.
 
 ## Visualization
+- [x] Endless adaptive grid (GPU shader): spacing follows the zoom with smooth fades (0.1 … 100), anti-aliased
+      lines, distance fade; numbers on the axes at a zoom-dependent step; View options: Auto / 1-unit spacing,
+      floor and wall grids (xz, yz), square or polar grid in the complex plane; line-grid fallback
 - [x] Add 3D labels for vectors (billboard text)
 - [x] Show vector magnitudes as floating text
 - [x] Display dot product result

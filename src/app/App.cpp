@@ -427,7 +427,6 @@ void App::update(float deltaTime) {
     ViewSettings& view = m_viewPanel.settings();
     m_grid.setShowGrid(view.showGrid);
     m_grid.setShowAxes(view.showAxes);
-    m_grid.setSize(static_cast<int>(view.gridSize));
     // A PDF compile finished in the background
     latex::PdfResult pdf;
     std::string pdfPath;

@@ -166,7 +166,11 @@ void Tour::buildSteps() {
         app.setMode(AppMode::Complex);
         app.select("z1", AppMode::Complex);
     });
-    step("12_complex_roots", [](App& app) { runExample(app, "Powers of a root of unity"); });
+    step("11b_complex_polar_grid", [](App& app) { app.view().gridPolar = true; }, 6);
+    step("12_complex_roots", [](App& app) {
+        app.view().gridPolar = false;
+        runExample(app, "Powers of a root of unity");
+    });
     step("13_complex_product", [](App& app) {
         runExample(app, "Rotate and scale");
         app.select("w", AppMode::Complex);
@@ -188,13 +192,28 @@ void Tour::buildSteps() {
     }, 20);
     step("14c_large_grid", [](App& app) {
         app.setSurfaces(UiSettings::Surfaces::StyleDefault);
-        app.view().gridSize = 60.0f;
         app.select("S");
         app.setCameraView({45, 30, 55}, {0, 0, 0});
     }, 30);
+    // Grid choices: walls, zoomed in (finer lines and numbers), fixed unit spacing
+    step("14c2_grid_walls", [](App& app) {
+        app.resetScene();
+        app.view().gridWallXZ = true;
+        app.view().gridWallYZ = true;
+        app.setCameraView({6.5f, 5.0f, 7.5f}, {0, 0.5f, 0});
+    }, 10);
+    step("14c3_grid_zoom_in", [](App& app) {
+        app.view().gridWallXZ = false;
+        app.view().gridWallYZ = false;
+        app.setCameraView({0.9f, 0.7f, 1.05f}, {0.2f, 0.0f, -0.2f});
+    }, 10);
+    step("14c4_grid_unit", [](App& app) {
+        app.view().gridAuto = false;
+        app.setCameraView({13.0f, 10.0f, 15.0f}, {0, 0.5f, 0});
+    }, 10);
     // View styles (View section): demo scene, a surface, the complex plane, paper
     step("14d_style_contrast", [](App& app) {
-        app.view().gridSize = 10.0f;
+        app.view().gridAuto = true;
         app.resetScene();
         app.setCameraView({6.5f, 5.0f, 7.5f}, {0, 0, 0});
         app.select("a");
@@ -212,7 +231,6 @@ void Tour::buildSteps() {
     }, 20);
     step("15_plot_implicit", [](App& app) {
         app.view().style = view::StyleId::Colorful;
-        app.view().gridSize = 10.0f;
         runExample(app, "Lemniscate");
     });
     step("16_plot_curve", [](App& app) {

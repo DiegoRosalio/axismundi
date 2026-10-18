@@ -115,13 +115,18 @@ src/
                       through its type's ObjectView (view/ObjectViews.hpp: draw, anchor, label, pick, palette),
                       registered per family in view/objects/{Basics,Complex,Quaternion,Calculus,Fourier}.cpp;
                       SceneViewDraw.{hpp,cpp} the shared drawing helpers
+  view/AxisNumbers    tick numbers along the axes (step = GridMath::tickStep of the zoom; App::pixelsPerUnit from
+                      CameraController::viewDistance)
   view/ViewStyle      view styles as data (Colorful, Paper, High contrast, Chalkboard): `styleFor(id, theme)`,
                       `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
   edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
   rendering/          CameraController (Orbit = math/OrbitCamera around a pivot, or Fly = mouse look + WASD;
                       `camera.mode` preference; target = the real pivot, files with a 1-unit target get one
-                      from `pivotAlong`), Grid (lines every unit, major every 5, fading edge; size = ViewSettings::gridSize ±5..100),
+                      from `pivotAlong`), GridShader (the endless adaptive grid: one quad per
+                      plane, GLSL 330 fragment shader with fwidth lines, families from math/GridMath, polar mode;
+                      the project's only shader: strings in the .cpp, LoadShaderFromMemory, valid() false ->
+                      fallback; AXISMUNDI_NO_SHADER=1 forces the fallback), Grid (the fallback line grid),
                       VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
                       FieldRenderer (vector field arrows/lines/particles), MeshBuilder (MeshData, tubes, cones,
                       MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)

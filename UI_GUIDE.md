@@ -279,8 +279,15 @@ z points up and the floor grid is the xy-plane, the usual math convention, so ve
 of the faint original basis. To watch a matrix appear, morph it from the identity with a slider (Add →
 Morph from identity), or set that slider to Animate.
 
-The floor grid has a line every unit and a stronger one every 5 units, and fades out at its edge. **Grid size**
-in the View section sets how far it reaches (±5 to ±100 units).
+The grid reaches the horizon wherever you look and adapts to the zoom: zoom in and its lines come every 0.1,
+0.01…; zoom out and they come every 10, 100…, the finest lines fading in and out smoothly. **Numbers on axes**
+label the axes at a step that follows the zoom too (x and y on both sides along the floor, z upward). In the
+View section:
+- **Grid spacing**: Auto (follows the zoom) or 1 unit (a line every unit, stronger every 5, for counting).
+- 3D: **Floor xy**, **Wall xz**, **Wall yz** turn the grid on each plane through the origin on or off.
+- Complex plane: **Square grid** or **Polar grid** (circles |z| = r and rays every 15°, stronger every 45°).
+The grid is drawn by a GPU shader; if a graphics card can't run it, the older line grid (floor only, lines every
+unit) is used instead.
 
 ## The complex plane
 
@@ -304,7 +311,8 @@ reference. Each tab keeps its own camera.
 
 ## View section
 
-- Grid (G), Axes, Labels (L), Axis length, Grid size, Reset camera (C)
+- Grid (G), Axes, Labels (L), grid spacing, grid planes (3D) or square/polar (complex plane), Numbers on axes,
+  Axis length, Reset camera (C), Front / Right / Top / Focus
 - **Style**: how the 3D view is drawn. The panels keep the dark/light theme.
   - **Colorful**: theme colors, heat maps, shaded surfaces.
   - **Paper**: black and white on white, in the LaTeX export's line styles and grays (the export panel's B/W
