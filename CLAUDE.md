@@ -92,7 +92,9 @@ src/
   app/Tour            scripted screenshot tour (mouse positions come from ui anchors)
   math/               NO raylib: Vector3D, Matrix3D/4D, Decompositions (LU/QR/eigen3/svd3), Complex,
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
-                      VectorField (arrows on a grid, RK4 flow lines kept apart, particles as a function of t)
+                      VectorField (arrows on a grid, RK4 flow lines kept apart, particles as a function of t),
+                      Integrals (Riemann boxes, Simpson, line integrals), CurveGeometry (Frenet frame, κ, τ),
+                      Fourier (curve coefficients for epicycles, series a_k/b_k)
   math/expr/          NO raylib: typed expression engine — Value (number, complex, vector, 3x3/4x4
                       matrix, quaternion, error; rotationOf gives a quaternion's axis/angle/matrix), Program (compile once, names used, eval with Resolver + x/y/t/u slots);
                       Reference (the in-app formula cheat sheet as data: sections, entries, examples)
@@ -144,6 +146,11 @@ docs/screenshots/     images for the docs, produced by --tour
   fields (plot fields get sample x/y/u plus the real t). Objects whose active fields use t
   (`usesTime()`) count as changed when the time changes, so plots using t rebuild while the clock plays.
   `PlotSpec::time` carries it into `PlotRenderer` (`ExprVars{x, y, t, u}`).
+- **Expensive values** (integrals, series, epicycles): override `cachesValue()` so `computeValue` runs only
+  when a field, property, input or the time (formulas of t, or `followsClock()`) changed; `evaluationResolver()`
+  gives it the other objects; `inputsChangedNow()` tells "only the time moved" (epicycles keep their
+  coefficients and just move the tip). Drawn-only geometry is kept in `mutable` members filled by computeValue
+  and read by SceneView and the export. Fields with the curve variable get sample slots even when complex.
 - **Vector fields use `z`**: `Program::compile(text, variables)` takes `expr::kVarU` (curves) and `expr::kVarZ`
   (fields; `true` still means kVarU). `Field::zVariable` (`markFieldVariable`) and `Expect::Field` (a vector
   checked with sample x/y/z/t). Elsewhere z is a normal name. `VectorFieldObject` ("field") has no value; it
