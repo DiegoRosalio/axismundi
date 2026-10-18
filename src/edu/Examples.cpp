@@ -378,6 +378,64 @@ std::vector<Example> build() {
                         app.select("S");
                         app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
                     }});
+    list.push_back({"Secant becomes tangent", C::Plots,
+                    "The gray secant joins x0 and x0 + h. As the clock shrinks h toward 0 it turns into the tangent "
+                    "(black): the derivative is the limit of these slopes.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "tangent", "T",
+                                      {{"f", "x^3/6 - x"}, {"x0", "1"}, {"h", "2.5(1 - mod(t, 5)/5)"},
+                                       {"xmin", "-4"}, {"xmax", "4"}},
+                                      {{"derivative", "0"}, {"triangle", "0"}});
+                        app.select("T");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.0f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Slope as a function: f and f'", C::Plots,
+                    "The point slides along f; the second curve is f', the slope at every x. Where f has a peak or "
+                    "a valley the tangent is flat and f' crosses zero.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "tangent", "T",
+                                      {{"f", "x^3/6 - x"}, {"x0", "3sin(t/2)"}, {"xmin", "-4"}, {"xmax", "4"}});
+                        app.select("T");
+                        app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.0f});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Gradient points uphill", C::Plots,
+                    "On a hill z = 3e^(−(x² + y²)/4) the gradient arrow on the floor always points to the top, "
+                    "longest where the slope is steepest. The tangent plane touches the hill at the point.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "tangentplane", "G",
+                                      {{"f", "3exp(-(x^2 + y^2)/4)"}, {"x0", "2cos(t/2)"}, {"y0", "2sin(t/2)"},
+                                       {"xmin", "-4"}, {"xmax", "4"}, {"ymin", "-4"}, {"ymax", "4"}});
+                        app.select("G");
+                        app.setCameraView({6.5f, 6.5f, 8.0f}, {0, 1.0f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Velocity on a helix", C::Plots,
+                    "r' follows the helix at constant speed, so the acceleration r'' never speeds it up: it only "
+                    "turns, pointing straight at the axis.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "velocity", "R",
+                                      {{"x", "2cos(u)"}, {"y", "2sin(u)"}, {"z", "u/4"}, {"umin", "0"},
+                                       {"umax", "4pi"}, {"u0", "mod(t, 4pi)"}});
+                        app.select("R");
+                        app.setCameraView({5.5f, 5.0f, 6.5f}, {0, 1.4f, 0});
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Speeding up vs turning", C::Plots,
+                    "Around an ellipse the speed changes: the acceleration splits into a part along the motion "
+                    "(speeding up or slowing down) and a part across it (turning).",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "velocity", "R", {{"u0", "mod(t/2, 2pi)"}}, {{"split", "1"}});
+                        app.select("R");
+                        app.setCameraView({0.0f, 9.0f, 5.0f}, {0, 0, 0});
+                        app.restartTime(true);
+                    }});
     list.push_back({"Frenet frame on a helix", C::Plots,
                     "T (red), N (green), B (blue) ride a helix as u0 follows the clock. A helix bends and twists "
                     "the same everywhere: κ and τ stay constant, and N always points at the axis.",

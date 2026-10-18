@@ -44,6 +44,7 @@ public:
 
     // Theme palette color for an object (or its custom color)
     static Color colorOf(const scene::SceneObject& object);
+    static Color derivativeColor(const scene::SceneObject& o);  // f', the gradient, the acceleration
     // Whether an object is drawn: visible, and selected when solo is on
     static bool shown(const DrawOptions& options, const scene::SceneObject& object);
     // Value a matrix object is drawn with (taking the override into account)
@@ -69,6 +70,10 @@ private:
     void drawEpicycles(const scene::EpicyclesObject& o, Color color, bool fade, bool print, Color ink, bool selected);
     void drawFourierSeries(const scene::FourierSeriesObject& o, Color color, bool fade, bool print, Color ink);
     void drawFrame(const scene::FrameObject& o, Color color, bool fade, bool print, Color ink, bool selected);
+    void drawTangent(const scene::TangentObject& o, Color color, bool fade, bool print, Color ink, bool selected);
+    void drawTangentPlane(const scene::TangentPlaneObject& o, Color color, bool fade, bool print, Color ink,
+                          bool selected);
+    void drawVelocity(const scene::VelocityObject& o, Color color, bool fade, bool print, Color ink, bool selected);
     void drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color color, bool fade, bool print, Color ink);
     void drawLineIntegral(const scene::LineIntegralObject& o, Color color, bool fade, bool print, Color ink,
                           bool selected);

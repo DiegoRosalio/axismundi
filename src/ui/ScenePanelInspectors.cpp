@@ -942,4 +942,137 @@ void ScenePanel::inspectProduct(InspectorContext& c) {
     }
 }
 
+void ScenePanel::inspectTangent(InspectorContext& c) {
+    ui::Column& col = c.col;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto& tg = static_cast<scene::TangentObject&>(c.o);
+    col.setY(fieldRow(col.x(), col.y(), col.width(), tg, "f", sc, 52.0f));
+    ui::anchor("tangent.f", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    col.setY(fieldRow(col.x(), col.y(), col.width(), tg, "x0", sc, 64.0f));
+    ui::anchor("tangent.x0", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    col.setY(fieldRow(col.x(), col.y(), col.width(), tg, "h", sc, 64.0f));
+    ui::anchor("tangent.h", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    rangeRow(c, "xmin", "xmax", "x");
+    toggleProp(c, "Graph of f", "function", tg.showFunction(), "Draw y = f(x) itself.");
+    toggleProp(c, "Graph of f'", "derivative", tg.showDerivative(),
+               "Draw the slope of f at every x as a second curve: where f climbs it is above 0, where f has a "
+               "peak or a valley it crosses 0.");
+    ui::anchor("tangent.derivative", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+    toggleProp(c, "Slope triangle", "triangle", tg.showTriangle(),
+               "One step right along the tangent climbs f'(x0): the slope read off the picture.");
+    if (!tg.error().empty()) return;
+    char buf[160];
+    snprintf(buf, sizeof(buf), "f'(%.4g) = %.4f", tg.x0(), tg.slope());
+    note(c.col, buf, t.text);
+    snprintf(buf, sizeof(buf), "tangent: y = %.4g %s %.4g (x %s %.4g)", tg.y0(), tg.slope() < 0 ? "−" : "+",
+             std::fabs(tg.slope()), tg.x0() < 0 ? "+" : "−", std::fabs(tg.x0()));
+    note(c.col, buf, t.textMuted);
+    if (tg.hasSecant()) {
+        snprintf(buf, sizeof(buf), "secant slope %.4f (h = %.3g): off by %.2g", tg.secantSlope(), tg.secantH(),
+                 std::fabs(tg.secantSlope() - tg.slope()));
+        note(c.col, buf, t.textMuted);
+    }
+    if (tg.hasSecond()) {
+        double f2 = tg.second();
+        const char* shape = std::fabs(f2) < 1e-4 ? "f'' ≈ 0: a straight stretch or an inflection point"
+                            : f2 > 0             ? "f'' > 0: f bends upward (like a cup) here"
+                                                 : "f'' < 0: f bends downward (like a cap) here";
+        snprintf(buf, sizeof(buf), "f''(x0) = %.3f   %s", std::fabs(f2) < 1e-4 ? 0.0 : f2, shape);
+        note(c.col, buf, t.textMuted);
+    }
+    note(c.col, "The slope f' is the limit of secant slopes as h → 0. Put t or a slider in \"At x\" to slide "
+                "the point.",
+         t.textFaint);
+}
+
+void ScenePanel::inspectTangentPlane(InspectorContext& c) {
+    ui::Column& col = c.col;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto& g = static_cast<scene::TangentPlaneObject&>(c.o);
+    col.setY(fieldRow(col.x(), col.y(), col.width(), g, "f", sc, 34.0f));
+    ui::anchor("tplane.f", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    col.setY(fieldRow(col.x(), col.y(), col.width(), g, "x0", sc, 64.0f));
+    col.setY(fieldRow(col.x(), col.y(), col.width(), g, "y0", sc, 64.0f));
+    ui::anchor("tplane.point", {col.x(), col.y() - ui::px(80), col.width(), ui::px(74)});
+    rangeRow(c, "xmin", "xmax", "x");
+    rangeRow(c, "ymin", "ymax", "y");
+    toggleProp(c, "Surface", "surface", g.showSurface(), "Draw z = f(x, y) as a wire mesh.");
+    toggleProp(c, "Tangent plane", "plane", g.showPlane(),
+               "The flat plane that touches the surface at the point: near it, f looks like this plane.");
+    toggleProp(c, "Slopes along x and y", "slopes", g.showSlopes(),
+               "One step in x climbs ∂f/∂x (red), one step in y climbs ∂f/∂y (green): the partial derivatives.");
+    toggleProp(c, "Gradient", "gradient", g.showGradient(),
+               "The arrow (∂f/∂x, ∂f/∂y) on the floor: the direction of steepest climb, as long as the climb rate.");
+    ui::anchor("tplane.gradient", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+    toggleProp(c, "Normal", "normal", g.showNormal(), "The unit vector at right angles to the plane.");
+    if (!g.error().empty()) return;
+    char buf[160];
+    snprintf(buf, sizeof(buf), "∂f/∂x = %.4f    ∂f/∂y = %.4f", g.fx(), g.fy());
+    note(c.col, buf, t.text);
+    double steep = std::hypot(g.fx(), g.fy());
+    if (steep > 1e-6) {
+        double deg = std::atan2(g.fy(), g.fx()) * 180.0 / panel::kPi;
+        snprintf(buf, sizeof(buf), "steepest climb %.3f per unit, toward %.0f° from the x axis", steep, deg);
+    } else {
+        snprintf(buf, sizeof(buf), "flat here: a peak, a valley or a saddle point (gradient 0)");
+    }
+    note(c.col, buf, t.textMuted);
+    auto p = g.point();
+    snprintf(buf, sizeof(buf), "plane: z = %.3g %s %.3g(x − %.3g) %s %.3g(y − %.3g)", p.z, g.fx() < 0 ? "−" : "+",
+             std::fabs(g.fx()), p.x, g.fy() < 0 ? "−" : "+", std::fabs(g.fy()), p.y);
+    note(c.col, buf, t.textMuted);
+    note(c.col, "The gradient is the value: other objects can use it by name, e.g. a vector whose formula is "
+                "the name of this object.",
+         t.textFaint);
+}
+
+void ScenePanel::inspectVelocity(InspectorContext& c) {
+    ui::Column& col = c.col;
+    scene::Scene& sc = c.sc;
+    const ui::Theme& t = ui::theme();
+    auto& r = static_cast<scene::VelocityObject&>(c.o);
+    for (const char* k : {"x", "y", "z"}) col.setY(fieldRow(col.x(), col.y(), col.width(), r, k, sc, 64.0f));
+    ui::anchor("velocity.curve", {col.x(), col.y() - ui::px(120), col.width(), ui::px(116)});
+    rangeRow(c, "umin", "umax", "u");
+    col.setY(fieldRow(col.x(), col.y(), col.width(), r, "u0", sc, 64.0f));
+    ui::anchor("velocity.u0", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+    toggleProp(c, "Velocity r'", "velocity", r.showVelocity(), "Where the point is heading, as long as its speed.");
+    toggleProp(c, "Acceleration r''", "acceleration", r.showAcceleration(), "How the velocity is changing.");
+    toggleProp(c, "Split acceleration", "split", r.splitAcceleration(),
+               "The part along the motion changes the speed; the part across it changes the direction (turning).");
+    ui::anchor("velocity.split", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+    toggleProp(c, "Curve", "curve", r.showCurve(), "Draw the curve itself.");
+    Rectangle row = col.row(30);
+    Rectangle label = ui::takeLeft(row, 92.0f, 8.0f);
+    Rectangle value = ui::takeRight(row, 40.0f, 8.0f);
+    ui::textIn(label, "Arrow scale", ui::FontRole::Body, t.text);
+    float scale = static_cast<float>(r.arrowScale());
+    if (ui::slider(row, scale, 0.1f, 2.0f)) {
+        r.setProp("scale", std::round(static_cast<double>(scale) * 20.0) / 20.0);
+        m_sliderDirty = true;
+    }
+    char buf[160];
+    snprintf(buf, sizeof(buf), "%.2f×", r.arrowScale());
+    ui::textIn(value, buf, ui::FontRole::Mono, t.textMuted, ui::Align::Right);
+    ui::tooltip({label.x, row.y, value.x + value.width - label.x, row.height},
+                "Draw the arrows shorter or longer (the values don't change).", "Arrow scale");
+    if (!r.error().empty()) return;
+    auto v = r.velocity();
+    double speed = geometry::length(v), at = geometry::length(r.tangential()), an = geometry::length(r.normal());
+    snprintf(buf, sizeof(buf), "speed |r'| = %.4f    |r''| = %.4f", speed, geometry::length(r.acceleration()));
+    note(c.col, buf, t.text);
+    double along = speed > 1e-12 ? geometry::dot(r.acceleration(), v) / speed : 0.0;
+    double accel = geometry::length(r.acceleration());
+    if (std::fabs(along) < 1e-4 * std::max(1.0, accel))
+        snprintf(buf, sizeof(buf), "constant speed here    turning %.3f", an);
+    else
+        snprintf(buf, sizeof(buf), "%s %.3f    turning %.3f", along > 0 ? "speeding up" : "slowing down", at, an);
+    note(c.col, buf, t.textMuted);
+    note(c.col, "Constant speed on a circle: all the acceleration turns (it points to the center). Use t in "
+                "\"At u\" to ride along.",
+         t.textFaint);
+}
+
 } // namespace linalg

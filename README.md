@@ -39,6 +39,9 @@ and worked calculations.
     spinning circles (epicycles) in the complex plane;
   - curves: the moving (Frenet) frame T, N, B with curvature κ, torsion τ, the osculating circle and a curvature
     comb, sliding along with a slider or the clock;
+  - derivatives: the tangent line on y = f(x) with the graph of f' and a secant that shrinks into the tangent,
+    the tangent plane and gradient of z = f(x, y), and velocity/acceleration along a curve (split into speeding
+    up and turning);
   - calculus: the volume under z = f(x, y) as Riemann boxes next to the exact double integral (boxes refine as a
     parameter grows), and the work ∫ F·dr of a vector field along a curve, colored where F helps or opposes;
   - quaternions: rotations in four numbers (`qaxis([0, 0, 1], pi/2)`), drawn as their axis and angle with the
@@ -221,7 +224,7 @@ Shortcuts are ignored while a text field is being edited.
     ├── main.cpp              # command-line options
     ├── app/                  # App (loop, input, drawing, files: one class in four files) and Tour
     ├── math/                 # vectors, matrices, decompositions, complex, quaternions, vector fields,
-    │   └── expr/             #   integrals, curve geometry, Fourier; typed expression engine
+    │   └── expr/             #   derivatives, integrals, curve geometry, Fourier, orbit camera; typed expressions
     ├── scene/                # object model: objects, spaces, dependencies, undo, files
     ├── export/               # LaTeX (PGFPlots) export, black and white; PDF via pdflatex
     ├── text/                 # formula wrapping, label placement

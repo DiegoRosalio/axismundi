@@ -67,6 +67,8 @@ floor grid larger.
   complex plane. Tutorial lesson "Fourier: sums of waves".
 - **Moving frame** (Add → Calculus): T, N, B, curvature and torsion riding a curve. Tutorial lesson "Curvature
   and the moving frame".
+- **Derivatives** (Add → Calculus): a tangent line with f' and a shrinking secant, the tangent plane and gradient
+  of a surface, velocity and acceleration on a curve. Tutorial lesson "Derivatives: slopes and tangents".
 - **Integrals** (Add → Calculus): the volume under a surface as boxes next to the exact value, and the work of a
   vector field along a curve. Tutorial lesson "Integrals as volumes".
 - **Quaternions** (Add → Quaternion): rotations in four numbers, `qaxis([0, 0, 1], pi/2)`. The tutorial lesson

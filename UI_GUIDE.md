@@ -97,6 +97,9 @@ Each space has its own list of objects. The side bar shows:
 | Fourier series of f(x) | 3D | f, [a, b], Terms (a formula); Show f, Harmonics, Repeat outside; spectrum chart and coefficients |
 | Fourier epicycles | complex | z(u) for one lap, Circles, Laps per second; the biggest circles; Next example |
 | Moving frame on a curve | 3D | Curve x(u) y(u) z(u), u range, At u (a formula); Frame T/N/B, Osculating circle, Curvature comb, Curve; κ, τ, speed |
+| Tangent line on y = f(x) | 3D | f, At x (a formula), Secant h (0 = none), x range; Graph of f, Graph of f', Slope triangle; f'(x0), the line, f'' |
+| Tangent plane and gradient | 3D | z = f(x, y), At x / At y, ranges; Surface, Tangent plane, Slopes along x and y, Gradient, Normal; ∂f/∂x, ∂f/∂y |
+| Velocity on a curve | 3D | Curve x(u) y(u) z(u), u range, At u; Velocity, Acceleration, Split acceleration, Curve, Arrow scale; speed |
 | Volume under z = f(x, y) | 3D | f, x/y ranges, boxes per side (a formula), Left/Middle/Right rule, Boxes, Surface; boxes' sum, exact value, error |
 | Work ∫ F·dr | 3D | F(x, y, z), curve x(u) y(u) z(u), u range, Up to (0..1); work so far and over the whole path |
 | Quaternion | 3D | q = formula (e.g. `qaxis([0, 0, 1], pi/2)`); the four numbers, angle and axis, \|q\|; Axis and angle, Rotated basis, Acts on a vector; Next example |
@@ -181,6 +184,23 @@ Add → Calculus → **Moving frame on a curve** (or select a curve and use the 
 - The **curvature comb** draws κ along the whole curve (long teeth where it bends most).
 - The value is the point r(u0), usable in other formulas. Gallery: helix, ellipse, parabola. Tutorial: "Curvature
   and the moving frame". LaTeX export draws the curve, the frame and the circle.
+
+### Derivatives
+Add → Calculus (or select a function, surface or curve and use its template).
+- **Tangent line on y = f(x)**: the point (x0, f(x0)) with its tangent line; the value is the slope f'(x0). The
+  **slope triangle** shows one step right climbing f'(x0); **Graph of f'** draws the slope at every x as a second
+  curve (it crosses 0 at peaks and dips). **Secant h** draws the line through x0 and x0 + h: shrink h (or animate
+  it) to watch the secant turn into the tangent. The inspector gives the line's equation and f'' (bending up or
+  down).
+- **Tangent plane and gradient**: on z = f(x, y), the plane touching the surface at (x0, y0), the slopes along x
+  (red) and y (green), and the gradient (∂f/∂x, ∂f/∂y) drawn on the floor: the steepest way up. The value is the
+  gradient as a vector.
+- **Velocity on a curve**: r'(u0) (the value) and r''(u0) at a point of a curve; **Split acceleration** shows the
+  part along the motion (speeding up or slowing down) and the part across it (turning). **Arrow scale** only
+  changes how long the arrows are drawn.
+- At x / At y / At u are formulas: a slider or the clock moves the point. Gallery: secant becomes tangent, f and
+  f', gradient points uphill, velocity on a helix, speeding up vs turning. Tutorial: "Derivatives: slopes and
+  tangents". LaTeX export draws each (the tangent as a 2D figure).
 
 ### Integrals
 Add → Calculus.

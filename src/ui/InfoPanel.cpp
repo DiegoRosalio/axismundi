@@ -58,7 +58,8 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
     std::vector<const scene::SceneObject*> vectors, numbers, quats, integralObjs;
     for (const auto* o : picked) {
         if (!o->value().ok()) continue;
-        if (o->typeId() == "frame") {  // its value is a point, but it has its own section
+        const std::string& ty = o->typeId();
+        if (ty == "frame" || ty == "tangent" || ty == "tangentplane" || ty == "velocity") {  // own sections
             integralObjs.push_back(o);
         } else if (o->value().type == expr::Type::Quaternion) {
             if (quats.size() < 2) quats.push_back(o);
@@ -119,6 +120,45 @@ void InfoPanel::update(const scene::Space& space, const scene::Selection& select
             tipped(s, fmt("κ = %.4f   τ = %.4f", f.kappa, std::fabs(f.tau) < 5e-5 ? 0.0 : f.tau),
                    "Curvature κ = |r' × r''| / |r'|³; torsion τ = (r' × r'') · r''' / |r' × r''|².");
             if (f.kappa > 1e-9) note(s, fmt("radius of the osculating circle 1/κ = %.3f", 1.0 / f.kappa));
+            continue;
+        }
+        if (o->typeId() == "tangent") {
+            auto* tg = static_cast<const scene::TangentObject*>(o);
+            s.tip = "The derivative at a point: the slope of the tangent line.";
+            tipped(s, fmt("f(%.4g) = %.4f", tg->x0(), tg->y0()), "The point on the graph.");
+            tipped(s, fmt("f'(%.4g) = %.4f", tg->x0(), tg->slope()),
+                   "The slope: the limit of (f(x0 + h) − f(x0)) / h as h → 0 (computed with a tiny step).");
+            if (tg->hasSecant())
+                tipped(s, fmt("secant, h = %.3g: %.4f", tg->secantH(), tg->secantSlope()),
+                       "(f(x0 + h) − f(x0)) / h: closer to f' as h shrinks.");
+            if (tg->hasSecond()) note(s, fmt("f''(x0) = %.3f", std::fabs(tg->second()) < 1e-4 ? 0.0 : tg->second()));
+            double angle = std::atan(tg->slope()) * 180.0 / 3.14159265358979;
+            note(s, fmt("the tangent rises at %.1f° to the x axis", angle));
+            continue;
+        }
+        if (o->typeId() == "tangentplane") {
+            auto* g = static_cast<const scene::TangentPlaneObject*>(o);
+            auto p = g->point();
+            s.tip = "Partial derivatives: the slopes of the surface along x and along y.";
+            body(s, fmt("at (%.3g, %.3g): z = %.4f", p.x, p.y, p.z));
+            tipped(s, fmt("∂f/∂x = %.4f   ∂f/∂y = %.4f", g->fx(), g->fy()),
+                   "Hold y fixed and take the slope in x, then the other way round.");
+            tipped(s, fmt("grad f = (%.4f, %.4f)", g->fx(), g->fy()),
+                   "Points the way the surface climbs fastest; its length is that climb rate.");
+            note(s, fmt("steepest climb %.4f per unit", std::hypot(g->fx(), g->fy())));
+            continue;
+        }
+        if (o->typeId() == "velocity") {
+            auto* r = static_cast<const scene::VelocityObject*>(o);
+            auto v3 = [](const integrals::D3& d) {
+                return vecStr(Vector3D(static_cast<float>(d.x), static_cast<float>(d.y), static_cast<float>(d.z)));
+            };
+            s.tip = "Derivatives of a moving point: velocity r' and acceleration r''.";
+            body(s, fmt("at u = %.3f: r = %s", r->u0(), v3(r->point()).c_str()));
+            tipped(s, "r' = " + v3(r->velocity()), "Velocity: where the point is heading; its length is the speed.");
+            tipped(s, "r'' = " + v3(r->acceleration()), "Acceleration: how the velocity changes.");
+            note(s, fmt("speed %.4f · along the motion %.4f · across it %.4f", geometry::length(r->velocity()),
+                        geometry::length(r->tangential()), geometry::length(r->normal())));
             continue;
         }
         if (o->typeId() == "doubleintegral") {

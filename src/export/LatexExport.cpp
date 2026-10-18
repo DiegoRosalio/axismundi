@@ -426,6 +426,121 @@ void exportFrame(Figure& f, const scene::FrameObject& o, const Style& s) {
            << labelNode(f, p, -1, -1, name) << ";\n";
 }
 
+// The tangent line: f (the object's style), f' (dashed gray), the tangent through the point, the secant
+void exportTangent(Figure& f, const scene::TangentObject& o, const Style& s) {
+    std::string name = nameToLatex(o.name());
+    f.plots = true;
+    auto curve = [&](const scene::TangentObject::Samples& pts, const std::string& style, bool grow) {
+        f.body << (f.flat ? "\\addplot[" : "\\addplot3[") << style << "] coordinates {";
+        int k = 0;
+        for (size_t i = 0; i < pts.size(); i += 2, k++) {
+            double x = pts[i].first, y = pts[i].second;
+            bool ok = usable(y) && std::fabs(y) <= 12;
+            f.body << (k % 6 == 0 ? "\n  " : " ") << (ok ? f.coord(x, y, 0) : f.coord(NAN, NAN, NAN));
+            if (ok && grow) f.extend(x, y, 0);
+        }
+        f.body << "\n};\n";
+    };
+    if (o.showFunction()) curve(o.function(), plotStyle(s, "thick, forget plot"), true);
+    if (o.showDerivative()) curve(o.derivative(), "black!50, densely dashed, thin, forget plot", true);
+    double x0 = o.x0(), y0 = o.y0(), m = o.slope();
+    auto through = [&](double slope, double half, const char* style) {
+        double dx = half / std::sqrt(1 + slope * slope);
+        line(f, {x0 - dx, y0 - slope * dx, 0}, {x0 + dx, y0 + slope * dx, 0}, style);
+    };
+    if (o.hasSecant()) {
+        through(o.secantSlope(), 3.5, "black!45, thin");
+        f.body << "\\fill[black!45] " << f.at(x0 + o.secantH(), y0 + o.secantSlope() * o.secantH(), 0)
+               << " circle[radius=1.2pt];\n";
+    }
+    if (o.showTriangle() && std::fabs(m) < 20) {
+        f.body << "\\draw[black!50, thin] " << f.at(x0, y0, 0) << " -- " << f.at(x0 + 1, y0, 0) << " node[midway, below, "
+               << "font=\\scriptsize] {$1$} -- " << f.at(x0 + 1, y0 + m, 0) << " node[midway, right, font=\\scriptsize] {$"
+               << num(m) << "$};\n";
+    }
+    through(m, 3.0, "black, semithick");
+    f.body << "\\fill " << f.at(x0, y0, 0) << " circle[radius=1.5pt]"
+           << labelNode(f, {x0, y0, 0}, 1, -1, name + ": f'(" + num(x0) + ") = " + num(m)) << ";\n";
+}
+
+// The tangent plane: the surface mesh, the plane patch, the slopes, the gradient on the floor
+void exportTangentPlane(Figure& f, const scene::TangentPlaneObject& o, const Style& s) {
+    std::string name = nameToLatex(o.name());
+    if (o.showSurface()) {
+        for (const auto& l : o.surfaceLines()) {
+            if (l.size() < 2) continue;
+            f.body << "\\addplot3[" << plotStyle(s, "thin, forget plot") << "] coordinates {";
+            for (size_t i = 0; i < l.size(); i += 2) {
+                f.body << (i % 12 == 0 ? "\n  " : " ") << f.coord(l[i].x, l[i].y, l[i].z);
+                f.extend(l[i].x, l[i].y, l[i].z);
+            }
+            f.body << " " << f.coord(l.back().x, l.back().y, l.back().z) << "\n};\n";
+        }
+    }
+    auto p = o.point();
+    double fx = o.fx(), fy = o.fy();
+    auto onPlane = [&](double dx, double dy) { return Point3{p.x + dx, p.y + dy, p.z + fx * dx + fy * dy}; };
+    if (o.showPlane()) {
+        const double h = scene::TangentPlaneObject::kPatch;
+        Point3 c[4] = {onPlane(-h, -h), onPlane(h, -h), onPlane(h, h), onPlane(-h, h)};
+        f.body << "\\filldraw[fill=black!10, fill opacity=0.6, draw=black!60, thin] ";
+        for (int i = 0; i < 4; i++) {
+            f.body << f.at(c[i].x, c[i].y, c[i].z) << " -- ";
+            f.extend(c[i].x, c[i].y, c[i].z);
+        }
+        f.body << "cycle;\n";
+    }
+    Point3 at = {p.x, p.y, p.z};
+    if (o.showSlopes()) {
+        arrow(f, at, onPlane(1, 0), "black, semithick", "");
+        arrow(f, at, onPlane(0, 1), "black, semithick", "");
+    }
+    if (o.showNormal()) {
+        double len = std::sqrt(fx * fx + fy * fy + 1);
+        arrow(f, at, {p.x - fx / len, p.y - fy / len, p.z + 1 / len}, "black!70, thin", "n");
+    }
+    if (o.showGradient()) {
+        line(f, {p.x, p.y, 0}, at, "black!40, densely dashed, thin");
+        if (std::hypot(fx, fy) > 1e-6) {
+            arrow(f, {p.x, p.y, 0}, {p.x + fx, p.y + fy, 0}, "black, thick", "\\nabla f");
+            f.extend(p.x + fx, p.y + fy, 0);
+        }
+    }
+    f.body << "\\fill " << f.at(p.x, p.y, p.z) << " circle[radius=1.5pt]" << labelNode(f, at, -1, 1, name) << ";\n";
+}
+
+// Velocity and acceleration: the curve, r' and r'' at the point
+void exportVelocity(Figure& f, const scene::VelocityObject& o, const Style& s) {
+    const auto& curve = o.curve();
+    std::string name = nameToLatex(o.name());
+    if (o.showCurve() && curve.size() >= 2) {
+        f.body << (f.flat ? "\\addplot[" : "\\addplot3[") << plotStyle(s, "thick, forget plot") << "] coordinates {";
+        for (size_t i = 0; i < curve.size(); i += 2) {
+            f.body << (i % 12 == 0 ? "\n  " : " ") << f.coord(curve[i].x, curve[i].y, curve[i].z);
+            f.extend(curve[i].x, curve[i].y, f.flat ? 0 : curve[i].z);
+        }
+        f.body << " " << f.coord(curve.back().x, curve.back().y, curve.back().z) << "\n};\n";
+    }
+    auto p = o.point();
+    double k = o.arrowScale();
+    Point3 at = {p.x, p.y, p.z};
+    auto tip = [&](const integrals::D3& v) { return Point3{p.x + v.x * k, p.y + v.y * k, p.z + v.z * k}; };
+    auto grow = [&](const Point3& q) { f.extend(q.x, q.y, f.flat ? 0 : q.z); };
+    if (o.showAcceleration()) {
+        if (o.splitAcceleration()) {
+            arrow(f, at, tip(o.tangential()), "black!45, thin", "");
+            arrow(f, at, tip(o.normal()), "black!45, thin", "");
+        }
+        arrow(f, at, tip(o.acceleration()), "black!60, semithick", "r''");
+        grow(tip(o.acceleration()));
+    }
+    if (o.showVelocity()) {
+        arrow(f, at, tip(o.velocity()), "black, thick", "r'");
+        grow(tip(o.velocity()));
+    }
+    f.body << "\\fill " << f.at(p.x, p.y, p.z) << " circle[radius=1.5pt]" << labelNode(f, at, -1, -1, name) << ";\n";
+}
+
 void exportPlot(Figure& f, const scene::PlotObject& p, const Style& s, const scene::Space& space,
                 const Options& opt) {
     auto text = [&](const char* key) { return p.field(key) ? p.field(key)->text : std::string(); };
@@ -732,7 +847,14 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             flat = !objects.empty();
             for (const auto* o : objects) {
                 const std::string& t = o->typeId();
-                if (t == "function" || t == "implicit" || t == "fourierseries") continue;
+                if (t == "function" || t == "implicit" || t == "fourierseries" || t == "tangent") continue;
+                // Velocity on a flat curve with flat arrows
+                if (t == "velocity") {
+                    auto* r = static_cast<const scene::VelocityObject*>(o);
+                    bool planar = std::fabs(r->velocity().z) < 1e-9 && std::fabs(r->acceleration().z) < 1e-9;
+                    for (const auto& p : r->curve()) planar = planar && std::fabs(p.z) < 1e-9;
+                    if (planar) continue;
+                }
                 // Plane fields live on the floor (only F's x and y are used)
                 if (t == "field" && !static_cast<const scene::VectorFieldObject*>(o)->volume()) continue;
                 // A frame on a flat curve
@@ -799,6 +921,12 @@ Result exportLatex(const scene::Space& space, const scene::Selection& sel, const
             exportFourierSeries(f, *fsr, s, opt);
         } else if (auto* fo = dynamic_cast<const scene::FrameObject*>(&o)) {
             exportFrame(f, *fo, s);
+        } else if (auto* tg = dynamic_cast<const scene::TangentObject*>(&o)) {
+            exportTangent(f, *tg, s);
+        } else if (auto* tp = dynamic_cast<const scene::TangentPlaneObject*>(&o)) {
+            exportTangentPlane(f, *tp, s);
+        } else if (auto* vo = dynamic_cast<const scene::VelocityObject*>(&o)) {
+            exportVelocity(f, *vo, s);
         } else if (auto* di = dynamic_cast<const scene::DoubleIntegralObject*>(&o)) {
             exportDoubleIntegral(f, *di, s);
         } else if (auto* li = dynamic_cast<const scene::LineIntegralObject*>(&o)) {

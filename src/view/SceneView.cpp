@@ -82,10 +82,12 @@ Color SceneView::colorOf(const SceneObject& o) {
     if (o.customColor) return {o.color.r, o.color.g, o.color.b, 255};
     const ViewStyle& s = activeStyle();
     const std::string& type = o.typeId();
-    if (type == "vector" || type == "quaternion" || type == "frame") return paletteColor(s.vectors, o.paletteIndex);
+    if (type == "vector" || type == "quaternion" || type == "frame" || type == "velocity")
+        return paletteColor(s.vectors, o.paletteIndex);
     if (type == "eigen") return s.eigen;
     if (type == "function" || type == "curve" || type == "surface" || type == "implicit" || type == "field" ||
-        type == "doubleintegral" || type == "lineintegral" || type == "fourierseries")
+        type == "doubleintegral" || type == "lineintegral" || type == "fourierseries" || type == "tangent" ||
+        type == "tangentplane")
         return paletteColor(s.plots, o.paletteIndex);
     if (type == "complex" || type == "epicycles") return paletteColor(s.complexes, o.paletteIndex);
     if (type == "product") return s.product;
@@ -121,6 +123,21 @@ bool SceneView::anchorPoint(const SceneObject& o, scene::SpaceKind kind, const D
         }
         if (o.typeId() == "frame") {
             out = w3(static_cast<const scene::FrameObject&>(o).frame().p);
+            return true;
+        }
+        if (!o.error().empty() && (o.typeId() == "tangent" || o.typeId() == "tangentplane" || o.typeId() == "velocity"))
+            return false;
+        if (o.typeId() == "tangent") {
+            auto& tg = static_cast<const scene::TangentObject&>(o);
+            out = mathToWorld(static_cast<float>(tg.x0()), static_cast<float>(tg.y0()), 0.0f);
+            return true;
+        }
+        if (o.typeId() == "tangentplane") {
+            out = w3(static_cast<const scene::TangentPlaneObject&>(o).point());
+            return true;
+        }
+        if (o.typeId() == "velocity") {
+            out = w3(static_cast<const scene::VelocityObject&>(o).point());
             return true;
         }
         if (o.typeId() == "lineintegral") {
@@ -356,6 +373,18 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             bool dim = dimmed(options, o);
             drawFrame(static_cast<const scene::FrameObject&>(o), dim ? faded(colorOf(o)) : colorOf(o), dim, false, BLACK,
                       selected);
+        } else if (type == "tangent") {
+            bool dim = dimmed(options, o);
+            drawTangent(static_cast<const scene::TangentObject&>(o), dim ? faded(colorOf(o)) : colorOf(o), dim, false,
+                        BLACK, selected);
+        } else if (type == "tangentplane") {
+            bool dim = dimmed(options, o);
+            drawTangentPlane(static_cast<const scene::TangentPlaneObject&>(o), dim ? faded(colorOf(o)) : colorOf(o), dim,
+                             false, BLACK, selected);
+        } else if (type == "velocity") {
+            bool dim = dimmed(options, o);
+            drawVelocity(static_cast<const scene::VelocityObject&>(o), dim ? faded(colorOf(o)) : colorOf(o), dim, false,
+                         BLACK, selected);
         } else if (type == "doubleintegral" && o.error().empty()) {
             bool dim = dimmed(options, o);
             drawDoubleIntegral(static_cast<const scene::DoubleIntegralObject&>(o), dim ? faded(colorOf(o)) : colorOf(o),
@@ -530,6 +559,12 @@ void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& optio
             drawFourierSeries(static_cast<const scene::FourierSeriesObject&>(o), c, false, true, c);
         } else if (type == "frame") {
             drawFrame(static_cast<const scene::FrameObject&>(o), c, false, true, c, false);
+        } else if (type == "tangent") {
+            drawTangent(static_cast<const scene::TangentObject&>(o), c, false, true, c, selected);
+        } else if (type == "tangentplane") {
+            drawTangentPlane(static_cast<const scene::TangentPlaneObject&>(o), c, false, true, c, selected);
+        } else if (type == "velocity") {
+            drawVelocity(static_cast<const scene::VelocityObject&>(o), c, false, true, c, selected);
         } else if (type == "doubleintegral" && o.error().empty()) {
             drawDoubleIntegral(static_cast<const scene::DoubleIntegralObject&>(o), c, false, true, c);
         } else if (type == "lineintegral" && o.error().empty()) {
@@ -688,6 +723,14 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
             const geometry::Frame& f = static_cast<const scene::FrameObject&>(o).frame();
             snprintf(text, sizeof(text), "%s  κ = %.3g  τ = %.3g", o.name().c_str(), f.kappa,
                      std::fabs(f.tau) < 5e-5 ? 0.0 : f.tau);
+        } else if (o.typeId() == "tangent") {
+            snprintf(text, sizeof(text), "%s  f'(%.3g) = %.3g", o.name().c_str(),
+                     static_cast<const scene::TangentObject&>(o).x0(), o.value().re);
+        } else if (o.typeId() == "tangentplane") {
+            auto& g = static_cast<const scene::TangentPlaneObject&>(o);
+            snprintf(text, sizeof(text), "%s  grad f = (%.3g, %.3g)", o.name().c_str(), g.fx(), g.fy());
+        } else if (o.typeId() == "velocity") {
+            snprintf(text, sizeof(text), "%s  speed %.3g", o.name().c_str(), o.value().vector.magnitude());
         } else if (o.typeId() == "doubleintegral") {
             snprintf(text, sizeof(text), "%s = %.3f", o.name().c_str(), o.value().re);
         } else if (o.typeId() == "lineintegral") {

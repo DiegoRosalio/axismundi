@@ -49,6 +49,20 @@ std::string summaryOf(const SceneObject& o) {
     if (type == "doubleintegral" || type == "lineintegral") return "= " + o.value().summary();
     if (type == "fourierseries") return "N = " + std::to_string(static_cast<const scene::FourierSeriesObject&>(o).terms()) + " terms";
     if (type == "epicycles") return std::to_string(static_cast<const scene::EpicyclesObject&>(o).circles()) + " circles";
+    if (type == "tangent" || type == "tangentplane" || type == "velocity") {
+        if (!o.error().empty()) return "error";
+        char buf[64];
+        if (type == "tangent")
+            snprintf(buf, sizeof(buf), "slope %.3g at x = %.3g", o.value().re,
+                     static_cast<const scene::TangentObject&>(o).x0());
+        else if (type == "tangentplane")
+            snprintf(buf, sizeof(buf), "grad f = (%.3g, %.3g)", static_cast<const scene::TangentPlaneObject&>(o).fx(),
+                     static_cast<const scene::TangentPlaneObject&>(o).fy());
+        else
+            snprintf(buf, sizeof(buf), "speed %.3g at u = %.3g", o.value().vector.magnitude(),
+                     static_cast<const scene::VelocityObject&>(o).u0());
+        return buf;
+    }
     if (type == "frame") {
         char buf[64];
         snprintf(buf, sizeof(buf), "κ = %.3g at u = %.3g", static_cast<const scene::FrameObject&>(o).frame().kappa,
@@ -465,6 +479,12 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         inspectFourierSeries(ctx);
     } else if (type == "frame") {
         inspectFrame(ctx);
+    } else if (type == "tangent") {
+        inspectTangent(ctx);
+    } else if (type == "tangentplane") {
+        inspectTangentPlane(ctx);
+    } else if (type == "velocity") {
+        inspectVelocity(ctx);
     } else if (type == "doubleintegral" || type == "lineintegral") {
         inspectIntegral(ctx);
     } else if (type == "quaternion") {

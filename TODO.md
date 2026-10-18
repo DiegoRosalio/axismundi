@@ -44,8 +44,10 @@ Vector fields and quaternions are in (see FEATURES.md); the rest later.
       curve with the mouse for the epicycles, complex coefficients cₖ in the series view, 2D Fourier of an image
 - [ ] Integrals, next: triple integrals (boxes in a solid), regions bounded by curves (y from g(x) to h(x)), polar
       regions, flux through a surface, Green's and Stokes' theorems side by side
-- [ ] Differential geometry, next: surfaces (normals, tangent plane at a point, Gaussian and mean curvature as
-      coloring, principal directions), arc length and reparametrization, evolutes
+- [ ] Differential geometry, next: surfaces (Gaussian and mean curvature as coloring, principal directions; the
+      tangent plane and normal exist now), arc length and reparametrization, evolutes
+- [ ] Derivatives, next: a `diff(f, x)` formula function, directional derivatives, Taylor polynomials growing
+      term by term, Newton's method stepping along tangents
 - [ ] Tensor visualization
 
 ### Automation (CI)

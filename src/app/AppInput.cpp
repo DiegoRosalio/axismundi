@@ -337,6 +337,19 @@ void App::pickAt(Vector2 mouse) {
                 Vector3 q = mathToWorld(static_cast<float>(fr.p.x + fr.T.x), static_cast<float>(fr.p.y + fr.T.y),
                                         static_cast<float>(fr.p.z + fr.T.z));
                 consider(p, q, o.id());
+            } else if (o.typeId() == "tangent" || o.typeId() == "tangentplane" || o.typeId() == "velocity") {
+                Vector3 p;
+                if (view::SceneView::anchorPoint(o, kind, options, p)) {
+                    Vector3 q = p;
+                    if (o.typeId() == "velocity") {
+                        auto& r = static_cast<const scene::VelocityObject&>(o);
+                        auto v = r.velocity();
+                        double s = r.arrowScale();
+                        q = mathToWorld(static_cast<float>(r.point().x + v.x * s), static_cast<float>(r.point().y + v.y * s),
+                                        static_cast<float>(r.point().z + v.z * s));
+                    }
+                    consider(p, q, o.id());
+                }
             } else if (o.typeId() == "lineintegral") {
                 const auto& path = static_cast<const scene::LineIntegralObject&>(o).path();
                 auto w = [](const integrals::D3& p) {

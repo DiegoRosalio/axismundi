@@ -568,6 +568,85 @@ std::vector<Lesson> build() {
          },
          "Type 30 in Circles.", "epicycles.N"},
     }});
+
+    list.push_back({"Derivatives: slopes and tangents", "Tangent lines, f', gradients and velocity", {
+        {"The slope at a point",
+         "The derivative f'(x0) is the slope of the tangent line: the straight line that touches the graph at x0. "
+         "The triangle shows it: one step right along the tangent climbs f'(x0).",
+         [](App& app) {
+             app.setMode(AppMode::Space3D);
+             app.restartTime(false);
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "tangent", "T",
+                           {{"f", "x^3/6 - x"}, {"x0", "-2.5"}, {"xmin", "-4"}, {"xmax", "4"}}, {{"derivative", "0"}});
+             app.select("T");
+             app.setCameraView({0.0f, 10.0f, 5.5f}, {0, 0, -1.0f});
+         },
+         nullptr, nullptr, nullptr, "tangent.x0"},
+        {"Find a flat spot",
+         "At the top of a hump or the bottom of a dip the tangent is flat: the slope is 0.",
+         nullptr, "Move the point to where the tangent is flat (slope within 0.05 of 0).",
+         [](App& app, const TutorialContext&) {
+             auto* t = dynamic_cast<scene::TangentObject*>(app.object("T"));
+             return t && t->error().empty() && std::fabs(t->slope()) < 0.05;
+         },
+         "Try values of At x between 1 and 2, or type sqrt(2): f' = x²/2 − 1 is 0 there.", "tangent.x0"},
+        {"Secant to tangent",
+         "Where does the slope come from? Take a second point at x0 + h and draw the line through both (a "
+         "secant). As h shrinks, the secant turns into the tangent.",
+         nullptr, "Set the secant width h to 0.1 or less (but not 0).",
+         [](App& app, const TutorialContext&) {
+             auto* t = dynamic_cast<scene::TangentObject*>(app.object("T"));
+             return t && t->hasSecant() && std::fabs(t->secantH()) <= 0.1;
+         },
+         "Type 1 in Secant h first and watch the gray line, then 0.1.", "tangent.h"},
+        {"The graph of f'",
+         "Do this at every x and you get a new function, f'. It is above 0 where f climbs, below 0 where f "
+         "falls, and crosses 0 at the flat spots.",
+         nullptr, "Turn on Graph of f'.",
+         [](App& app, const TutorialContext&) {
+             auto* t = dynamic_cast<scene::TangentObject*>(app.object("T"));
+             return t && t->showDerivative();
+         },
+         "The switch is in the inspector, under the fields.", "tangent.derivative"},
+        {"Slopes of a surface",
+         "A surface z = f(x, y) has a slope in every direction. The red and green arrows climb ∂f/∂x and "
+         "∂f/∂y; the arrow on the floor is the gradient, pointing the steepest way up.",
+         [](App& app) {
+             app.clearSpace(AppMode::Space3D);
+             app.addObject(AppMode::Space3D, "tangentplane", "G",
+                           {{"f", "3exp(-(x^2 + y^2)/4)"}, {"x0", "1.5"}, {"y0", "1"}, {"xmin", "-4"}, {"xmax", "4"},
+                            {"ymin", "-4"}, {"ymax", "4"}});
+             app.select("G");
+             app.setCameraView({6.5f, 6.5f, 8.0f}, {0, 1.0f, 0});
+         },
+         "Move the point to the top of the hill, where the gradient is 0.",
+         [](App& app, const TutorialContext&) {
+             auto* g = dynamic_cast<scene::TangentPlaneObject*>(app.object("G"));
+             return g && g->error().empty() && std::hypot(g->fx(), g->fy()) < 0.05;
+         },
+         "Follow the gradient arrow: the top of this hill is at x = 0, y = 0.", "tplane.point"},
+        {"Velocity and acceleration",
+         "For a point moving along a curve r(u), the derivative r' is the velocity (where it heads, how fast) "
+         "and r'' the acceleration.",
+         nullptr, "Add a Velocity on a curve.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Space3D).objects())
+                 if (o->typeId() == "velocity" && o->error().empty()) return true;
+             return false;
+         },
+         "Add → Calculus → Velocity on a curve.", "objects.add"},
+        {"Speeding up or turning",
+         "The acceleration has two jobs: its part along the motion changes the speed, its part across the "
+         "motion turns the point.",
+         nullptr, "Turn on Split acceleration.",
+         [](App& app, const TutorialContext&) {
+             for (const auto& o : app.space(AppMode::Space3D).objects())
+                 if (auto* v = dynamic_cast<scene::VelocityObject*>(o.get()); v && v->splitAcceleration()) return true;
+             return false;
+         },
+         "Select the velocity object; the switch is in the inspector.", "velocity.split"},
+    }});
     return list;
 }
 

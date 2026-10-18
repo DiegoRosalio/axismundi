@@ -2,6 +2,7 @@
 
 #include "animation/Playback.hpp"
 #include "math/CurveGeometry.hpp"
+#include "math/Derivatives.hpp"
 #include "math/Fourier.hpp"
 #include "math/Integrals.hpp"
 #include "scene/SceneObject.hpp"
@@ -280,6 +281,93 @@ private:
     mutable geometry::Frame m_frame;
     mutable double m_u0 = 0.0;
     mutable std::uint64_t m_version = 0;
+};
+
+// y = f(x) on the floor with its tangent line at x0: the slope f'(x0) is the value. Optional: the graph
+// of f', a run-1/rise-f' triangle, and a secant through x0 and x0 + h that becomes the tangent as h → 0.
+class TangentObject : public SceneObject {
+public:
+    using Samples = std::vector<std::pair<double, double>>;  // (x, y); y NaN where undefined
+    TangentObject();
+    bool showFunction() const { return propBool("function", true); }
+    bool showDerivative() const { return propBool("derivative", true); }
+    bool showTriangle() const { return propBool("triangle", true); }
+    const Samples& function() const { return m_function; }
+    const Samples& derivative() const { return m_derivative; }
+    double x0() const { return m_x0; }
+    double y0() const { return m_y0; }  // f(x0)
+    double slope() const { return m_slope; }
+    bool hasSecond() const { return m_hasSecond; }
+    double second() const { return m_second; }  // f''(x0)
+    bool hasSecant() const { return m_hasSecant; }
+    double secantH() const { return m_h; }
+    double secantSlope() const { return m_secantSlope; }
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<TangentObject>(); }
+
+private:
+    mutable Samples m_function, m_derivative;
+    mutable double m_x0 = 0, m_y0 = 0, m_slope = 0, m_second = 0, m_h = 0, m_secantSlope = 0;
+    mutable bool m_hasSecond = false, m_hasSecant = false;
+};
+
+// z = f(x, y) with its tangent plane at (x0, y0): the slopes along x and y, the gradient (the value, as
+// [fx, fy, 0]: the steepest way up on the floor) and the normal.
+class TangentPlaneObject : public SceneObject {
+public:
+    TangentPlaneObject();
+    bool showSurface() const { return propBool("surface", true); }
+    bool showPlane() const { return propBool("plane", true); }
+    bool showSlopes() const { return propBool("slopes", true); }
+    bool showGradient() const { return propBool("gradient", true); }
+    bool showNormal() const { return propBool("normal", false); }
+    // Wire lines of the surface (constant x, then constant y)
+    const std::vector<std::vector<integrals::D3>>& surfaceLines() const { return m_lines; }
+    integrals::D3 point() const { return {m_x0, m_y0, m_z0}; }
+    double fx() const { return m_fx; }
+    double fy() const { return m_fy; }
+    static constexpr double kPatch = 1.5;  // the plane patch reaches ±1.5 around the point
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<TangentPlaneObject>(); }
+
+private:
+    mutable std::vector<std::vector<integrals::D3>> m_lines;
+    mutable double m_x0 = 0, m_y0 = 0, m_z0 = 0, m_fx = 0, m_fy = 0;
+};
+
+// A point moving along a curve r(u) with its velocity r'(u0) (the value) and acceleration r''(u0); the
+// acceleration can be split into the part along the motion (speeding up) and across it (turning).
+class VelocityObject : public SceneObject {
+public:
+    VelocityObject();
+    bool showCurve() const { return propBool("curve", true); }
+    bool showVelocity() const { return propBool("velocity", true); }
+    bool showAcceleration() const { return propBool("acceleration", true); }
+    bool splitAcceleration() const { return propBool("split", false); }
+    double arrowScale() const;  // prop "scale", 0.1..2 (default 0.7)
+    const std::vector<integrals::D3>& curve() const { return m_curve; }
+    integrals::D3 point() const { return m_p; }
+    integrals::D3 velocity() const { return m_v; }
+    integrals::D3 acceleration() const { return m_a; }
+    integrals::D3 tangential() const { return m_at; }  // a's part along v
+    integrals::D3 normal() const { return m_an; }      // a's part across v
+    double u0() const { return m_u0; }
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<VelocityObject>(); }
+
+private:
+    mutable std::vector<integrals::D3> m_curve;
+    mutable integrals::D3 m_p, m_v, m_a, m_at, m_an;
+    mutable double m_u0 = 0;
 };
 
 // A closed curve z(u) in the complex plane drawn by spinning circles (Fourier epicycles). The value is

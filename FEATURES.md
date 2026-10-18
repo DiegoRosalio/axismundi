@@ -39,6 +39,15 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Moving frame on a curve: T, N, B, curvature κ, torsion τ, osculating circle, curvature comb, at u0 (a formula)
 - [x] Template from a curve, Analysis panel, gallery (helix, ellipse, parabola), tutorial lesson, LaTeX export
 
+## Derivatives
+- [x] Tangent line on y = f(x): the slope f'(x0) as the value, the graph of f', a slope triangle, a secant through
+      x0 and x0 + h that becomes the tangent as h → 0, f'' and the line's equation in the inspector
+- [x] Tangent plane and gradient of z = f(x, y): ∂f/∂x and ∂f/∂y as slopes, the gradient on the floor (the value),
+      the normal
+- [x] Velocity and acceleration on a curve, with the acceleration split into speeding up and turning
+- [x] Templates (function, surface, curve), Analysis panel, gallery (5 examples), tutorial lesson, LaTeX export,
+      Paper style; math in `math/Derivatives` (five-point stencils)
+
 ## Integrals
 - [x] Volume under z = f(x, y): Riemann boxes (left/middle/right, n per side as a formula) next to the precise value
       and the error; boxes below the floor in another color

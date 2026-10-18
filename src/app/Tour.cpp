@@ -287,6 +287,14 @@ void Tour::buildSteps() {
         app.view().style = view::StyleId::Colorful;
         app.setMode(AppMode::Space3D);
     }, 2);
+    // Derivatives: secant to tangent, f and f', the gradient, velocity and acceleration
+    step("16da_secant_tangent", [](App& app) { runExample(app, "Secant becomes tangent"); }, 150);
+    step("16db_slope_function", [](App& app) { runExample(app, "Slope as a function: f and f'"); }, 60);
+    step("16dc_gradient_uphill", [](App& app) { runExample(app, "Gradient points uphill"); }, 40);
+    step("16dd_velocity_helix", [](App& app) { runExample(app, "Velocity on a helix"); }, 40);
+    step("16de_speed_turning", [](App& app) { runExample(app, "Speeding up vs turning"); }, 60);
+    step("16df_derivatives_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 10);
+    step("16dg_derivatives_reset", [](App& app) { app.view().style = view::StyleId::Colorful; }, 2);
     // Curves: the Frenet frame on a helix, the comb of an ellipse, an osculating circle
     step("16x_frame_helix", [](App& app) { runExample(app, "Frenet frame on a helix"); }, 40);
     step("16y_frame_ellipse", [](App& app) { runExample(app, "Curvature of an ellipse"); }, 20);

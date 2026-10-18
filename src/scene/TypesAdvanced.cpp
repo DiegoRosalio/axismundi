@@ -131,6 +131,13 @@ std::string rangeError(const SceneObject& o, const char* lo, const char* hi) {
     return "";
 }
 
+// A number for messages: 1, 0.5, 3.14159 (up to 6 significant digits)
+std::string fmtNumber(double v) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.6g", std::fabs(v) < 1e-12 ? 0.0 : v);
+    return buf;
+}
+
 double numberOf(const SceneObject& o, const char* key, double fallback) {
     const Field* f = o.field(key);
     return f && f->value.isRealNumber() ? f->value.re : fallback;
@@ -302,6 +309,158 @@ expr::Value FrameObject::computeValue() const {
         return expr::Value::fail("the curve stops (r'(u) = 0) or is undefined at u = " + std::to_string(m_u0));
     return expr::Value::vec(Vector3D(static_cast<float>(m_frame.p.x), static_cast<float>(m_frame.p.y),
                                      static_cast<float>(m_frame.p.z)));
+}
+
+// --- Tangent line on y = f(x) --------------------------------------------------------------
+
+TangentObject::TangentObject() : SceneObject("tangent") {
+    setProp("function", true);
+    setProp("derivative", true);
+    setProp("triangle", true);
+    addField("f", "f(x) =", Expect::Plot, "sin(x)");
+    addField("x0", "At x =", Expect::Number, "1");
+    addField("h", "Secant h", Expect::Number, "0");
+    addField("xmin", "x from", Expect::Number, "-6");
+    addField("xmax", "x to", Expect::Number, "6");
+}
+
+expr::Value TangentObject::computeValue() const {
+    std::string err = rangeError(*this, "xmin", "xmax");
+    if (!err.empty()) return expr::Value::fail(err);
+    const Field* f = field("f");
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    derivatives::Function fn = [&](double x, double& y) { return evalNumber(f, res, t, x, 0, 0, 0, y); };
+    double a = numberOf(*this, "xmin", -6), b = numberOf(*this, "xmax", 6);
+    const double h = derivatives::stepFor(1.0);
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    m_function.clear();
+    m_derivative.clear();
+    const int n = 400;
+    for (int i = 0; i <= n; i++) {
+        double x = a + (b - a) * i / n, y = 0, d = 0;
+        m_function.push_back({x, fn(x, y) ? y : nan});
+        m_derivative.push_back({x, derivatives::derivative1(fn, x, h, d) ? d : nan});
+    }
+    m_x0 = std::clamp(numberOf(*this, "x0", 0), a, b);
+    m_hasSecant = false;
+    m_hasSecond = false;
+    if (!fn(m_x0, m_y0)) return expr::Value::fail("f is undefined at x = " + fmtNumber(m_x0));
+    if (!derivatives::derivative1(fn, m_x0, h, m_slope))
+        return expr::Value::fail("f has no slope at x = " + fmtNumber(m_x0) + " (undefined right next to it)");
+    m_hasSecond = derivatives::derivative2(fn, m_x0, h, m_second);
+    m_h = numberOf(*this, "h", 0);
+    double y1 = 0;
+    if (std::fabs(m_h) > 1e-9 && fn(m_x0 + m_h, y1)) {
+        m_hasSecant = true;
+        m_secantSlope = (y1 - m_y0) / m_h;
+    }
+    return expr::Value::scalar(m_slope);
+}
+
+// --- Tangent plane on z = f(x, y) -------------------------------------------------------
+
+TangentPlaneObject::TangentPlaneObject() : SceneObject("tangentplane") {
+    setProp("surface", true);
+    setProp("plane", true);
+    setProp("slopes", true);
+    setProp("gradient", true);
+    setProp("normal", false);
+    addField("f", "z =", Expect::Plot, "sin(x) + cos(y)");
+    addField("x0", "At x =", Expect::Number, "1");
+    addField("y0", "At y =", Expect::Number, "0.5");
+    addField("xmin", "x from", Expect::Number, "-3");
+    addField("xmax", "x to", Expect::Number, "3");
+    addField("ymin", "y from", Expect::Number, "-3");
+    addField("ymax", "y to", Expect::Number, "3");
+}
+
+expr::Value TangentPlaneObject::computeValue() const {
+    for (auto [lo, hi] : {std::pair{"xmin", "xmax"}, std::pair{"ymin", "ymax"}}) {
+        std::string err = rangeError(*this, lo, hi);
+        if (!err.empty()) return expr::Value::fail(err);
+    }
+    const Field* f = field("f");
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    integrals::Surface fn = [&](double x, double y, double& z) { return evalNumber(f, res, t, x, y, 0, 0, z); };
+    double x0 = numberOf(*this, "xmin", -3), x1 = numberOf(*this, "xmax", 3);
+    double y0 = numberOf(*this, "ymin", -3), y1 = numberOf(*this, "ymax", 3);
+    m_lines.clear();
+    const int lines = 16, samples = 60;
+    for (int dir = 0; dir < 2; dir++) {
+        for (int i = 0; i <= lines; i++) {
+            std::vector<integrals::D3> line;
+            for (int j = 0; j <= samples; j++) {
+                double x = dir == 0 ? x0 + (x1 - x0) * i / lines : x0 + (x1 - x0) * j / samples;
+                double y = dir == 0 ? y0 + (y1 - y0) * j / samples : y0 + (y1 - y0) * i / lines;
+                double z = 0;
+                if (fn(x, y, z) && std::fabs(z) < 100) {
+                    line.push_back({x, y, z});
+                } else if (line.size() > 1) {  // a gap ends the piece
+                    m_lines.push_back(std::move(line));
+                    line.clear();
+                } else {
+                    line.clear();
+                }
+            }
+            if (line.size() > 1) m_lines.push_back(std::move(line));
+        }
+    }
+    m_x0 = std::clamp(numberOf(*this, "x0", 0), x0, x1);
+    m_y0 = std::clamp(numberOf(*this, "y0", 0), y0, y1);
+    if (!fn(m_x0, m_y0, m_z0))
+        return expr::Value::fail("f is undefined at (" + fmtNumber(m_x0) + ", " + fmtNumber(m_y0) + ")");
+    if (!derivatives::partials(fn, m_x0, m_y0, derivatives::stepFor(1.0), m_fx, m_fy))
+        return expr::Value::fail("f has no slope at (" + fmtNumber(m_x0) + ", " + fmtNumber(m_y0) + ")");
+    return expr::Value::vec(Vector3D(static_cast<float>(m_fx), static_cast<float>(m_fy), 0.0f));
+}
+
+// --- Velocity and acceleration on a curve ----------------------------------------------
+
+VelocityObject::VelocityObject() : SceneObject("velocity") {
+    setProp("curve", true);
+    setProp("velocity", true);
+    setProp("acceleration", true);
+    setProp("split", false);
+    setProp("scale", 0.7);
+    addField("x", "x(u) =", Expect::Plot, "3cos(u)");
+    addField("y", "y(u) =", Expect::Plot, "1.5sin(u)");
+    addField("z", "z(u) =", Expect::Plot, "0");
+    for (const char* k : {"x", "y", "z"}) markCurveVariable(k);
+    addField("umin", "u from", Expect::Number, "0");
+    addField("umax", "u to", Expect::Number, "2pi");
+    addField("u0", "At u =", Expect::Number, "1");
+}
+
+double VelocityObject::arrowScale() const { return std::clamp(propNumber("scale", 0.7), 0.1, 2.0); }
+
+expr::Value VelocityObject::computeValue() const {
+    std::string err = rangeError(*this, "umin", "umax");
+    if (!err.empty()) return expr::Value::fail(err);
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    const Field *fx = field("x"), *fy = field("y"), *fz = field("z");
+    integrals::Path r = [&](double u, integrals::D3& o) {
+        return evalNumber(fx, res, t, 0, 0, 0, u, o.x) && evalNumber(fy, res, t, 0, 0, 0, u, o.y) &&
+               evalNumber(fz, res, t, 0, 0, 0, u, o.z);
+    };
+    double a = numberOf(*this, "umin", 0), b = numberOf(*this, "umax", 6.28);
+    m_curve.clear();
+    const int n = 240;
+    for (int i = 0; i <= n; i++) {
+        integrals::D3 p;
+        if (r(a + (b - a) * i / n, p)) m_curve.push_back(p);
+    }
+    m_u0 = std::clamp(numberOf(*this, "u0", a), a, b);
+    if (!r(m_u0, m_p)) return expr::Value::fail("the curve is undefined at u = " + fmtNumber(m_u0));
+    if (!derivatives::curveDerivatives(r, m_u0, std::max(1e-6, (b - a) * 1e-4), m_v, m_a))
+        return expr::Value::fail("the curve has no velocity at u = " + fmtNumber(m_u0));
+    // Split a into the part along v (changes the speed) and the part across it (changes the direction)
+    double vv = geometry::dot(m_v, m_v);
+    m_at = vv > 1e-18 ? geometry::scale(m_v, geometry::dot(m_a, m_v) / vv) : integrals::D3{};
+    m_an = geometry::sub(m_a, m_at);
+    return expr::Value::vec(Vector3D(static_cast<float>(m_v.x), static_cast<float>(m_v.y), static_cast<float>(m_v.z)));
 }
 
 // --- Fourier epicycles ---------------------------------------------------------------

@@ -254,4 +254,158 @@ void SceneView::drawFourierSeries(const scene::FourierSeriesObject& o, Color c, 
     polyline(o.sum(), print ? ink : (fade ? faded(c) : c), print ? 0.0f : 0.025f * st.lineScale);
 }
 
+// --- Derivatives ------------------------------------------------------------------------
+
+namespace {
+// A curve on the floor (like y = f(x)) from (x, y) samples; NaN or huge values leave gaps
+void floorPolyline(const std::vector<std::pair<double, double>>& pts, Color col, float radius, bool dashedLine) {
+    auto at = [](double x, double y) { return mathToWorld(static_cast<float>(x), static_cast<float>(y), 0.006f); };
+    for (size_t i = 1; i < pts.size(); i++) {
+        const auto &a = pts[i - 1], &b = pts[i];
+        if (!std::isfinite(a.second) || !std::isfinite(b.second) || std::fabs(a.second) > 100 || std::fabs(b.second) > 100)
+            continue;
+        if (dashedLine && (i / 4) % 2 == 1) continue;
+        if (radius <= 0) DrawLine3D(at(a.first, a.second), at(b.first, b.second), col);
+        else DrawCylinderEx(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
+    }
+}
+
+// A straight line through (x, y) with slope m on the floor, `half` units long on each side
+void floorLine(double x, double y, double m, double half, Color col, float radius) {
+    double dx = half / std::sqrt(1 + m * m);
+    Vector3 a = mathToWorld(static_cast<float>(x - dx), static_cast<float>(y - m * dx), 0.01f);
+    Vector3 b = mathToWorld(static_cast<float>(x + dx), static_cast<float>(y + m * dx), 0.01f);
+    if (radius <= 0) DrawLine3D(a, b, col);
+    else DrawCylinderEx(a, b, radius, radius, 5, col);
+}
+}  // namespace
+
+Color SceneView::derivativeColor(const scene::SceneObject& o) {
+    return paletteColor(activeStyle().vectors, o.paletteIndex + 1);
+}
+
+void SceneView::drawTangent(const scene::TangentObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
+    const ViewStyle& st = activeStyle();
+    const float k = print ? 0.8f : st.lineScale;
+    auto shade = [&](Color col) { return print ? ink : (fade ? faded(col) : col); };
+    if (o.showDerivative()) {
+        Color d = print ? Color{140, 140, 140, 255} : shade(derivativeColor(o));
+        floorPolyline(o.derivative(), d, print ? 0.0f : 0.014f * k, print);
+    }
+    if (o.showFunction()) floorPolyline(o.function(), shade(c), print ? 0.0f : 0.022f * k, false);
+    if (!o.error().empty()) return;
+    double x0 = o.x0(), y0 = o.y0(), m = o.slope();
+    Color muted = print ? Color{150, 150, 150, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 220);
+    if (o.hasSecant()) {
+        double h = o.secantH(), y1 = y0 + o.secantSlope() * h;
+        floorLine(x0, y0, o.secantSlope(), 3.5, muted, print ? 0.0f : 0.009f * k);
+        DrawSphere(mathToWorld(static_cast<float>(x0 + h), static_cast<float>(y1), 0.01f), 0.06f * std::sqrt(k), muted);
+    }
+    if (o.showTriangle() && std::fabs(m) < 20) {
+        // Run 1, rise f'(x0): the slope read off the picture
+        Vector3 p0 = mathToWorld(static_cast<float>(x0), static_cast<float>(y0), 0.01f);
+        Vector3 p1 = mathToWorld(static_cast<float>(x0 + 1), static_cast<float>(y0), 0.01f);
+        Vector3 p2 = mathToWorld(static_cast<float>(x0 + 1), static_cast<float>(y0 + m), 0.01f);
+        if (print) {
+            DrawLine3D(p0, p1, muted);
+            DrawLine3D(p1, p2, muted);
+        } else {
+            DrawCylinderEx(p0, p1, 0.008f * k, 0.008f * k, 5, muted);
+            DrawCylinderEx(p1, p2, 0.008f * k, 0.008f * k, 5, muted);
+        }
+    }
+    Color line = print ? ink : withAlpha(fade ? faded(st.text) : st.text, 230);
+    floorLine(x0, y0, m, 3.0, line, print ? 0.0f : 0.012f * k);
+    DrawSphere(mathToWorld(static_cast<float>(x0), static_cast<float>(y0), 0.01f), (selected ? 0.11f : 0.08f) * std::sqrt(k),
+               shade(c));
+}
+
+void SceneView::drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bool fade, bool print, Color ink,
+                                 bool selected) {
+    const ViewStyle& st = activeStyle();
+    const float k = print ? 0.8f : st.lineScale;
+    auto shade = [&](Color col) { return print ? ink : (fade ? faded(col) : col); };
+    if (o.showSurface()) {
+        Color wire = print ? Color{170, 170, 170, 255} : withAlpha(shade(c), 170);
+        for (const auto& l : o.surfaceLines())
+            for (size_t i = 1; i < l.size(); i++) DrawLine3D(w3(l[i - 1]), w3(l[i]), wire);
+    }
+    if (!o.error().empty()) return;
+    integrals::D3 p = o.point();
+    double fx = o.fx(), fy = o.fy();
+    auto onPlane = [&](double dx, double dy) { return w3({p.x + dx, p.y + dy, p.z + fx * dx + fy * dy}); };
+    if (o.showPlane()) {
+        const double s = scene::TangentPlaneObject::kPatch;
+        Vector3 a = onPlane(-s, -s), b = onPlane(s, -s), cc = onPlane(s, s), d = onPlane(-s, s);
+        if (!print) {
+            Color fill = withAlpha(fade ? faded(st.muted) : st.muted, 70);
+            // Both windings, so the patch shows from above and below
+            DrawTriangle3D(a, b, cc, fill);
+            DrawTriangle3D(a, cc, d, fill);
+            DrawTriangle3D(a, cc, b, fill);
+            DrawTriangle3D(a, d, cc, fill);
+        }
+        Color edge = print ? ink : withAlpha(fade ? faded(st.text) : st.text, 160);
+        DrawLine3D(a, b, edge);
+        DrawLine3D(b, cc, edge);
+        DrawLine3D(cc, d, edge);
+        DrawLine3D(d, a, edge);
+    }
+    Vector3 pw = w3(p);
+    if (o.showSlopes()) {
+        // One step in x climbs fx, one step in y climbs fy (the partial derivatives as slopes)
+        VectorRenderer::drawArrow(toVec(pw), toVec(onPlane(1, 0)), print ? ink : shade(st.axisX), 0.018f * k, 0.15f);
+        VectorRenderer::drawArrow(toVec(pw), toVec(onPlane(0, 1)), print ? ink : shade(st.axisY), 0.018f * k, 0.15f);
+    }
+    if (o.showNormal()) {
+        double len = std::sqrt(fx * fx + fy * fy + 1);
+        integrals::D3 n = {p.x - fx / len, p.y - fy / len, p.z + 1 / len};
+        VectorRenderer::drawArrow(toVec(pw), toVec(w3(n)), print ? ink : shade(st.axisZ), 0.018f * k, 0.15f);
+    }
+    if (o.showGradient()) {
+        // On the floor under the point: the direction of steepest climb, as long as the climb rate
+        Vector3 foot = mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), 0.0f);
+        dashed(foot, pw, print ? Color{150, 150, 150, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 200));
+        Vector3 tip = mathToWorld(static_cast<float>(p.x + fx), static_cast<float>(p.y + fy), 0.0f);
+        if (std::sqrt(fx * fx + fy * fy) > 1e-6)
+            VectorRenderer::drawArrow(toVec(foot), toVec(tip), print ? ink : shade(derivativeColor(o)), 0.026f * k, 0.2f);
+    }
+    DrawSphere(pw, (selected ? 0.1f : 0.075f) * std::sqrt(k), shade(c));
+}
+
+void SceneView::drawVelocity(const scene::VelocityObject& o, Color c, bool fade, bool print, Color ink, bool selected) {
+    const ViewStyle& st = activeStyle();
+    const float k = print ? 0.8f : st.lineScale;
+    auto shade = [&](Color col) { return print ? ink : (fade ? faded(col) : col); };
+    if (o.showCurve()) {
+        Color curve = print ? Color{120, 120, 120, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 230);
+        const auto& pts = o.curve();
+        for (size_t i = 1; i < pts.size(); i++) {
+            if (print) DrawLine3D(w3(pts[i - 1]), w3(pts[i]), curve);
+            else DrawCylinderEx(w3(pts[i - 1]), w3(pts[i]), 0.014f * k, 0.014f * k, 5, curve);
+        }
+    }
+    if (!o.error().empty()) return;
+    integrals::D3 p = o.point();
+    double s = o.arrowScale();
+    auto tipOf = [&](const integrals::D3& v) { return w3(geometry::add(p, geometry::scale(v, s))); };
+    Vector3 pw = w3(p);
+    Color acc = print ? Color{110, 110, 110, 255} : shade(derivativeColor(o));
+    if (o.showAcceleration()) {
+        if (o.splitAcceleration()) {
+            Color part = print ? Color{150, 150, 150, 255} : withAlpha(acc, 200);
+            VectorRenderer::drawArrow(toVec(pw), toVec(tipOf(o.tangential())), part, 0.016f * k, 0.14f);
+            VectorRenderer::drawArrow(toVec(pw), toVec(tipOf(o.normal())), part, 0.016f * k, 0.14f);
+            // The parallelogram they span ends at a
+            Color guide = withAlpha(part, 120);
+            dashed(tipOf(o.tangential()), tipOf(o.acceleration()), guide);
+            dashed(tipOf(o.normal()), tipOf(o.acceleration()), guide);
+        }
+        VectorRenderer::drawArrow(toVec(pw), toVec(tipOf(o.acceleration())), acc, 0.022f * k, 0.17f);
+    }
+    if (o.showVelocity())
+        VectorRenderer::drawArrow(toVec(pw), toVec(tipOf(o.velocity())), shade(c), 0.026f * k, 0.2f);
+    DrawSphere(pw, (selected ? 0.11f : 0.08f) * std::sqrt(k), shade(c));
+}
+
 } // namespace linalg::view

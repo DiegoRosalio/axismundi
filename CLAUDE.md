@@ -96,7 +96,8 @@ src/
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
                       VectorField (arrows on a grid, RK4 flow lines kept apart, particles as a function of t),
                       Integrals (Riemann boxes, Simpson, line integrals), CurveGeometry (Frenet frame, κ, τ),
-                      Fourier (curve coefficients for epicycles, series a_k/b_k), OrbitCamera (pivot/distance/yaw/pitch
+                      Fourier (curve coefficients for epicycles, series a_k/b_k), Derivatives (five-point f',
+                      f'', partials, r'/r''), OrbitCamera (pivot/distance/yaw/pitch
                       in world y-up axes)
   math/expr/          NO raylib: typed expression engine — Value (number, complex, vector, 3x3/4x4
                       matrix, quaternion, error; rotationOf gives a quaternion's axis/angle/matrix), Program (compile once, names used, eval with Resolver + x/y/t/u slots);
@@ -104,7 +105,7 @@ src/
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (basic object classes + registry), TypesAdvanced (quaternions, fields, integrals,
-                      frames, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import)
+                      frames, derivatives, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import)
   text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
                       LabelLayout (placing screen labels without overlaps)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table)

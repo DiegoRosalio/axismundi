@@ -1410,6 +1410,35 @@ void testLatexExport() {
         save("frame-ellipse", gr.code);
     }
 
+    // Derivatives: the tangent is a 2D figure, the tangent plane 3D, velocity on a flat curve 2D
+    {
+        Scene dsc;
+        dsc.clearAll();
+        auto* T = dsc.add(SpaceKind::Euclidean3D, "tangent", "T");
+        T->setField("h", "1");
+        dsc.evaluate();
+        latex::Options dop;
+        dop.standalone = true;
+        latex::Result dr = latex::exportLatex(dsc.space(SpaceKind::Euclidean3D), dsc.selection(SpaceKind::Euclidean3D), dop);
+        CHECK(dr.exported == 1 && dr.flat && dr.code.find("f'(1) = ") != std::string::npos);
+        CHECK(dr.code.find("densely dashed") != std::string::npos);  // the graph of f'
+        save("tangent", dr.code);
+        dsc.space(SpaceKind::Euclidean3D).remove(T->id());
+        dsc.add(SpaceKind::Euclidean3D, "tangentplane", "G");
+        dsc.evaluate();
+        dr = latex::exportLatex(dsc.space(SpaceKind::Euclidean3D), dsc.selection(SpaceKind::Euclidean3D), dop);
+        CHECK(dr.exported == 1 && !dr.flat && dr.code.find("\\nabla f") != std::string::npos);
+        CHECK(dr.code.find("fill opacity") != std::string::npos);
+        save("tangent-plane", dr.code);
+        dsc.clearAll();
+        auto* R = dsc.add(SpaceKind::Euclidean3D, "velocity", "R");
+        R->setProp("split", true);
+        dsc.evaluate();
+        dr = latex::exportLatex(dsc.space(SpaceKind::Euclidean3D), dsc.selection(SpaceKind::Euclidean3D), dop);
+        CHECK(dr.exported == 1 && dr.flat && dr.code.find("{$r''$}") != std::string::npos);
+        save("velocity", dr.code);
+    }
+
     // Integrals: boxes and the value; a flat work integral is a 2D figure
     {
         Scene isc;
@@ -1797,6 +1826,68 @@ void testScene() {
         P->setField("z", "1");  // standing still
         gs.evaluate();
         CHECK(P->error().find("stops") != std::string::npos);
+    }
+
+    // Derivative objects: slopes, the secant limit, partials, velocity and acceleration
+    {
+        Scene ds;
+        ds.clearAll();
+        auto* T = static_cast<TangentObject*>(ds.add(SpaceKind::Euclidean3D, "tangent", "T"));
+        ds.evaluate();
+        CHECK(T->error().empty() && T->value().isRealNumber());
+        CHECK_NEAR(T->value().re, std::cos(1.0), 1e-8);  // sin' = cos at x0 = 1
+        CHECK_NEAR(T->y0(), std::sin(1.0), 1e-12);
+        CHECK(T->hasSecond());
+        CHECK_NEAR(T->second(), -std::sin(1.0), 1e-4);
+        CHECK(!T->hasSecant());  // h = 0: no secant
+        CHECK(T->function().size() == 401 && T->derivative().size() == 401);
+        T->setField("h", "0.5");
+        ds.evaluate();
+        CHECK(T->hasSecant());
+        CHECK_NEAR(T->secantSlope(), (std::sin(1.5) - std::sin(1.0)) / 0.5, 1e-12);
+        T->setField("h", "0.001");  // the secant slope approaches the tangent's
+        ds.evaluate();
+        CHECK(std::fabs(T->secantSlope() - T->slope()) < 1e-3);
+        auto* s = static_cast<ParameterObject*>(ds.add(SpaceKind::Euclidean3D, "parameter", "s"));
+        s->setNumber(2.0);
+        T->setField("f", "x^3");
+        T->setField("x0", "s");  // a slider moves the point
+        ds.evaluate();
+        CHECK_NEAR(T->value().re, 12.0, 1e-6);
+        T->setField("f", "sqrt(x)");
+        T->setField("x0", "0");
+        ds.evaluate();
+        CHECK(T->error().find("no slope") != std::string::npos);
+        T->setField("f", "ln(x)");
+        T->setField("x0", "-1");
+        ds.evaluate();
+        CHECK(T->error().find("undefined at x = -1") != std::string::npos);
+
+        auto* G = static_cast<TangentPlaneObject*>(ds.add(SpaceKind::Euclidean3D, "tangentplane", "G"));
+        ds.evaluate();
+        CHECK(G->error().empty() && G->value().type == expr::Type::Vector);
+        CHECK_NEAR(G->fx(), std::cos(1.0), 1e-8);    // ∂/∂x (sin x + cos y)
+        CHECK_NEAR(G->fy(), -std::sin(0.5), 1e-8);   // ∂/∂y at y0 = 0.5
+        CHECK_NEAR(G->point().z, std::sin(1.0) + std::cos(0.5), 1e-12);
+        CHECK(G->surfaceLines().size() == 34);  // 17 lines each way, no gaps
+        G->setField("ymin", "5");
+        ds.evaluate();
+        CHECK(G->error().find("must be less than") != std::string::npos);
+
+        auto* R = static_cast<VelocityObject*>(ds.add(SpaceKind::Euclidean3D, "velocity", "R"));
+        ds.evaluate();
+        CHECK(R->error().empty() && R->value().type == expr::Type::Vector);
+        // Ellipse (3cos u, 1.5 sin u): v = (−3 sin u, 1.5 cos u), a = −r
+        CHECK_NEAR(R->velocity().x, -3 * std::sin(1.0), 1e-5);
+        CHECK_NEAR(R->velocity().y, 1.5 * std::cos(1.0), 1e-5);
+        CHECK_NEAR(R->acceleration().x, -3 * std::cos(1.0), 1e-3);
+        auto sum = geometry::add(R->tangential(), R->normal());
+        CHECK_NEAR(sum.x, R->acceleration().x, 1e-9);  // the two parts add up to a
+        CHECK_NEAR(geometry::dot(R->normal(), R->velocity()), 0.0, 1e-6);  // the turning part is ⊥ v
+        R->setField("x", "u^2");  // speeding up along a line: no turning part
+        R->setField("y", "0");
+        ds.evaluate();
+        CHECK(geometry::length(R->normal()) < 1e-4 && R->tangential().x > 1.9);
     }
 
     // Integral objects: values, boxes, partial work, and the value cache

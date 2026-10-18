@@ -44,6 +44,12 @@ walk = r'''    auto solve = [](App& app, size_t L, size_t K) -> bool {
         if (title == "Add waves") { if (auto* o = app.object("S")) o->setField("N", "9"); return true; }
         if (title == "Draw with circles") { app.setMode(AppMode::Complex); app.addObject(AppMode::Complex, "epicycles", "E"); return true; }
         if (title == "Sharper drawing") { if (auto* o = app.object("E", AppMode::Complex)) o->setField("N", "30"); return true; }
+        if (title == "Find a flat spot") { if (auto* o = app.object("T")) o->setField("x0", "sqrt(2)"); return true; }
+        if (title == "Secant to tangent") { if (auto* o = app.object("T")) o->setField("h", "0.05"); return true; }
+        if (title == "The graph of f'") { if (auto* o = app.object("T")) o->setProp("derivative", true); return true; }
+        if (title == "Slopes of a surface") { if (auto* o = app.object("G")) { o->setField("x0", "0"); o->setField("y0", "0"); } return true; }
+        if (title == "Velocity and acceleration") { app.addObject(AppMode::Space3D, "velocity", "R"); return true; }
+        if (title == "Speeding up or turning") { if (auto* o = app.object("R")) o->setProp("split", true); return true; }
         if (title == "Add a surface") { app.addObject(AppMode::Space3D, "surface", "S"); return true; }
         if (title == "Use a parameter") { app.addObject(AppMode::Space3D, "parameter", "k"); if (auto* o = app.object("S")) o->setField("f", "sin(k*x)"); return true; }
         return false;

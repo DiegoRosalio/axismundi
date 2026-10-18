@@ -76,7 +76,16 @@ hover 1000 250; click 1000 250
 click 290 83; click 110 843;       shot 51_frame_added            # Add > Calculus > Moving frame
 click 1000 250
 click 290 83; xdotool mousemove --window $W 150 600 click --repeat 5 5; sleep 0.4
-click 110 797;                     shot 52_series_added           # (scrolled) Add > Fourier > Fourier series
+click 110 701;                     shot 52a_tangent_added         # (scrolled) Add > Calculus > Tangent line
+click 1000 250
+click 290 83; xdotool mousemove --window $W 150 600 click --repeat 5 5; sleep 0.4
+click 110 749;                     shot 52b_tangent_plane_added   # (scrolled) Add > Calculus > Tangent plane
+click 1000 250
+click 290 83; xdotool mousemove --window $W 150 600 click --repeat 5 5; sleep 0.4
+click 110 797;                     shot 52c_velocity_added        # (scrolled) Add > Calculus > Velocity
+click 1000 250
+click 290 83; xdotool mousemove --window $W 150 600 click --repeat 5 5; sleep 0.4
+click 110 873;                     shot 52_series_added           # (scrolled) Add > Fourier > Fourier series
 key 2; click 290 83;               shot 53_complex_menu           # complex plane: Add menu
 click 87 355;                      shot 54_epicycles_added        # Add > Fourier > Fourier epicycles
 hover 1000 250; key p; sleep 2;    shot 55_epicycles_drawing      # P: the circles start drawing
