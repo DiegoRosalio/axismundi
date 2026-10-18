@@ -108,7 +108,8 @@ src/
                       frames, derivatives, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import)
   text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
                       LabelLayout (placing screen labels without overlaps)
-  export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table)
+  export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table; the
+                      axis), LatexObjects (one export function per type + the type table), LatexFigure (pieces)
   view/SceneView      draws a space: axes, the plot/field caches, labels (laid out, no overlaps), selection
                       halo + fading, solo filter (`shown`), Paper = the print path (DrawOptions.print); each object
                       through its type's ObjectView (view/ObjectViews.hpp: draw, anchor, label, pick, palette),
@@ -223,9 +224,10 @@ docs/screenshots/     images for the docs, produced by --tour
   (mkdtemp, fork + execl with an argument list, nonstop mode, timeout kill, copy, cleanup; errors from
   `firstLatexErrors`). ExportPanel runs it on a `std::thread` (atomic running flag, mutex-guarded result,
   joined in the destructor); App polls `takePdfResult` in `update` and toasts. `PDF_TEST=1 make test` compiles.
-- **Adding export support for a new object type:** a branch in `exportLatex` (plus a helper like
-  `exportVector`), a decision in the Auto 2D/3D rule, and print-preview drawing in
-  `SceneView::drawEuclideanPrint`/`drawComplexPrint`.
+- **Adding export support for a new object type:** an `export<Type>` function and its row in the table in
+  `export/LatexObjects.cpp` (`detail::objectExport`: the writer plus a `flat` test for the Auto 2D rule; nullptr
+  = needs 3D), and Paper drawing in its `ObjectView::draw` (`ctx.print`). Shared pieces (Figure, arrow, line,
+  labelNode, num, Sampler) are in `export/LatexFigure.hpp`; `LatexExport.cpp` builds the axis around them.
 - **Verification:** `LATEX_OUT=<dir> make test` writes example standalone figures. The tour writes figures of
   nine gallery scenes to `<shots>/latex/`. Compile them with `pdflatex` (TeX Live + poppler-utils are
   installed) and view them with `pdftoppm -png`.
@@ -255,7 +257,8 @@ section order.
    (inspector + list summary; reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
    optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
 5. Tests in `tests/test_math.cpp` (model + evaluation), tour step + screenshots for the UI.
-6. LaTeX export: a branch in `exportLatex` + the Auto 2D rule + Paper drawing (see LaTeX export).
+6. LaTeX export: an `export<Type>` + its row in `export/LatexObjects.cpp` (with the flat test) + Paper drawing
+   (see LaTeX export).
 Saving/loading is automatic (fields and props are serialized generically).
 Notes from adding vector fields: give drawn-only types a cache in SceneView like `PlotCache` (keyed on
 `changedAt`, style, theme, color); per-frame animation that only depends on the time (particles) belongs in
