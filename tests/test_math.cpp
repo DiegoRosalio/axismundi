@@ -10,6 +10,7 @@
 #include "math/Integrals.hpp"
 #include "math/CurveGeometry.hpp"
 #include "math/Fourier.hpp"
+#include "math/OrbitCamera.hpp"
 #include "text/LabelLayout.hpp"
 #include "text/TextLayout.hpp"
 #include <fstream>
@@ -674,6 +675,65 @@ void testFourier() {
     CHECK(pts.size() == 5);
     CHECK_NEAR(std::abs(pts.back() - evaluate(st, 0.9, 5)), 0, 1e-12);
     CHECK_NEAR(std::abs(evaluate(st, 2 * pi * 10 / 128) - shape[10]), 0, 1e-9);
+}
+
+void testOrbitCamera() {
+    OrbitCamera cam;
+    // fromView -> position round trip, distance and angles
+    cam.fromView({3, 4, 5}, {1, 1, 1});
+    Vector3D p = cam.position();
+    CHECK_NEAR(p.x, 3.0, 1e-4);
+    CHECK_NEAR(p.y, 4.0, 1e-4);
+    CHECK_NEAR(p.z, 5.0, 1e-4);
+    CHECK_NEAR(cam.distance(), std::sqrt(4.0 + 9.0 + 16.0), 1e-4);
+    // The eye basis is orthonormal and right-handed (right × up = −forward, as for a viewer)
+    Vector3D f = cam.forward(), r = cam.right(), u = cam.up();
+    CHECK_NEAR(f.magnitude(), 1.0, 1e-5);
+    CHECK_NEAR(r.magnitude(), 1.0, 1e-5);
+    CHECK_NEAR(u.magnitude(), 1.0, 1e-5);
+    CHECK_NEAR(f.dot(r), 0.0, 1e-5);
+    CHECK_NEAR(f.dot(u), 0.0, 1e-5);
+    CHECK(u.y > 0.0f);  // screen up points upward
+    // Orbit keeps the pivot and distance
+    float d = cam.distance();
+    cam.orbit(0.7f, 0.3f);
+    CHECK_NEAR((cam.position() - cam.pivot()).magnitude(), d, 1e-4);
+    CHECK_NEAR(cam.pivot().x, 1.0, 1e-6);
+    // The pitch is clamped short of straight up/down
+    cam.orbit(0.0f, 10.0f);
+    CHECK_NEAR(cam.pitch(), OrbitCamera::kMaxPitch, 1e-6);
+    cam.orbit(0.0f, -20.0f);
+    CHECK_NEAR(cam.pitch(), -OrbitCamera::kMaxPitch, 1e-6);
+    // Pan moves the pivot across the view, not along it, and keeps the orientation
+    cam.fromView({0, 0, 10}, {0, 0, 0});
+    cam.pan(100.0f, 0.0f, 1000.0f, 60.0f);
+    Vector3D moved = cam.pivot();
+    CHECK(moved.x < 0.0f);  // dragging right moves the scene right: the pivot goes left
+    CHECK_NEAR(moved.z, 0.0, 1e-5);
+    // 100 px of a 1000 px view at distance 10, fovy 60°: 2·10·tan 30° / 10
+    CHECK_NEAR(-moved.x, 2.0 * 10.0 * std::tan(3.14159265 / 6) / 10.0, 1e-4);
+    cam.pan(0.0f, 50.0f, 1000.0f, 60.0f);
+    CHECK(cam.pivot().y > 0.0f);  // dragging down moves the scene down: the pivot goes up
+    // Zoom: closer per positive step, within limits
+    cam.setDistance(10.0f);
+    cam.zoom(1.0f);
+    CHECK_NEAR(cam.distance(), 8.5, 1e-4);
+    cam.zoom(1000.0f);
+    CHECK_NEAR(cam.distance(), OrbitCamera::kMinDistance, 1e-6);
+    cam.zoom(-1000.0f);
+    CHECK_NEAR(cam.distance(), OrbitCamera::kMaxDistance, 1e-3);
+    // Numpad views
+    cam.setDistance(5.0f);
+    cam.setPivot({0, 0, 0});
+    cam.frontView();
+    CHECK_NEAR(cam.position().z, 5.0, 1e-4);
+    cam.rightView();
+    CHECK_NEAR(cam.position().x, 5.0, 1e-4);
+    cam.topView();
+    CHECK(cam.position().y > 4.99f);
+    // A degenerate view (eye on the target) stays usable
+    cam.fromView({1, 1, 1}, {1, 1, 1});
+    CHECK(std::isfinite(cam.position().x) && cam.distance() >= OrbitCamera::kMinDistance);
 }
 
 void testCurveGeometry() {
@@ -2071,6 +2131,7 @@ int main() {
         {"Quaternions", testQuaternions},
         {"Integrals", testIntegrals},
         {"Curve geometry", testCurveGeometry},
+        {"Orbit camera", testOrbitCamera},
         {"Fourier", testFourier},
         {"All object types", testAllObjectTypes},
         {"Vector field", testVectorField},
