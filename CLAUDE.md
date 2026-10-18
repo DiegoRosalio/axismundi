@@ -145,6 +145,8 @@ src/
 tests/                main.cpp (runner + list), TestSupport.hpp (CHECK / CHECK_NEAR, helpers), test_{linear,expr,
                       calculus,scene,export,text}.cpp; test_scene includes a check over every registered type
 docs/architecture.md  how the pieces fit together (data flow per frame, where to add things)
+docs/learn/           a guide to the code for C++ beginners (9 chapters + glossary). Its ```cpp snippets are
+                      real code: when renaming or moving what a snippet shows, update the guide too
 assets/fonts/         subset TTFs + OFL licenses; tools/fonts.py subsets (fonttools) and embeds
 docs/screenshots/     images for the docs, produced by --tour
 ```
