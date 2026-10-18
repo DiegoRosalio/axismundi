@@ -202,19 +202,22 @@ Shortcuts are ignored while a text field is being edited.
 .
 ├── Makefile
 ├── assets/fonts/             # subset Inter and JetBrains Mono (SIL OFL) + licenses
+├── docs/architecture.md      # how the pieces fit together, where to add things
 ├── docs/screenshots/         # images used by the docs (made with --tour)
 ├── include/raygui.h          # raygui (single header)
 ├── tests/test_math.cpp       # unit tests
 ├── tools/fonts.py            # font subsetting and embedding
 ├── tools/lesson_walk.py      # temporary tour patch that checks every tutorial step
+├── tools/dev/                # build, tour, lesson walk, LaTeX and real-input test scripts
 └── src/
     ├── main.cpp              # command-line options
-    ├── app/                  # App (main loop, shortcuts, files, preferences) and Tour
-    ├── math/                 # vectors, matrices, decompositions, complex, quaternions,
-    │   └── expr/             #   breakdown, worked explanations; typed expression engine
+    ├── app/                  # App (loop, input, drawing, files: one class in four files) and Tour
+    ├── math/                 # vectors, matrices, decompositions, complex, quaternions, vector fields,
+    │   └── expr/             #   integrals, curve geometry, Fourier; typed expression engine
     ├── scene/                # object model: objects, spaces, dependencies, undo, files
-    ├── export/               # LaTeX (PGFPlots) export, black and white
-    ├── view/                 # SceneView: draws the objects of a space
+    ├── export/               # LaTeX (PGFPlots) export, black and white; PDF via pdflatex
+    ├── text/                 # formula wrapping, label placement
+    ├── view/                 # SceneView: draws the objects of a space; view styles
     ├── animation/            # Playback (repeat styles, easing)
     ├── edu/                  # tutorial lessons and gallery examples
     ├── rendering/            # grid, arrows, plots, camera, labels
@@ -224,8 +227,8 @@ Shortcuts are ignored while a text field is being edited.
     └── include/              # headers, mirroring the folders above
 ```
 
-`src/math`, `src/scene`, `src/animation` and `src/export` have no raylib dependency, which keeps them
-unit-testable.
+`src/math`, `src/scene`, `src/animation`, `src/export` and `src/text` have no raylib dependency, which keeps
+them unit-testable. See [docs/architecture.md](docs/architecture.md) for how they fit together.
 
 ## Development
 

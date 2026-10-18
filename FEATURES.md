@@ -207,6 +207,12 @@ Code and tests
 ## Performance
 - [x] Optimize mesh generation (indexed GPU meshes built once per change)
 
+## Code structure
+- [x] Inspectors one method per object type (ScenePanelInspectors.cpp) with shared range/switch helpers
+- [x] SceneView split into the core, the richer object types and shared drawing helpers
+- [x] App split by theme (input, drawing, files) in one class; richer object types in TypesAdvanced.cpp
+- [x] docs/architecture.md: layers, one frame, state and files, where to add things
+
 ## Testing
 - [x] Add unit tests for Vector3D
 - [x] Add unit tests for Matrix3D/4D
