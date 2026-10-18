@@ -69,3 +69,17 @@ click 175 264; key ctrl+a; type_ "qaxis([1, 1, 0], 2pi/3)"; key Return
                                   shot 41_formula                # 120° about (0.71, 0.71, 0)
 click 305 447;                    shot 42_acts_on_vector         # the switch shows v and q v q⁻¹
 input_stop
+
+# Fourth session: the calculus and Fourier objects from the Add menu (the menu scrolls with the wheel)
+OUT=$DEV/input/calculus; input_start || { input_stop; exit 1; }
+click 290 83; click 110 747;       shot 50_volume_added           # Add > Calculus > Volume under z = f(x, y)
+hover 1000 250; click 1000 250
+click 290 83; click 110 843;       shot 51_frame_added            # Add > Calculus > Moving frame
+click 1000 250
+click 290 83; xdotool mousemove --window $W 150 600 click --repeat 5 5; sleep 0.4
+click 110 797;                     shot 52_series_added           # (scrolled) Add > Fourier > Fourier series
+key 2; click 290 83;               shot 53_complex_menu           # complex plane: Add menu
+click 87 355;                      shot 54_epicycles_added        # Add > Fourier > Fourier epicycles
+hover 1000 250; key p; sleep 2;    shot 55_epicycles_drawing      # P: the circles start drawing
+key p
+input_stop
