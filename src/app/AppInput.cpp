@@ -1,0 +1,299 @@
+// App: Keyboard and mouse: camera/UI mode, shortcuts, picking objects in the view (the rest of App is in App.cpp)
+#include "app/App.hpp"
+#include "view/ViewStyle.hpp"
+#include "app/Tour.hpp"
+#include "edu/Examples.hpp"
+#include "math/Decompositions.hpp"
+#include "rendering/WorldMapping.hpp"
+#include "ui/SceneIO.hpp"
+#include "ui/Widgets.hpp"
+#include "ui/core/Layout.hpp"
+#include "ui/core/Theme.hpp"
+#include "ui/core/Ui.hpp"
+#include <raylib.h>
+#include <raygui.h>
+#include <raymath.h>
+#include <rlgl.h>
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <cmath>
+#include <csignal>
+#include <ctime>
+
+namespace linalg {
+
+using scene::SceneObject;
+using scene::SpaceKind;
+
+namespace {
+
+// Distance from point p to segment ab (screen space)
+float distanceToSegment(Vector2 p, Vector2 a, Vector2 b) {
+    Vector2 ab = Vector2Subtract(b, a);
+    float len2 = Vector2LengthSqr(ab);
+    float t = len2 > 1e-6f ? std::clamp(Vector2DotProduct(Vector2Subtract(p, a), ab) / len2, 0.0f, 1.0f) : 0.0f;
+    return Vector2Distance(p, Vector2Add(a, Vector2Scale(ab, t)));
+}
+
+bool inFront(const Camera3D& cam, Vector3 p) {
+    return Vector3DotProduct(Vector3Subtract(cam.target, cam.position), Vector3Subtract(p, cam.position)) > 0.0f;
+}
+
+} // namespace
+bool App::isEditing() const {
+    return m_scenePanel.isEditing() || m_referencePanel.isEditing() || m_fileDialog.isOpen() ||
+           m_formulaEditor.isOpen();
+}
+
+void App::handleInput(float deltaTime) {
+    bool editing = isEditing();
+
+    // Escape steps back one level: cancel an edit, close a popup or the help,
+    // or leave camera mode (frees the mouse). It never quits the app.
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        if (m_formulaEditor.isOpen()) {
+            m_formulaEditor.close();
+            editing = false;
+        } else if (m_fileDialog.isOpen()) {
+            m_fileDialog.close();
+            editing = false;
+        } else if (editing) {
+            m_scenePanel.cancelEditing();
+            m_referencePanel.cancelEditing();
+            editing = false;
+        } else if (m_addMenu.isOpen()) {
+            m_addMenu.close();
+        } else if (m_colorPopover.isOpen()) {
+            m_colorPopover.close();
+        } else if (m_settingsPopover.isOpen()) {
+            m_settingsPopover.close();
+        } else if (m_help.visible()) {
+            m_help.toggle();
+        } else if (IsCursorHidden()) {
+            setUiMode(true);
+        }
+    }
+
+    // TAB switches between camera mode (cursor captured) and UI mode.
+    // While a field is being edited, TAB moves to the next field instead.
+    if (!editing && IsKeyPressed(KEY_TAB)) setUiMode(IsCursorHidden());
+
+    bool ui = uiMode();
+    // Widgets only respond in UI mode, and not behind the help overlay
+    if (ui && !m_help.visible()) GuiUnlock();
+    else GuiLock();
+
+    m_scenePanel.update(m_scene);
+
+    if (!editing) handleShortcuts(ui);
+    if (ui && !m_help.visible()) pickInViewport();
+
+    applyModeChange();  // tabs and keys 1/2 change m_mode directly
+
+    m_camera.update(deltaTime);
+}
+
+void App::applyModeChange() {
+    if (m_mode == m_lastMode) return;
+    // A field in the hidden space would otherwise stay "active"
+    m_scenePanel.finishEditing(m_scene);
+    closePopovers();
+    // Remember the camera of the space we leave, restore the one of the space we enter
+    int from = static_cast<int>(m_lastMode), to = static_cast<int>(m_mode);
+    m_savedPosition[from] = m_camera.position();
+    m_savedTarget[from] = m_camera.target();
+    m_hasSavedView[from] = true;
+    if (m_hasSavedView[to]) m_camera.setView(m_savedPosition[to], m_savedTarget[to]);
+    else m_camera.reset(m_mode);
+    m_lastMode = m_mode;
+}
+
+void App::handleShortcuts(bool uiMode) {
+    ViewSettings& view = m_viewPanel.settings();
+    bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+
+    if (ctrl && (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD))) ui::zoomIn();
+    if (ctrl && (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT))) ui::zoomOut();
+    if (ctrl && IsKeyPressed(KEY_ZERO)) ui::setZoom(1.0f);
+    if (IsKeyPressed(KEY_F11)) toggleFullscreen();
+    if (IsKeyPressed(KEY_F12)) requestScreenshot(shift);
+    if (IsKeyPressed(KEY_F5)) {
+        if (shift) saveSceneAs();
+        else saveScene();
+    }
+    if (IsKeyPressed(KEY_F9)) loadScene();
+    if (IsKeyPressed(KEY_F2)) {
+        m_referenceWindow.toggle();
+        if (m_referenceWindow.visible()) m_panels.bringToFront(&m_referenceWindow);
+    }
+    if (IsKeyPressed(KEY_F1)) {
+        m_tutorialWindow.toggle();
+        if (m_tutorialWindow.visible()) m_panels.bringToFront(&m_tutorialWindow);
+    }
+
+    if (ctrl) {
+        // Ctrl is "move down" in camera mode, so these are UI-mode only
+        if (!uiMode) return;
+        if (IsKeyPressed(KEY_Z)) {
+            m_scenePanel.cancelEditing();
+            m_scene.undo();
+        }
+        if (IsKeyPressed(KEY_Y)) {
+            m_scenePanel.cancelEditing();
+            m_scene.redo();
+        }
+        if (IsKeyPressed(KEY_D)) duplicateSelection();
+        if (IsKeyPressed(KEY_B)) setSideBarCollapsed(!SideBar::collapsed());
+        if (IsKeyPressed(KEY_E)) {
+            m_exportWindow.toggle();
+            if (m_exportWindow.visible()) m_panels.bringToFront(&m_exportWindow);
+        }
+        if (IsKeyPressed(KEY_S)) {
+            if (shift) saveSceneAs();
+            else saveScene();
+        }
+        if (IsKeyPressed(KEY_O)) loadScene();
+        return;
+    }
+
+    if (IsKeyPressed(KEY_T)) toggleTheme();
+    if (IsKeyPressed(KEY_H)) m_help.toggle();
+    if (IsKeyPressed(KEY_G)) view.showGrid = !view.showGrid;
+    if (IsKeyPressed(KEY_L)) view.showLabels = !view.showLabels;
+    if (IsKeyPressed(KEY_O)) toggleSolo();
+    if (IsKeyPressed(KEY_M)) m_analysisWindow.toggle();
+    if (IsKeyPressed(KEY_K)) m_stepsWindow.toggle();
+    if (IsKeyPressed(KEY_B)) m_breakdownWindow.toggle();
+    if (IsKeyPressed(KEY_C)) resetCamera();
+    if (IsKeyPressed(KEY_ONE)) m_mode = AppMode::Space3D;
+    if (IsKeyPressed(KEY_TWO)) m_mode = AppMode::Complex;
+    if (IsKeyPressed(KEY_E)) {
+        m_galleryWindow.toggle();
+        if (m_galleryWindow.visible()) m_panels.bringToFront(&m_galleryWindow);
+    }
+    if (uiMode && (IsKeyPressed(KEY_N) || IsKeyPressed(KEY_INSERT))) openAddMenu();
+    if (uiMode && IsKeyPressed(KEY_DELETE)) deleteSelection();
+    if (IsKeyPressed(KEY_P)) TimePanel::togglePlay(m_scene);
+
+    if (m_mode != AppMode::Space3D) return;
+    if (IsKeyPressed(KEY_I)) applyMatrixPreset(Matrix3D::identity());
+    if (IsKeyPressed(KEY_R)) applyMatrixPreset(Matrix3D::rotation(3.14159265f / 4));
+    if (IsKeyPressed(KEY_X)) applyMatrixPreset(Matrix3D::shear(0.5f, 0.0f));
+    if (IsKeyPressed(KEY_F)) applyMatrixPreset(Matrix3D::scale(-1.0f, 1.0f));
+    // S moves the camera backwards in camera mode
+    if (uiMode && IsKeyPressed(KEY_S)) applyMatrixPreset(Matrix3D::scale(2.0f, 2.0f));
+}
+
+void App::toggleSolo() {
+    ViewSettings& view = m_viewPanel.settings();
+    if (!view.soloSelection && m_scene.selection(spaceKind()).empty()) {
+        toast("Select objects first: O then shows only them", true);
+        return;
+    }
+    view.soloSelection = !view.soloSelection;
+}
+
+void App::deleteSelection() {
+    SpaceKind kind = spaceKind();
+    auto ids = m_scene.selection(kind).ids;
+    if (ids.empty()) return;
+    m_scenePanel.cancelEditing();
+    for (auto id : ids) m_scene.space(kind).remove(id);
+    m_scene.selection(kind).clear();
+    m_scene.commit();
+}
+
+void App::duplicateSelection() {
+    SpaceKind kind = spaceKind();
+    scene::ObjectId id = m_scene.selection(kind).primary();
+    if (id == scene::kNoObject) return;
+    m_scenePanel.cancelEditing();
+    if (SceneObject* copy = m_scene.space(kind).duplicate(id)) {
+        m_scene.selection(kind).set(copy->id());
+        m_scene.commit();
+    }
+}
+
+void App::pickInViewport() {
+    if (!ui::mousePressed(MOUSE_BUTTON_LEFT) || isEditing()) return;
+    Vector2 mouse = GetMousePosition();
+    // Only clicks on the 3D view itself, not on panels or popovers
+    if (mouse.x < SideBar::width() || mouse.y < TopBar::height()) return;
+    if (m_panels.anyContains(mouse)) return;
+    if (m_addMenu.isOpen() || m_colorPopover.isOpen() || m_settingsPopover.isOpen() || m_fileDialog.isOpen() ||
+        m_formulaEditor.isOpen())
+        return;
+
+    const Camera3D& cam = m_camera.camera();
+    SpaceKind kind = spaceKind();
+    view::DrawOptions options = drawOptions();
+    float best = ui::px(12.0f);
+    scene::ObjectId hit = scene::kNoObject;
+    auto consider = [&](Vector3 a, Vector3 b, scene::ObjectId id) {
+        if (!inFront(cam, a) || !inFront(cam, b)) return;
+        float d = distanceToSegment(mouse, GetWorldToScreen(a, cam), GetWorldToScreen(b, cam));
+        if (d < best) {
+            best = d;
+            hit = id;
+        }
+    };
+
+    for (const auto& obj : m_scene.space(kind).objects()) {
+        const SceneObject& o = *obj;
+        if (!view::SceneView::shown(options, o) || !o.value().ok()) continue;
+        if (kind == SpaceKind::Euclidean3D) {
+            if (o.typeId() == "vector") {
+                Vector3D tail = static_cast<const scene::VectorObject&>(o).tail();
+                consider(mathToWorld(tail), mathToWorld(tail + o.value().vector), o.id());
+            } else if (o.typeId() == "frame") {
+                const auto& fr = static_cast<const scene::FrameObject&>(o).frame();
+                Vector3 p = mathToWorld(static_cast<float>(fr.p.x), static_cast<float>(fr.p.y), static_cast<float>(fr.p.z));
+                Vector3 q = mathToWorld(static_cast<float>(fr.p.x + fr.T.x), static_cast<float>(fr.p.y + fr.T.y),
+                                        static_cast<float>(fr.p.z + fr.T.z));
+                consider(p, q, o.id());
+            } else if (o.typeId() == "lineintegral") {
+                const auto& path = static_cast<const scene::LineIntegralObject&>(o).path();
+                auto w = [](const integrals::D3& p) {
+                    return mathToWorld(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+                };
+                for (size_t i = 4; i < path.size(); i += 4) consider(w(path[i - 4].p), w(path[i].p), o.id());
+            } else if (o.typeId() == "doubleintegral") {
+                Vector3 top;
+                if (view::SceneView::anchorPoint(o, kind, options, top)) {
+                    Vector3 floor = {top.x, 0.0f, top.z};
+                    consider(floor, top, o.id());
+                }
+            } else if (o.typeId() == "quaternion") {
+                expr::Rotation r;
+                if (static_cast<const scene::QuaternionObject&>(o).showAxis() && expr::rotationOf(o.value(), r) && r.hasAxis)
+                    consider({0, 0, 0}, mathToWorld(r.axis * 2.0f), o.id());
+            } else if (o.typeId() == "matrix") {
+                Matrix4D m = view::SceneView::displayedMatrix(o, options);
+                Vector3D origin = m.transform(Vector3D::zero());
+                for (Vector3D e : {Vector3D(1, 0, 0), Vector3D(0, 1, 0), Vector3D(0, 0, 1)})
+                    consider(mathToWorld(origin), mathToWorld(origin + m.transformDirection(e)), o.id());
+            }
+        } else if (o.value().isNumber() && o.typeId() != "parameter") {
+            consider({0, 0, 0}, {static_cast<float>(o.value().re), static_cast<float>(o.value().im), 0}, o.id());
+        }
+    }
+
+    bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    scene::Selection& sel = m_scene.selection(kind);
+    if (hit != scene::kNoObject) {
+        if (ctrl) sel.toggle(hit);
+        else sel.set(hit);
+        // The inspector is hidden while the side bar is collapsed: say how to get it back (once)
+        if (SideBar::collapsed() && !m_sideBarHintShown) {
+            m_sideBarHintShown = true;
+            toast("Selected. Ctrl+B shows the inspector");
+        }
+    } else if (!ctrl) {
+        sel.clear();
+    }
+}
+
+} // namespace linalg
