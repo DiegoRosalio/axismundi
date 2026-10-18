@@ -11,6 +11,7 @@
 #include "math/CurveGeometry.hpp"
 #include "math/Fourier.hpp"
 #include "math/OrbitCamera.hpp"
+#include "math/Derivatives.hpp"
 #include "text/LabelLayout.hpp"
 #include "text/TextLayout.hpp"
 #include <fstream>
@@ -675,6 +676,39 @@ void testFourier() {
     CHECK(pts.size() == 5);
     CHECK_NEAR(std::abs(pts.back() - evaluate(st, 0.9, 5)), 0, 1e-12);
     CHECK_NEAR(std::abs(evaluate(st, 2 * pi * 10 / 128) - shape[10]), 0, 1e-9);
+}
+
+void testDerivatives() {
+    using namespace derivatives;
+    Function sine = [](double x, double& y) { y = std::sin(x); return true; };
+    double d = 0;
+    for (double x : {-2.0, 0.0, 0.7, 3.0}) {
+        CHECK(derivative1(sine, x, stepFor(1), d));
+        CHECK_NEAR(d, std::cos(x), 1e-9);
+    }
+    Function cube = [](double x, double& y) { y = x * x * x; return true; };
+    CHECK(derivative2(cube, 1.5, stepFor(1), d));
+    CHECK_NEAR(d, 9.0, 1e-4);  // (x³)″ = 6x
+    // Undefined near the point: sqrt at 0 needs f(−h)
+    Function root = [](double x, double& y) { if (x < 0) return false; y = std::sqrt(x); return true; };
+    CHECK(!derivative1(root, 0.0, stepFor(1), d));
+    CHECK(derivative1(root, 4.0, stepFor(1), d));
+    CHECK_NEAR(d, 0.25, 1e-8);
+    // ∂/∂x (x²y) = 2xy, ∂/∂y = x²
+    Surface xxy = [](double x, double y, double& z) { z = x * x * y; return true; };
+    double fx = 0, fy = 0;
+    CHECK(partials(xxy, 1.5, -2.0, stepFor(1), fx, fy));
+    CHECK_NEAR(fx, -6.0, 1e-8);
+    CHECK_NEAR(fy, 2.25, 1e-8);
+    // Helix (2cos u, 2sin u, u/2): |r′| = √(4 + 1/4), r″ = −(2cos u, 2sin u, 0) points to the axis
+    Path helix = [](double u, D3& p) { p = {2 * std::cos(u), 2 * std::sin(u), u / 2}; return true; };
+    D3 v, a;
+    CHECK(curveDerivatives(helix, 0.8, stepFor(1), v, a));
+    CHECK_NEAR(std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z), std::sqrt(4.25), 1e-5);
+    CHECK_NEAR(a.x, -2 * std::cos(0.8), 1e-4);
+    CHECK_NEAR(a.y, -2 * std::sin(0.8), 1e-4);
+    CHECK_NEAR(a.z, 0.0, 1e-4);
+    CHECK_NEAR(v.x * a.x + v.y * a.y + v.z * a.z, 0.0, 1e-4);  // constant speed: a ⊥ v
 }
 
 void testOrbitCamera() {
@@ -2132,6 +2166,7 @@ int main() {
         {"Integrals", testIntegrals},
         {"Curve geometry", testCurveGeometry},
         {"Orbit camera", testOrbitCamera},
+        {"Derivatives", testDerivatives},
         {"Fourier", testFourier},
         {"All object types", testAllObjectTypes},
         {"Vector field", testVectorField},
