@@ -2,6 +2,7 @@
 
 #include "animation/Playback.hpp"
 #include "math/CurveGeometry.hpp"
+#include "math/Fourier.hpp"
 #include "math/Integrals.hpp"
 #include "scene/SceneObject.hpp"
 #include <functional>
@@ -279,6 +280,57 @@ private:
     mutable geometry::Frame m_frame;
     mutable double m_u0 = 0.0;
     mutable std::uint64_t m_version = 0;
+};
+
+// A closed curve z(u) in the complex plane drawn by spinning circles (Fourier epicycles). The value is
+// the tip at the current angle 2π·speed·t; the coefficients are kept until the curve changes.
+class EpicyclesObject : public SceneObject {
+public:
+    EpicyclesObject();
+    int circles() const;      // N, rounded and clamped to 1..100
+    double angle() const { return m_angle; }  // u = 2π·speed·t
+    const std::vector<fourier::Term>& terms() const { return m_terms; }
+    const std::vector<fourier::cplx>& target() const { return m_target; }  // the curve, sampled
+    bool followsClock() const override { return true; }
+    static constexpr int kMaxK = 64;  // frequencies −64..64 are computed
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<EpicyclesObject>(); }
+
+private:
+    mutable std::vector<fourier::Term> m_terms;
+    mutable std::vector<fourier::cplx> m_target;
+    mutable double m_angle = 0.0;
+};
+
+// The Fourier series of f(x) on [a, b]: the partial sum with N terms next to f (on the floor, like a
+// function plot), the separate harmonics and the spectrum. Drawn only (no value).
+class FourierSeriesObject : public SceneObject {
+public:
+    FourierSeriesObject();
+    int terms() const;  // N, rounded and clamped to 0..200
+    bool showOriginal() const { return propBool("original", true); }
+    bool showHarmonics() const { return propBool("harmonics", false); }
+    bool extended() const { return propBool("extend", true); }
+    const fourier::Series& series() const { return m_series; }
+    // Sampled for drawing: f on [a, b], the partial sum (over three periods when extended), harmonics
+    const std::vector<std::pair<double, double>>& original() const { return m_original; }
+    const std::vector<std::pair<double, double>>& sum() const { return m_sum; }
+    const std::vector<std::vector<std::pair<double, double>>>& harmonics() const { return m_harmonics; }
+    int undefinedPoints() const { return m_undefined; }
+
+protected:
+    bool cachesValue() const override { return true; }
+    expr::Value computeValue() const override;
+    std::unique_ptr<SceneObject> makeEmpty() const override { return std::make_unique<FourierSeriesObject>(); }
+
+private:
+    mutable fourier::Series m_series;
+    mutable std::vector<std::pair<double, double>> m_original, m_sum;
+    mutable std::vector<std::vector<std::pair<double, double>>> m_harmonics;
+    mutable int m_undefined = 0;
 };
 
 // --- Registry ----------------------------------------------------------------------

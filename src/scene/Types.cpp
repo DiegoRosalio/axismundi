@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
+#include <limits>
 #include <cstdio>
 
 namespace linalg::scene {
@@ -630,6 +631,95 @@ expr::Value FrameObject::computeValue() const {
                                      static_cast<float>(m_frame.p.z)));
 }
 
+// --- Fourier epicycles ---------------------------------------------------------------
+
+EpicyclesObject::EpicyclesObject() : SceneObject("epicycles") {
+    addField("z", "z(u) =", Expect::ComplexNum, "(16sin(u)^3 + i*(13cos(u) - 5cos(2u) - 2cos(3u) - cos(4u)))/8");
+    markCurveVariable("z");
+    addField("N", "Circles", Expect::Number, "12");
+    addField("speed", "Laps per second", Expect::Number, "0.1");
+}
+
+int EpicyclesObject::circles() const {
+    return static_cast<int>(std::clamp(std::round(numberOf(*this, "N", 12)), 1.0, 100.0));
+}
+
+expr::Value EpicyclesObject::computeValue() const {
+    if (inputsChangedNow() || m_terms.empty()) {
+        const Field* fz = field("z");
+        const expr::Resolver* res = evaluationResolver();
+        double t = time();
+        const int M = 512;
+        m_target.clear();
+        for (int j = 0; j < M; j++) {
+            double u = 2 * 3.14159265358979323846 * j / M;
+            expr::Slots s;
+            s.u = u, s.t = t;
+            s.hasU = s.hasT = true;
+            expr::Value v = fz && fz->program.valid() ? fz->program.eval(res, &s) : expr::Value::fail("no formula");
+            if (!v.isNumber() || !std::isfinite(v.re) || !std::isfinite(v.im))
+                return expr::Value::fail("z(u) is undefined at u = " + std::to_string(u).substr(0, 5));
+            m_target.push_back({v.re, v.type == expr::Type::Complex ? v.im : 0.0});
+        }
+        m_terms = fourier::curveCoefficients(m_target, kMaxK);
+    }
+    m_angle = 2 * 3.14159265358979323846 * numberOf(*this, "speed", 0.1) * time();
+    fourier::cplx tip = fourier::evaluate(m_terms, m_angle, circles() + 1);
+    return expr::Value::complex(tip.real(), tip.imag());
+}
+
+// --- Fourier series -------------------------------------------------------------------
+
+FourierSeriesObject::FourierSeriesObject() : SceneObject("fourierseries") {
+    setProp("original", true);
+    setProp("harmonics", false);
+    setProp("extend", true);
+    addField("f", "f(x) =", Expect::Plot, "x");
+    addField("a", "x from", Expect::Number, "-pi");
+    addField("b", "x to", Expect::Number, "pi");
+    addField("N", "Terms", Expect::Number, "5");
+}
+
+int FourierSeriesObject::terms() const {
+    return static_cast<int>(std::clamp(std::round(numberOf(*this, "N", 5)), 0.0, 200.0));
+}
+
+expr::Value FourierSeriesObject::computeValue() const {
+    std::string err = rangeError(*this, "a", "b");
+    if (!err.empty()) return expr::Value::fail(err);
+    const Field* f = field("f");
+    const expr::Resolver* res = evaluationResolver();
+    double t = time();
+    double a = numberOf(*this, "a", -3.14159), b = numberOf(*this, "b", 3.14159);
+    auto fn = [&](double x, double& y) { return evalNumber(f, res, t, x, 0, 0, 0, y); };
+    int n = terms();
+    m_series = fourier::seriesCoefficients(fn, a, b, n, std::max(2000, 40 * n), m_undefined);
+    m_original.clear();
+    m_sum.clear();
+    m_harmonics.clear();
+    const int samples = 400;
+    for (int i = 0; i <= samples; i++) {
+        double x = a + (b - a) * i / samples, y = 0;
+        if (fn(x, y)) m_original.push_back({x, y});
+        else m_original.push_back({x, std::numeric_limits<double>::quiet_NaN()});  // a gap
+    }
+    double lo = extended() ? a - (b - a) : a, hi = extended() ? b + (b - a) : b;
+    int sumSamples = std::max(600, 30 * n) * (extended() ? 3 : 1);
+    for (int i = 0; i <= sumSamples; i++) {
+        double x = lo + (hi - lo) * i / sumSamples;
+        m_sum.push_back({x, fourier::partialSum(m_series, x)});
+    }
+    for (int k = 1; k <= std::min(n, 8); k++) {
+        std::vector<std::pair<double, double>> h;
+        for (int i = 0; i <= 300; i++) {
+            double x = a + (b - a) * i / 300;
+            h.push_back({x, fourier::harmonic(m_series, k, x)});
+        }
+        m_harmonics.push_back(std::move(h));
+    }
+    return expr::Value::fail("no value");  // drawn, not used in formulas
+}
+
 // --- Complex ------------------------------------------------------------------------
 
 ComplexObject::ComplexObject() : SceneObject("complex") {
@@ -701,12 +791,18 @@ const std::vector<ObjectTypeInfo>& objectTypes() {
         {"frame", "Moving frame on a curve", "Calculus", "P", spaceBit(SpaceKind::Euclidean3D),
          "Tangent, normal, binormal, curvature and torsion at a point of a curve",
          [] { return std::make_unique<FrameObject>(); }},
+        {"fourierseries", "Fourier series of f(x)", "Fourier", "S", spaceBit(SpaceKind::Euclidean3D),
+         "f rebuilt from sine and cosine waves: the partial sums and the spectrum",
+         [] { return std::make_unique<FourierSeriesObject>(); }},
         {"complex", "Complex number", "Basics", "z", spaceBit(SpaceKind::Complex),
          "A point of the complex plane, such as 2 + i or exp(i*theta)",
          [] { return std::make_unique<ComplexObject>(); }},
         {"product", "Product z₁·z₂", "Operations", "w", spaceBit(SpaceKind::Complex),
          "A product drawn as a rotation plus a scaling",
          [] { return std::make_unique<ProductObject>(); }},
+        {"epicycles", "Fourier epicycles", "Fourier", "E", spaceBit(SpaceKind::Complex),
+         "A closed curve drawn by spinning circles (its Fourier series)",
+         [] { return std::make_unique<EpicyclesObject>(); }},
     };
     return types;
 }

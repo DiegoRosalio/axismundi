@@ -189,7 +189,7 @@ void SceneObject::evaluate(const expr::Resolver& resolver, std::uint64_t epoch, 
             continue;
         }
         expr::Value v;
-        if (f.expect == Expect::Plot || f.expect == Expect::Field) {
+        if (f.expect == Expect::Plot || f.expect == Expect::Field || f.curveVariable || f.zVariable) {
             // Check names and type with sample values of x, y and u, and the scene time t
             expr::Slots slots;
             provideSlots(slots);
@@ -208,7 +208,9 @@ void SceneObject::evaluate(const expr::Resolver& resolver, std::uint64_t epoch, 
         if (!f.error.empty() && firstError.empty()) firstError = f.label + ": " + f.error;
     }
 
-    bool timeMoved = usesTime && m_time != m_evaluatedTime;
+    bool timeMoved = (usesTime || followsClock()) && m_time != m_evaluatedTime;
+    // What computeValue may reuse: everything but the time stays as it was
+    m_inputsChanged = m_dirty || inputsChanged || (usesTime && m_time != m_evaluatedTime) || !m_computed;
     expr::Value next;
     if (!firstError.empty()) {
         next = expr::Value::fail(firstError);

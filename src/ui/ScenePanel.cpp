@@ -47,6 +47,8 @@ std::string summaryOf(const SceneObject& o) {
     if (type == "curve") return "curve in u";
     if (type == "field") return "F = " + o.field("F")->text;
     if (type == "doubleintegral" || type == "lineintegral") return "= " + o.value().summary();
+    if (type == "fourierseries") return "N = " + std::to_string(static_cast<const scene::FourierSeriesObject&>(o).terms()) + " terms";
+    if (type == "epicycles") return std::to_string(static_cast<const scene::EpicyclesObject&>(o).circles()) + " circles";
     if (type == "frame") {
         char buf[64];
         snprintf(buf, sizeof(buf), "κ = %.3g at u = %.3g", static_cast<const scene::FrameObject&>(o).frame().kappa,
@@ -689,6 +691,146 @@ float ScenePanel::drawInspector(float x, float y, float width, scene::Scene& sc,
         }
         note(col, curve ? "u runs along the curve; t is the scene time. Parameters work by name too."
                         : "Use x, y, t (the scene time) and parameters by name, e.g. a*sin(x - t).",
+             t.textFaint);
+    } else if (type == "epicycles") {
+        auto& ep = static_cast<scene::EpicyclesObject&>(o);
+        col.setY(fieldRow(col.x(), col.y(), col.width(), ep, "z", sc, 46.0f));
+        ui::anchor("epicycles.z", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+        col.setY(fieldRow(col.x(), col.y(), col.width(), ep, "N", sc, 110.0f));
+        ui::anchor("epicycles.N", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+        col.setY(fieldRow(col.x(), col.y(), col.width(), ep, "speed", sc, 110.0f));
+        if (ep.error().empty() && !ep.terms().empty()) {
+            char buf[160];
+            snprintf(buf, sizeof(buf), "%d circles of %d frequencies (−%d..%d), biggest first", ep.circles(),
+                     2 * scene::EpicyclesObject::kMaxK + 1, scene::EpicyclesObject::kMaxK, scene::EpicyclesObject::kMaxK);
+            note(col, buf, t.text);
+            std::string list;
+            for (size_t i = 1; i < std::min<size_t>(ep.terms().size(), 6); i++) {
+                const auto& term = ep.terms()[i];
+                char one[48];
+                snprintf(one, sizeof(one), "%sk = %d: r %.2f", i > 1 ? ",  " : "", term.k, std::abs(term.c));
+                list += one;
+            }
+            note(col, list, t.textMuted);
+        }
+        if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
+            m_activeId = -1;
+            static const char* kShapes[] = {
+                "(16sin(u)^3 + i*(13cos(u) - 5cos(2u) - 2cos(3u) - cos(4u)))/8",  // heart
+                "2(cos(u) + i*sin(u))/max(abs(cos(u)), abs(sin(u)))",             // square
+                "2.5exp(i*u)*(1 + 0.35cos(5u))",                                    // flower
+                "2sin(u) + i*sin(2u)",                                              // figure eight
+                "1.6exp(i*u) + 0.8exp(6i*u)",                                       // epitrochoid
+                "2exp(i*u)",                                                        // a circle: one circle
+            };
+            int n = static_cast<int>(sizeof(kShapes) / sizeof(kShapes[0]));
+            m_exampleIndex = (m_exampleIndex + 1) % n;
+            ep.setField("z", kShapes[m_exampleIndex]);
+            commit();
+        }
+        note(col, "u runs once around the curve (0 to 2π). Each circle turns k times per lap; more circles follow "
+                  "the corners better. Press P to play.",
+             t.textFaint);
+    } else if (type == "fourierseries") {
+        auto& fs = static_cast<scene::FourierSeriesObject&>(o);
+        col.setY(fieldRow(col.x(), col.y(), col.width(), fs, "f", sc, 52.0f));
+        ui::anchor("series.f", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+        {
+            Rectangle row = col.row(34.0f);
+            Rectangle l = ui::takeLeft(row, 34.0f, 6.0f);
+            ui::textIn(l, "x", ui::FontRole::Body, t.textMuted);
+            auto cells = ui::splitRow(row, {1, 1}, 26.0f);
+            const char* keys[2] = {"a", "b"};
+            for (int k = 0; k < 2; k++) {
+                std::string key = keys[k];
+                scene::Field* f = fs.field(key);
+                editText(cells[k], fieldId(fs, key), f->text, !f->error.empty(),
+                         [&sc, kind, oid, key](const std::string& text) {
+                             SceneObject* ob = sc.space(kind).find(oid);
+                             if (!ob) return false;
+                             ob->setField(key, text);
+                             sc.commit();
+                             return true;
+                         });
+            }
+            ui::textIn({cells[0].x + cells[0].width, row.y, ui::px(26), row.height}, "to", ui::FontRole::Small,
+                       t.textMuted, ui::Align::Center);
+        }
+        col.setY(fieldRow(col.x(), col.y(), col.width(), fs, "N", sc, 52.0f));
+        ui::anchor("series.N", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
+        auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
+            Rectangle tr = col.row(30);
+            bool v = current;
+            if (ui::toggleRow(tr, text, v)) {
+                fs.setProp(key, v);
+                commit();
+            }
+            ui::tooltip(tr, tip, text);
+        };
+        toggleProp("Show f", "original", fs.showOriginal(), "Draw f itself (gray) next to the partial sum.");
+        toggleProp("Harmonics", "harmonics", fs.showHarmonics(), "Draw the separate waves a_k cos + b_k sin (the first 8).");
+        ui::anchor("series.harmonics", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
+        toggleProp("Repeat outside", "extend", fs.extended(),
+                   "Draw the sum over three periods: the series repeats f with period b − a.");
+        if (fs.error().empty()) {
+            // Spectrum: the amplitude √(a_k² + b_k²) of each wave
+            const auto& se = fs.series();
+            int n = static_cast<int>(se.ak.size());
+            int bars = std::min(n, 40);
+            if (bars > 0) {
+                Rectangle chart = col.row(78.0f);
+                ui::fillRounded(chart, ui::px(6), t.panelAlt);
+                double amax = 1e-12;
+                for (int k = 0; k < bars; k++) amax = std::max(amax, std::hypot(se.ak[k], se.bk[k]));
+                float pad = ui::px(8), bw = (chart.width - 2 * pad) / bars;
+                float base = chart.y + chart.height - ui::px(16);
+                for (int k = 0; k < bars; k++) {
+                    double amp = std::hypot(se.ak[k], se.bk[k]);
+                    float h = static_cast<float>(amp / amax) * (chart.height - ui::px(26));
+                    Rectangle bar = {chart.x + pad + k * bw + bw * 0.15f, base - h, bw * 0.7f, std::max(1.0f, h)};
+                    DrawRectangleRec(bar, view::SceneView::colorOf(fs));
+                    if ((k + 1) % 5 == 0 || k == 0) {
+                        char kb[8];
+                        snprintf(kb, sizeof(kb), "%d", k + 1);
+                        ui::textIn({chart.x + pad + k * bw - ui::px(6), base + ui::px(1), bw + ui::px(12), ui::px(14)}, kb,
+                                   ui::FontRole::Small, t.textFaint, ui::Align::Center);
+                    }
+                }
+                ui::anchor("series.spectrum", chart);
+                ui::tooltip(chart, "How strong each wave k is: √(a_k² + b_k²). A square wave has only odd k, falling "
+                                   "like 1/k.",
+                            "Spectrum");
+            }
+            char buf[160];
+            snprintf(buf, sizeof(buf), "a₀/2 = %.3f", se.a0 / 2);
+            note(col, buf, t.text);
+            for (int k = 1; k <= std::min(n, 4); k++) {
+                char one[64];
+                snprintf(one, sizeof(one), "a%d = %.3f    b%d = %.3f", k, std::fabs(se.ak[k - 1]) < 5e-4 ? 0.0 : se.ak[k - 1],
+                         k, std::fabs(se.bk[k - 1]) < 5e-4 ? 0.0 : se.bk[k - 1]);
+                note(col, one, t.textMuted);
+            }
+            if (fs.undefinedPoints() > 0) {
+                snprintf(buf, sizeof(buf), "f is undefined at %d sample points (counted as 0).", fs.undefinedPoints());
+                note(col, buf, t.warning);
+            }
+        }
+        if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
+            m_activeId = -1;
+            static const char* kFns[] = {
+                "2floor(x/pi) + 1",            // square wave
+                "x",                           // sawtooth
+                "abs(x)",                      // triangle
+                "abs(sin(x))",                 // rectified sine
+                "exp(-x^2)",                   // a bump
+            };
+            int n = 5;
+            m_exampleIndex = (m_exampleIndex + 1) % n;
+            fs.setField("f", kFns[m_exampleIndex]);
+            commit();
+        }
+        note(col, "The series repeats f with period b − a. Near a jump the partial sums overshoot by about 9% "
+                  "(Gibbs), however many terms.",
              t.textFaint);
     } else if (type == "frame") {
         auto& fr = static_cast<scene::FrameObject&>(o);

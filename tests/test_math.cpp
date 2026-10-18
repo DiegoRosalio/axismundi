@@ -1578,6 +1578,44 @@ void testScene() {
         (void)e;
     }
 
+    // Fourier objects: epicycles follow the clock with cached coefficients; the series of f(x)
+    {
+        Scene fsc;
+        fsc.clearAll();
+        auto* E = static_cast<EpicyclesObject*>(fsc.add(SpaceKind::Complex, "epicycles", "E"));
+        E->setField("z", "2exp(i*u) + 0.5exp(-2i*u)");
+        E->setField("N", "2");
+        E->setField("speed", "0.25");
+        fsc.evaluate();
+        CHECK(E->error().empty() && E->value().isNumber());
+        CHECK_NEAR(E->value().re, 2.5, 1e-9);  // t = 0: both circles point right
+        CHECK(E->terms().size() == 2 * EpicyclesObject::kMaxK + 1);
+        fsc.timeline().time = 1.0;  // a quarter lap: 2i + 0.5·e^{−iπ} = −0.5 + 2i
+        fsc.evaluate();
+        CHECK_NEAR(E->value().re, -0.5, 1e-9);
+        CHECK_NEAR(E->value().im, 2.0, 1e-9);
+        E->setField("N", "1");  // only the biggest circle
+        fsc.evaluate();
+        CHECK_NEAR(E->value().re, 0.0, 1e-9);
+        CHECK_NEAR(E->value().im, 2.0, 1e-9);
+        E->setField("z", "1/(cos(u) - cos(u))");  // division by zero everywhere
+        fsc.evaluate();
+        CHECK(E->error().find("undefined") != std::string::npos);
+
+        auto* S = static_cast<FourierSeriesObject*>(fsc.add(SpaceKind::Euclidean3D, "fourierseries", "S"));
+        fsc.evaluate();
+        CHECK(S->error().empty());
+        CHECK(S->series().bk.size() == 5);
+        CHECK_NEAR(S->series().bk[0], 2.0, 1e-6);  // f = x: b1 = 2
+        CHECK(!S->sum().empty() && !S->original().empty() && S->harmonics().size() == 5);
+        S->setField("N", "40");
+        fsc.evaluate();
+        CHECK(S->series().bk.size() == 40 && S->harmonics().size() == 8);  // at most 8 drawn
+        S->setField("a", "4");
+        fsc.evaluate();
+        CHECK(S->error().find("must be less than") != std::string::npos);
+    }
+
     // Moving frame: the value is the point; κ and τ of the default helix
     {
         Scene gs;

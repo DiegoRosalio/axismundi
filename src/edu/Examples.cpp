@@ -277,6 +277,26 @@ std::vector<Example> build() {
                                       {{"projections", "1"}, {"helix", "1"}});
                         app.select("theta");
                     }});
+    list.push_back({"Epicycles draw a heart", C::Complex,
+                    "Twelve spinning circles, each turning k times per lap, add up to a point that draws a heart: "
+                    "the Fourier series of the curve. Add circles to sharpen the dip.",
+                    [](App& app) {
+                        fresh(app, AppMode::Complex);
+                        app.addObject(AppMode::Complex, "epicycles", "E");
+                        app.select("E");
+                        app.restartTime(true);
+                    }});
+    list.push_back({"Epicycles draw a square", C::Complex,
+                    "Corners are hard for circles: with 8 the square is round, with 40 the corners sharpen. Change "
+                    "the number of circles while it draws.",
+                    [](App& app) {
+                        fresh(app, AppMode::Complex);
+                        app.addObject(AppMode::Complex, "epicycles", "E",
+                                      {{"z", "2(cos(u) + i*sin(u))/max(abs(cos(u)), abs(sin(u)))"}, {"N", "16"},
+                                       {"speed", "0.15"}});
+                        app.select("E");
+                        app.restartTime(true);
+                    }});
     list.push_back({"Rotate and scale", C::Complex,
                     "z₂ = 1.5 e^(i·30°) turns z₁ by 30° and stretches it 1.5 times.",
                     [](App& app) {
@@ -336,6 +356,27 @@ std::vector<Example> build() {
                                   {{"x", "3cos(u)"}, {"y", "3sin(u)"}, {"z", "sin(3u - 2t)"}, {"umin", "0"},
                                    {"umax", "2pi"}});
                         app.restartTime(true);
+                    }});
+    list.push_back({"Square wave from sines", C::Plots,
+                    "A square wave rebuilt from sine waves: S = (4/π)(sin x + sin 3x/3 + sin 5x/5 + …). Drag n to "
+                    "add terms; the spectrum in the inspector shows only odd k, falling like 1/k.",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "parameter", "n", {},
+                                      {{"value", "5"}, {"min", "1"}, {"max", "40"}, {"step", "1"}});
+                        app.addObject(AppMode::Space3D, "fourierseries", "S",
+                                      {{"f", "2floor(x/pi) + 1"}, {"N", "n"}}, {{"harmonics", "1"}});
+                        app.select("S");
+                        app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
+                    }});
+    list.push_back({"Gibbs overshoot", C::Plots,
+                    "With 60 terms the sum hugs the sawtooth everywhere except at the jumps, where it overshoots by "
+                    "about 9% however many terms you take (the Gibbs phenomenon).",
+                    [](App& app) {
+                        fresh(app, AppMode::Space3D);
+                        app.addObject(AppMode::Space3D, "fourierseries", "S", {{"f", "x"}, {"N", "60"}});
+                        app.select("S");
+                        app.setCameraView({0.0f, 9.0f, 6.0f}, {0, 0, 0});
                     }});
     list.push_back({"Frenet frame on a helix", C::Plots,
                     "T (red), N (green), B (blue) ride a helix as u0 follows the clock. A helix bends and twists "

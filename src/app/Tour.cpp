@@ -277,6 +277,16 @@ void Tour::buildSteps() {
         runExample(app, "Order matters (quaternions)");
     }, 20);
     step("16q_quaternion_slerp", [](App& app) { runExample(app, "Slerp between two rotations"); }, 70);
+    // Fourier: a square wave from sines, Gibbs, epicycles drawing a heart and a square
+    step("16fa_fourier_square", [](App& app) { runExample(app, "Square wave from sines"); }, 20);
+    step("16fb_fourier_gibbs", [](App& app) { runExample(app, "Gibbs overshoot"); }, 20);
+    step("16fc_epicycles_heart", [](App& app) { runExample(app, "Epicycles draw a heart"); }, 200);
+    step("16fd_epicycles_square", [](App& app) { runExample(app, "Epicycles draw a square"); }, 150);
+    step("16fe_epicycles_paper", [](App& app) { app.view().style = view::StyleId::Paper; }, 10);
+    step("16ff_fourier_reset", [](App& app) {
+        app.view().style = view::StyleId::Colorful;
+        app.setMode(AppMode::Space3D);
+    }, 2);
     // Curves: the Frenet frame on a helix, the comb of an ellipse, an osculating circle
     step("16x_frame_helix", [](App& app) { runExample(app, "Frenet frame on a helix"); }, 40);
     step("16y_frame_ellipse", [](App& app) { runExample(app, "Curvature of an ellipse"); }, 20);

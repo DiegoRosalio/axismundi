@@ -256,9 +256,9 @@ Color SceneView::colorOf(const SceneObject& o) {
     if (type == "vector" || type == "quaternion" || type == "frame") return paletteColor(s.vectors, o.paletteIndex);
     if (type == "eigen") return s.eigen;
     if (type == "function" || type == "curve" || type == "surface" || type == "implicit" || type == "field" ||
-        type == "doubleintegral" || type == "lineintegral")
+        type == "doubleintegral" || type == "lineintegral" || type == "fourierseries")
         return paletteColor(s.plots, o.paletteIndex);
-    if (type == "complex") return paletteColor(s.complexes, o.paletteIndex);
+    if (type == "complex" || type == "epicycles") return paletteColor(s.complexes, o.paletteIndex);
     if (type == "product") return s.product;
     return ui::theme().accent;  // matrix, parameter (list dots; matrices draw their basis colors)
 }
@@ -309,7 +309,7 @@ bool SceneView::anchorPoint(const SceneObject& o, scene::SpaceKind kind, const D
         }
         return false;
     }
-    if ((o.typeId() == "complex" || o.typeId() == "product") && v.isNumber()) {
+    if ((o.typeId() == "complex" || o.typeId() == "product" || o.typeId() == "epicycles") && v.isNumber()) {
         out = {static_cast<float>(v.re), static_cast<float>(v.im), 0.0f};
         return true;
     }
@@ -519,6 +519,10 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             arrow(mathToWorld(tail), mathToWorld(tail + v.vector), c, selected);
         } else if (type == "matrix" && v.type == expr::Type::Matrix) {
             basis(displayedMatrix(o, options), 1.0f, selected, dimmed(options, o));
+        } else if (type == "fourierseries" && o.error().empty()) {
+            bool dim = dimmed(options, o);
+            drawFourierSeries(static_cast<const scene::FourierSeriesObject&>(o), dim ? faded(colorOf(o)) : colorOf(o), dim,
+                              false, BLACK);
         } else if (type == "frame") {
             bool dim = dimmed(options, o);
             drawFrame(static_cast<const scene::FrameObject&>(o), dim ? faded(colorOf(o)) : colorOf(o), dim, false, BLACK,
@@ -590,6 +594,10 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
         float re = static_cast<float>(v.re), im = static_cast<float>(v.im);
         Vector3 tip = {re, im, 0};
         Color c = dimmed(options, o) ? faded(colorOf(o)) : colorOf(o);
+        if (o.typeId() == "epicycles") {
+            drawEpicycles(static_cast<const scene::EpicyclesObject&>(o), c, dimmed(options, o), false, BLACK, selected);
+            continue;
+        }
 
         if (o.typeId() == "product") {
             const expr::Value& a = o.field("a")->value;
@@ -827,6 +835,72 @@ void SceneView::drawFrame(const scene::FrameObject& o, Color c, bool fade, bool 
     DrawSphere(p, (selected ? 0.11f : 0.08f) * std::sqrt(k), print ? ink : (fade ? faded(c) : c));
 }
 
+void SceneView::drawEpicycles(const scene::EpicyclesObject& o, Color c, bool fade, bool print, Color ink,
+                              bool selected) {
+    const ViewStyle& st = activeStyle();
+    auto at = [](const fourier::cplx& z) { return Vector3{static_cast<float>(z.real()), static_cast<float>(z.imag()), 0}; };
+    // The target curve, faint
+    Color faint = print ? Color{200, 200, 200, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 110);
+    const auto& target = o.target();
+    for (size_t i = 0; i < target.size(); i++) DrawLine3D(at(target[i]), at(target[(i + 1) % target.size()]), faint);
+    if (!o.error().empty() || o.terms().empty()) return;
+    int count = o.circles() + 1;  // with the center term
+    double u = o.angle();
+    // The traced path: the last lap up to the tip (a function of the time, so scrubbing works)
+    Color path = print ? ink : (fade ? faded(c) : c);
+    double start = std::max(0.0, u - 2 * PI);
+    int steps = std::max(2, static_cast<int>((u - start) / 0.01));
+    fourier::cplx prev = fourier::evaluate(o.terms(), start, count);
+    for (int i = 1; i <= steps; i++) {
+        fourier::cplx next = fourier::evaluate(o.terms(), start + (u - start) * i / steps, count);
+        if (print) DrawLine3D(at(prev), at(next), path);
+        else DrawCylinderEx(at(prev), at(next), 0.02f * st.lineScale, 0.02f * st.lineScale, 5, path);
+        prev = next;
+    }
+    // The circles and their radius arms, largest first
+    auto centers = fourier::chain(o.terms(), u, count);
+    Color ring = print ? Color{150, 150, 150, 255} : withAlpha(fade ? faded(st.text) : st.text, 70);
+    Color arm = print ? Color{90, 90, 90, 255} : withAlpha(fade ? faded(st.text) : st.text, 200);
+    for (size_t i = 1; i < centers.size(); i++) {
+        double r = std::abs(o.terms()[i].c);
+        Vector3 center = at(centers[i - 1]);
+        if (r > 0.02) {
+            const int seg = 64;
+            for (int k = 0; k < seg; k++) {
+                float a0 = 2.0f * PI * k / seg, a1 = 2.0f * PI * (k + 1) / seg;
+                DrawLine3D({center.x + static_cast<float>(r) * std::cos(a0), center.y + static_cast<float>(r) * std::sin(a0), 0},
+                           {center.x + static_cast<float>(r) * std::cos(a1), center.y + static_cast<float>(r) * std::sin(a1), 0},
+                           ring);
+            }
+        }
+        DrawLine3D(center, at(centers[i]), arm);
+    }
+    Vector3 tip = at(centers.back());
+    DrawSphere(tip, (selected ? 0.1f : 0.07f) * std::sqrt(st.lineScale), print ? ink : (fade ? faded(c) : c));
+}
+
+void SceneView::drawFourierSeries(const scene::FourierSeriesObject& o, Color c, bool fade, bool print, Color ink) {
+    const ViewStyle& st = activeStyle();
+    // On the floor like y = f(x), a hair above it
+    auto at = [](double x, double y) { return mathToWorld(static_cast<float>(x), static_cast<float>(y), 0.006f); };
+    auto polyline = [&](const std::vector<std::pair<double, double>>& pts, Color col, float radius) {
+        for (size_t i = 1; i < pts.size(); i++) {
+            const auto &a = pts[i - 1], &b = pts[i];
+            if (!std::isfinite(a.second) || !std::isfinite(b.second) || std::fabs(a.second) > 100 || std::fabs(b.second) > 100)
+                continue;
+            if (radius <= 0) DrawLine3D(at(a.first, a.second), at(b.first, b.second), col);
+            else DrawCylinderEx(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
+        }
+    };
+    if (o.showHarmonics()) {
+        Color h = print ? Color{170, 170, 170, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 150);
+        for (const auto& harm : o.harmonics()) polyline(harm, h, 0.0f);
+    }
+    if (o.showOriginal()) polyline(o.original(), print ? Color{120, 120, 120, 255} : (fade ? faded(st.muted) : st.muted),
+                                   print ? 0.0f : 0.012f * st.lineScale);
+    polyline(o.sum(), print ? ink : (fade ? faded(c) : c), print ? 0.0f : 0.025f * st.lineScale);
+}
+
 void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& options) {
     const ViewSettings& view = *options.view;
     float len = view.axisLength;
@@ -870,6 +944,8 @@ void SceneView::drawEuclideanPrint(scene::Space& space, const DrawOptions& optio
                         if (cc == 0) DrawLine3D(corner(a, b, cc), corner(a, b, 1), cubeGray);
                     }
             for (int k = 0; k < 3; k++) printArrow(mathToWorld(origin), mathToWorld(origin + cols[k]), c, dash, selected);
+        } else if (type == "fourierseries" && o.error().empty()) {
+            drawFourierSeries(static_cast<const scene::FourierSeriesObject&>(o), c, false, true, c);
         } else if (type == "frame") {
             drawFrame(static_cast<const scene::FrameObject&>(o), c, false, true, c, false);
         } else if (type == "doubleintegral" && o.error().empty()) {
@@ -915,6 +991,10 @@ void SceneView::drawComplexPrint(scene::Space& space, const DrawOptions& options
         if (!shown(options, o) || !o.value().isNumber()) continue;
         int style = printStyleOf(o.id());
         Color c = grayOf(style);
+        if (o.typeId() == "epicycles") {
+            drawEpicycles(static_cast<const scene::EpicyclesObject&>(o), c, false, true, c, false);
+            continue;
+        }
         const expr::Value& v = o.value();
         float re = static_cast<float>(v.re), im = static_cast<float>(v.type == expr::Type::Complex ? v.im : 0.0);
         if (o.typeId() == "product" && o.propBool("angles", true)) {

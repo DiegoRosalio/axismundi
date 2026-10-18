@@ -129,6 +129,9 @@ protected:
     virtual bool cachesValue() const { return false; }
     // Other objects' values, available while computeValue runs (nullptr otherwise)
     const expr::Resolver* evaluationResolver() const { return m_resolver; }
+    // While computeValue runs: did a field, property or input change (false when only the scene time moved
+    // for an object that follows the clock without formulas of t)
+    bool inputsChangedNow() const { return m_inputsChanged; }
     virtual std::unique_ptr<SceneObject> makeEmpty() const = 0;
 
 private:
@@ -147,6 +150,7 @@ private:
     double m_evaluatedTime = -1.0;  // time of the last evaluation (fields using t change with it)
     const expr::Resolver* m_resolver = nullptr;  // during computeValue
     bool m_computed = false;                     // computeValue ran at least once (cachesValue)
+    bool m_inputsChanged = true;                 // see inputsChangedNow()
 };
 
 // Does a value satisfy an expectation? Returns "" or an error message.

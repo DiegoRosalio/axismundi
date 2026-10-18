@@ -125,7 +125,7 @@ float TimePanel::drawContent(Rectangle area, scene::Scene& sc, scene::SpaceKind 
                     what = f.label + " " + f.text;
                     break;
                 }
-            if (what.empty()) what = "particles move with the clock";
+            if (what.empty()) what = o->typeId() == "field" ? "particles move with the clock" : "moves with the clock";
         }
         bool ok = o->error().empty();
         ui::textIn(inner, ui::ellipsize(what.c_str(), ui::FontRole::Small, inner.width).c_str(), ui::FontRole::Small,
