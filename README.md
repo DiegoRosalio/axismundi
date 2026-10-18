@@ -215,6 +215,7 @@ Shortcuts are ignored while a text field is being edited.
 ├── Makefile
 ├── assets/fonts/             # subset Inter and JetBrains Mono (SIL OFL) + licenses
 ├── docs/architecture.md      # how the pieces fit together, where to add things
+├── docs/learn/               # a guide to the code for C++ beginners (chapters with exercises)
 ├── docs/screenshots/         # images used by the docs (made with --tour)
 ├── include/raygui.h          # raygui (single header)
 ├── tests/                    # unit tests: main.cpp (runner), TestSupport.hpp (CHECK), one file per topic
@@ -240,7 +241,8 @@ Shortcuts are ignored while a text field is being edited.
 ```
 
 `src/math`, `src/scene`, `src/animation`, `src/export` and `src/text` have no raylib dependency, which keeps
-them unit-testable. See [docs/architecture.md](docs/architecture.md) for how they fit together.
+them unit-testable. See [docs/architecture.md](docs/architecture.md) for how they fit together, and
+[docs/learn/](docs/learn/README.md) for a guided tour of the code written for C++ beginners.
 
 ## Development
 

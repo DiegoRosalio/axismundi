@@ -1,7 +1,8 @@
 # Architecture
 
 How axismundi fits together: what happens each frame, where the data lives, and where to add things.
-The folder-by-folder map is in [CLAUDE.md](../CLAUDE.md#architecture).
+The folder-by-folder map is in [CLAUDE.md](../CLAUDE.md#architecture). New to the code (or to C++)? Start with
+the guide in [learn/](learn/README.md).
 
 ## Layers
 
