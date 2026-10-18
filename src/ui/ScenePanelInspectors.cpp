@@ -43,6 +43,18 @@ void ScenePanel::rangeRow(InspectorContext& c, const char* lo, const char* hi, c
                ui::Align::Center);
 }
 
+// An on/off switch bound to a property of the object (one undo step per change); returns the new value
+bool ScenePanel::toggleProp(InspectorContext& c, const char* text, const char* key, bool current, const char* tip) {
+    Rectangle r = c.col.row(30);
+    bool v = current;
+    if (ui::toggleRow(r, text, v)) {
+        c.o.setProp(key, v);
+        c.sc.commit();
+    }
+    ui::tooltip(r, tip, text);
+    return v;
+}
+
 void ScenePanel::inspectVector(InspectorContext& c) {
     [[maybe_unused]] ui::Column& col = c.col;
     [[maybe_unused]] SceneObject& o = c.o;
@@ -367,19 +379,10 @@ void ScenePanel::inspectFourierSeries(InspectorContext& c) {
     rangeRow(c, "a", "b", "x");
     col.setY(fieldRow(col.x(), col.y(), col.width(), fs, "N", sc, 52.0f));
     ui::anchor("series.N", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
-    auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
-        Rectangle tr = col.row(30);
-        bool v = current;
-        if (ui::toggleRow(tr, text, v)) {
-            fs.setProp(key, v);
-            commit();
-        }
-        ui::tooltip(tr, tip, text);
-    };
-    toggleProp("Show f", "original", fs.showOriginal(), "Draw f itself (gray) next to the partial sum.");
-    toggleProp("Harmonics", "harmonics", fs.showHarmonics(), "Draw the separate waves a_k cos + b_k sin (the first 8).");
+    toggleProp(c, "Show f", "original", fs.showOriginal(), "Draw f itself (gray) next to the partial sum.");
+    toggleProp(c, "Harmonics", "harmonics", fs.showHarmonics(), "Draw the separate waves a_k cos + b_k sin (the first 8).");
     ui::anchor("series.harmonics", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
-    toggleProp("Repeat outside", "extend", fs.extended(),
+    toggleProp(c, "Repeat outside", "extend", fs.extended(),
                "Draw the sum over three periods: the series repeats f with period b − a.");
     if (fs.error().empty()) {
         // Spectrum: the amplitude √(a_k² + b_k²) of each wave
@@ -459,23 +462,14 @@ void ScenePanel::inspectFrame(InspectorContext& c) {
     rangeRow(c, "umin", "umax", "u");
     col.setY(fieldRow(col.x(), col.y(), col.width(), fr, "u0", sc, 64.0f));
     ui::anchor("frame.u0", {col.x(), col.y() - ui::px(40), col.width(), ui::px(34)});
-    auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
-        Rectangle tr = col.row(30);
-        bool v = current;
-        if (ui::toggleRow(tr, text, v)) {
-            fr.setProp(key, v);
-            commit();
-        }
-        ui::tooltip(tr, tip, text);
-    };
-    toggleProp("Frame T, N, B", "frame", fr.showFrame(),
+    toggleProp(c, "Frame T, N, B", "frame", fr.showFrame(),
                "Tangent T (direction of motion), normal N (towards the center of the turn), binormal B = T × N.");
-    toggleProp("Osculating circle", "circle", fr.showCircle(),
+    toggleProp(c, "Osculating circle", "circle", fr.showCircle(),
                "The circle that hugs the curve best at the point: radius 1/κ, in the plane of T and N.");
-    toggleProp("Curvature comb", "comb", fr.showComb(),
+    toggleProp(c, "Curvature comb", "comb", fr.showComb(),
                "Teeth along the curve, as long as the curvature there: where it bends most, they are longest.");
     ui::anchor("frame.comb", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
-    toggleProp("Curve", "curve", fr.showCurve(), "Draw the curve itself.");
+    toggleProp(c, "Curve", "curve", fr.showCurve(), "Draw the curve itself.");
     if (fr.error().empty()) {
         const geometry::Frame& f = fr.frame();
         char buf[160];
@@ -598,21 +592,11 @@ void ScenePanel::inspectQuaternion(InspectorContext& c) {
     } else if (qo.error().empty() && qo.value().type == expr::Type::Quaternion) {
         note(col, "The zero quaternion is not a rotation.", t.warning);
     }
-    auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
-        Rectangle tr = col.row(30);
-        bool v = current;
-        if (ui::toggleRow(tr, text, v)) {
-            qo.setProp(key, v);
-            commit();
-        }
-        ui::tooltip(tr, tip, text);
-        return v;
-    };
-    toggleProp("Axis and angle", "axis", qo.showAxis(),
+    toggleProp(c, "Axis and angle", "axis", qo.showAxis(),
                "The rotation axis through the origin, and an arc showing how far it turns (right-hand rule).");
-    toggleProp("Rotated basis", "basis", qo.showBasis(),
+    toggleProp(c, "Rotated basis", "basis", qo.showBasis(),
                "Where the rotation sends the x, y and z axes (the faint ones are the originals).");
-    bool acts = toggleProp("Acts on a vector", "act", qo.actsOnVector(),
+    bool acts = toggleProp(c, "Acts on a vector", "act", qo.actsOnVector(),
                            "Shows a vector v (gray) and the turned vector q v q⁻¹, with the circle its tip follows.");
     ui::anchor("quaternion.act", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
     if (acts) col.setY(fieldRow(col.x(), col.y(), col.width(), qo, "v", sc, 64.0f));
@@ -688,24 +672,14 @@ void ScenePanel::inspectField(InspectorContext& c) {
     std::string counts = std::string(cbuf) + (cn.capped ? " (capped for speed)" : "");
     note(col, counts, cn.capped ? t.warning : t.textFaint);
 
-    auto toggleProp = [&](const char* text, const char* key, bool current, const char* tip) {
-        Rectangle r = col.row(30);
-        bool v = current;
-        if (ui::toggleRow(r, text, v)) {
-            fo.setProp(key, v);
-            commit();
-        }
-        ui::tooltip(r, tip, text);
-        return v;
-    };
-    toggleProp("Color by strength", "heatmap", fo.heatmap(),
+    toggleProp(c, "Color by strength", "heatmap", fo.heatmap(),
                "Arrows colored by |F| with the heat map (blue weak, red strong); off: the object's color.");
-    toggleProp("Same length", "same_length", fo.sameLength(),
+    toggleProp(c, "Same length", "same_length", fo.sameLength(),
                "All arrows one length: only the direction shows (a direction field). The color still shows |F|.");
-    bool lines = toggleProp("Flow lines", "lines", fo.lines(),
+    bool lines = toggleProp(c, "Flow lines", "lines", fo.lines(),
                             "Curves that follow F everywhere (streamlines), with an arrowhead showing the way.");
     ui::anchor("field.lines", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
-    bool particles = toggleProp("Particles", "particles", fo.particles(),
+    bool particles = toggleProp(c, "Particles", "particles", fo.particles(),
                                 "Dots drifting along the flow lines as the scene clock plays (press P).");
     ui::anchor("field.particles", {col.x(), col.y() - ui::px(34), col.width(), ui::px(30)});
     if (lines || particles) {

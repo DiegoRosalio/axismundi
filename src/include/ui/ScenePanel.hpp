@@ -85,6 +85,7 @@ private:
         const view::SceneView& view;
     };
     void rangeRow(InspectorContext& c, const char* lo, const char* hi, const char* label);
+    bool toggleProp(InspectorContext& c, const char* text, const char* key, bool current, const char* tip);
     void inspectVector(InspectorContext& c);
     void inspectMatrix(InspectorContext& c);
     void inspectEigen(InspectorContext& c);
