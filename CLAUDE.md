@@ -339,7 +339,8 @@ overload; before it, a literal picked the bool overload).
 
 ## Git workflow
 
-- Work on branch **`claude`** (tracks `origin/claude`, remote `git@gitbro:axismundi.git`).
+- Work on branch **`feature/gtkui`** (the GTK4 port, see `docs/gtk-port.md`; remote `git@gitbro:axismundi.git`).
+  `main` holds releases; the old `claude` branch was merged for v0.1.0 and deleted.
 - Commit in logical groups and **push every commit**. **Never open pull requests unless the
   user explicitly asks.**
 - No git identity is configured on this machine. Commit with
@@ -350,8 +351,8 @@ overload; before it, a literal picked the bool overload).
 ## Releases
 
 Semantic versions (`vMAJOR.MINOR.PATCH`). To release: bump `kVersion` in `src/include/app/Version.hpp` (shown by
-`--version` and the keyboard help) and `pkgver` in `packaging/arch/PKGBUILD` + `.SRCINFO` on `claude`, merge
-`claude` into `main` with `git merge --no-ff`, put an annotated tag `vX.Y.Z` on the merge commit, push `main` and
+`--version` and the keyboard help) and `pkgver` in `packaging/arch/PKGBUILD` + `.SRCINFO` on the work branch, merge
+it into `main` with `git merge --no-ff`, put an annotated tag `vX.Y.Z` on the merge commit, push `main` and
 the tag. The PKGBUILD's `pkgver()` derives the package version from the latest tag.
 
 ## Performance notes
