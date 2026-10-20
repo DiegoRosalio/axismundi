@@ -1,5 +1,6 @@
 #include "gtk/SceneArea.hpp"
 #include "gtk/SceneRenderer.hpp"
+#include <epoxy/gl.h>
 #include <gdkmm/frameclock.h>
 #include <algorithm>
 #include <cmath>
@@ -9,6 +10,7 @@ namespace linalg::gtk {
 
 namespace {
 constexpr double kDragThreshold = 4.0;  // pixels before a press becomes a drag, as in the raylib app
+constexpr int kSamples = 4;
 }
 
 SceneArea::SceneArea(scene::Scene& scene) : m_renderer(std::make_unique<SceneRenderer>(scene)) {
@@ -62,7 +64,10 @@ void SceneArea::on_realize() {
 
 void SceneArea::on_unrealize() {
     make_current();
-    if (!has_error()) m_renderer->stop();
+    if (!has_error()) {
+        m_renderer->stop();
+        releaseMultisample();
+    }
     Gtk::GLArea::on_unrealize();
 }
 
@@ -75,10 +80,56 @@ bool SceneArea::on_render(const Glib::RefPtr<Gdk::GLContext>&) {
         m_lastFrameTime = now;
     }
     int scale = get_scale_factor();
-    m_renderer->render(get_width() * scale, get_height() * scale, dt);
+    int w = get_width() * scale, h = get_height() * scale;
+    GLint target = 0;  // the GLArea's framebuffer, bound by GTK before this call
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &target);
+    bool multisample = prepareMultisample(w, h);
+    if (multisample) glBindFramebuffer(GL_FRAMEBUFFER, m_msFramebuffer);
+    m_renderer->render(w, h, dt);
+    if (multisample) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_msFramebuffer);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(target));
+        glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target));
+    }
     m_dirty = false;
     m_frames++;
     return true;
+}
+
+bool SceneArea::prepareMultisample(int width, int height) {
+    if (m_msFailed || width <= 0 || height <= 0) return false;
+    if (m_msFramebuffer && width == m_msWidth && height == m_msHeight) return true;
+    releaseMultisample();
+    glGenFramebuffers(1, &m_msFramebuffer);
+    glGenRenderbuffers(1, &m_msColor);
+    glGenRenderbuffers(1, &m_msDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_msColor);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, kSamples, GL_RGBA8, width, height);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_msDepth);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, kSamples, GL_DEPTH24_STENCIL8, width, height);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_msFramebuffer);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, m_msColor);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_msDepth);
+    bool ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    if (!ok) {
+        // Draw straight into the GLArea's framebuffer from now on (no antialiasing)
+        std::cerr << "axismundi: no multisampled framebuffer, drawing without antialiasing\n";
+        releaseMultisample();
+        m_msFailed = true;
+        return false;
+    }
+    m_msWidth = width;
+    m_msHeight = height;
+    return true;
+}
+
+void SceneArea::releaseMultisample() {
+    if (m_msFramebuffer) glDeleteFramebuffers(1, &m_msFramebuffer);
+    if (m_msColor) glDeleteRenderbuffers(1, &m_msColor);
+    if (m_msDepth) glDeleteRenderbuffers(1, &m_msDepth);
+    m_msFramebuffer = m_msColor = m_msDepth = 0;
+    m_msWidth = m_msHeight = 0;
 }
 
 void SceneArea::onDragBegin(double, double) {

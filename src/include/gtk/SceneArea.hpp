@@ -40,6 +40,14 @@ private:
     void onDragUpdate(double offsetX, double offsetY);
     bool onScroll(double dx, double dy);
 
+    // The scene is drawn into a multisampled framebuffer (4× MSAA, like the raylib app's window) and then copied
+    // into the GLArea's own, which has no antialiasing
+    bool prepareMultisample(int width, int height);
+    void releaseMultisample();
+    unsigned m_msFramebuffer = 0, m_msColor = 0, m_msDepth = 0;
+    int m_msWidth = 0, m_msHeight = 0;
+    bool m_msFailed = false;
+
     std::unique_ptr<SceneRenderer> m_renderer;
     Glib::RefPtr<Gtk::GestureDrag> m_drag;
     Glib::RefPtr<Gtk::EventControllerScroll> m_scroll;

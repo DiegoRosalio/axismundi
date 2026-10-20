@@ -22,13 +22,14 @@ DEPS := $(OBJS:.o=.d)
 TARGET   := $(BIN_DIR)/linalg_viz
 
 # The GTK4 front end (docs/gtk-port.md): src/gtk plus the shared core (everything but the raylib UI: app/, edu/,
-# the panels in ui/; ui/core still draws the 3D labels for now). Needs gtkmm-4.0 and libadwaita-1 (pkg-config).
+# the panels in ui/; ui/core still draws the 3D labels for now). Needs gtkmm-4.0, libadwaita-1 and epoxy
+# (pkg-config; epoxy comes with GTK).
 GTK_TARGET := $(BIN_DIR)/axismundi-gtk
 GTK_SRCS != find $(SRC_DIR)/gtk -type f -name '*.cpp' 2>/dev/null
 GTK_CORE := $(filter-out $(SRC_DIR)/main.cpp $(SRC_DIR)/app/% $(SRC_DIR)/edu/% $(SRC_DIR)/ui/%,$(SRCS)) \
             $(addprefix $(SRC_DIR)/ui/, SceneIO.cpp RayguiImpl.cpp core/Ui.cpp core/Theme.cpp core/Icons.cpp)
 GTK_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(GTK_CORE) $(GTK_SRCS))
-GTK_PKGS := gtkmm-4.0 libadwaita-1
+GTK_PKGS := gtkmm-4.0 libadwaita-1 epoxy
 # Lazy (=): pkg-config runs only when the GTK app is built; -isystem keeps the library headers' warnings out
 GTK_CFLAGS = $(patsubst -I%,-isystem %,$(shell pkg-config --cflags $(GTK_PKGS)))
 GTK_LIBS = $(shell pkg-config --libs $(GTK_PKGS))
