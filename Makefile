@@ -1,7 +1,8 @@
 # ==============================================================================
 # Compiler & Flags
 # ==============================================================================
-CXX      := clang++
+# clang++ when installed (the compiler this project is checked with), otherwise g++
+CXX      := $(shell command -v clang++ >/dev/null 2>&1 && echo clang++ || echo g++)
 CXXFLAGS := -Wall -Wextra -Wshadow -O2 -std=c++20
 INCLUDES := -Isrc/include -Iinclude
 LDFLAGS  :=
@@ -92,20 +93,35 @@ icon:
 	@python3 tools/icon.py
 
 APP_ID := com.bisonanon.axismundi
-PREFIX ?= $(HOME)/.local
+# ~/.local for a normal user; /usr/local when run as root (sudo), not root's own home
+PREFIX ?= $(if $(filter 0,$(shell id -u)),/usr/local,$(HOME)/.local)
+ICONS  := $(DESTDIR)$(PREFIX)/share/icons/hicolor
 
-## install the app, its desktop file and icons under PREFIX (default ~/.local)
+# An icon cache only lists the icons present when it was made, so refresh one that exists (never create one
+# in a user's folder); touching the folder makes GTK look again
+define refresh_icons
+	@touch $(ICONS)
+	@if [ -f $(ICONS)/icon-theme.cache ] && command -v gtk-update-icon-cache >/dev/null; then \
+	  gtk-update-icon-cache -q -f -t $(ICONS); fi
+endef
+
+## install the app, its desktop file and icons under PREFIX (~/.local, or /usr/local with sudo)
 install: build
 	install -Dm755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/axismundi
-	install -Dm644 data/$(APP_ID).desktop $(DESTDIR)$(PREFIX)/share/applications/$(APP_ID).desktop
-	cd data/icons && find hicolor -type f -exec install -Dm644 {} $(DESTDIR)$(PREFIX)/share/icons/{} \;
-	@command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t $(DESTDIR)$(PREFIX)/share/icons/hicolor || true
+	@# The desktop entry names the program by its full path: GNOME's PATH often lacks ~/.local/bin
+	install -d $(DESTDIR)$(PREFIX)/share/applications
+	sed -e 's|^Exec=.*|Exec=$(PREFIX)/bin/axismundi|' -e 's|^TryExec=.*||' data/$(APP_ID).desktop \
+	  > $(DESTDIR)$(PREFIX)/share/applications/$(APP_ID).desktop
+	cd data/icons && find hicolor -type f -exec install -Dm644 {} $(ICONS)/../{} \;
+	$(refresh_icons)
 	@command -v update-desktop-database >/dev/null && update-desktop-database -q $(DESTDIR)$(PREFIX)/share/applications || true
+	@echo "installed under $(PREFIX): look for axismundi in the app grid (log out and in if it doesn't show)"
 
 ## remove what install put under PREFIX
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/axismundi $(DESTDIR)$(PREFIX)/share/applications/$(APP_ID).desktop
-	cd data/icons && find hicolor -type f -exec rm -f $(DESTDIR)$(PREFIX)/share/icons/{} \;
+	cd data/icons && find hicolor -type f -exec rm -f $(ICONS)/../{} \;
+	$(refresh_icons)
 
 ## build and run the math unit tests
 test: $(TEST_TARGET)

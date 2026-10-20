@@ -165,8 +165,12 @@ make build
 ```bash
 make install            # into ~/.local: the app as `axismundi`, a desktop entry and the icons
 make uninstall          # removes them again
-make install PREFIX=/usr/local   # system-wide (run with sudo)
+
+make build && sudo make install   # system-wide, into /usr/local (build as yourself first)
 ```
+
+The build uses `clang++` when it's installed (the compiler the project is tested with) and `g++` otherwise; on
+Arch, `sudo pacman -S clang raylib` gives you both dependencies.
 
 After installing, axismundi appears in the GNOME (or other freedesktop) app grid with its icon. The desktop
 entry and the icons (a scalable SVG, PNG sizes and a one-color symbolic icon) are in `data/`, named after the
