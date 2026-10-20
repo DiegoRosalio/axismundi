@@ -285,6 +285,10 @@ them unit-testable. See [docs/architecture.md](docs/architecture.md) for how the
   PNG per step into `DIR` and exits. It is used to check the UI at different sizes, also headlessly with
   `xvfb-run`.
 
+- `make gtk` builds `bin/axismundi-gtk`, a GTK4 + libadwaita front end in progress (it needs `gtkmm-4.0` and
+  `libadwaita`, on Arch `sudo pacman -S --needed gtkmm-4.0 libadwaita`). So far it shows the 3D view with the
+  camera and the space switch; the plan and progress are in [docs/gtk-port.md](docs/gtk-port.md).
+
 Open work is listed in [TODO.md](TODO.md) and finished features in [FEATURES.md](FEATURES.md). Helper
 scripts for building raylib 5.5, headless screenshot tours, warning checks, tutorial checks and LaTeX compile
 checks are in `tools/dev/` (see CLAUDE.md, "Development process").

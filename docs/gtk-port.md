@@ -31,8 +31,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 | Run | Content | State |
 |-----|---------|-------|
 | 0 | dependencies installed | done |
-| 1 | skeleton (`make gtk`, Adw window, screenshot mode) + spike: the scene drawn by rlgl in a GLArea, orbit/pan/zoom (⛔ if rlgl can't run in GTK) | in progress |
-| 2 | `gfx::Canvas3D` + RaylibCanvas; labels as a list; the raylib tour pixel-identical | |
+| 1 | skeleton (`make gtk`, Adw window, screenshot mode) + spike: the scene drawn by rlgl in a GLArea, orbit/pan/zoom (⛔ if rlgl can't run in GTK) | done |
+| 2 | `gfx::Canvas3D` + RaylibCanvas; labels as a list; the raylib tour pixel-identical | next |
 | 3 | `Session` + `AppApi` shared by both front ends; edu/ and the tour on AppApi | |
 | 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | |
 | 5 | GTK inspectors I: framework + basic types | |
@@ -46,3 +46,44 @@ Each run ends with pushed commits that build without warnings and pass the tests
 ## Log
 
 (Newest last: per run, the commits, what was checked, open problems.)
+
+### Run 1: skeleton + spike (2026-10-20), done
+
+**Result: rlgl runs inside GTK's GL context**, so the 3D drawing code stays (the ⛔ stop wasn't needed).
+
+**What exists:**
+- `make gtk` → `bin/axismundi-gtk`: an AdwApplicationWindow with a header bar (the 3D space / complex plane
+  switch, an AdwToggleGroup) over the 3D view.
+- The 3D view (`gtk/SceneArea`, a Gtk::GLArea + `gtk/SceneRenderer`, raylib only) draws the demo scene: grid
+  shader, objects, labels, axis numbers. Drag orbits, right-drag or Shift+drag pans, the wheel zooms.
+- It follows the system's dark/light setting (AdwStyleManager), or `--theme`.
+- `--tour DIR` saves 5 screenshots; SIGUSR1 saves `signal_NNN.png`.
+
+**Shared-code changes**, with the raylib app pixel-identical (all 111 tour shots; only the HUD frame-rate
+text differs):
+- `ui::setScreenSize` (and `screenWidth/Height`) for a host that isn't raylib's window. Labels and axis numbers
+  use `GetWorldToScreenEx` with that size.
+- `gpuContextReady()` (`rendering/GpuContext`) replaces `IsWindowReady()` in the GPU cleanup.
+- Fonts upload their own atlas: raylib 5.5 only uploads textures when it opened the window (its internal
+  `isGpuReady`), and otherwise falls back to a default font that doesn't exist, which crashed.
+- `ui::now` and the font-rebuild delay use a steady clock without a raylib window.
+
+**GL details found:**
+- GL functions are loaded through `eglGetProcAddress` when the current context is EGL (GTK's default, also on
+  Wayland), else `glXGetProcAddressARB`. Both were checked under Xvfb (`GDK_DISABLE=egl` forces GLX).
+- raylib's shapes texture is set to rlgl's real white texture, because GTK's contexts share texture names.
+
+**Checks:**
+- `make test` (4,408), `check.sh` ALL CLEAN (it now builds `src/gtk` with the GTK flags and `-Wshadow`).
+- `tour-gtk.sh` at 800×600, 1280×800, 1600×900 dark.
+- `input-test-gtk.sh`: drag, right-drag, wheel and the space switch with real X11 events, 0 problems.
+
+**Open problems (for later runs):**
+- No antialiasing yet: GtkGLArea has no MSAA, so edges are jagged compared with the raylib app (4× MSAA).
+  Plan: draw into a multisampled framebuffer and blit it into the GLArea's (run 2, with Canvas3D).
+- The demo scene is fixed. No objects list, inspector or files yet (runs 4–5).
+- A click on the view doesn't pick yet (run 4).
+- The grid and label code is duplicated from App (`SceneRenderer::drawGrid/drawLabels`); it moves into the
+  shared Session in run 3.
+- Not tried on a real desktop: Wayland, HiDPI (the view renders at device pixels, so labels follow the scale
+  automatically), touchpad gestures.

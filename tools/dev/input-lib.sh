@@ -8,6 +8,8 @@ DEV=${DEV:-${AXISMUNDI_DEV:-$HOME/.cache/axismundi-dev}}
 BIN=${BIN:-$DEV/build/linalg_viz}
 OUT=${OUT:-$DEV/input}
 export DISPLAY=${INPUT_DISPLAY:-:77}
+# The GTK app (BIN=.../axismundi-gtk): X11, no accessibility bus (there is no session bus here)
+export GDK_BACKEND=x11 GTK_A11Y=none NO_AT_BRIDGE=1
 
 input_start() {  # fresh preferences and working folder, app at 1600x900
     mkdir -p "$OUT"; rm -rf "$OUT/cfg" "$OUT/run" "$OUT"/*.png; mkdir -p "$OUT/cfg" "$OUT/run"
@@ -18,7 +20,7 @@ input_start() {  # fresh preferences and working folder, app at 1600x900
     for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
         W=$(xdotool search --name axismundi 2>/dev/null | head -1); [ -n "$W" ] && break; sleep 0.5; done
     sleep 1
-    APP=$(pgrep -n linalg_viz)
+    APP=$(pgrep -n "$(basename "$BIN" | cut -c1-15)")  # BusyBox pgrep: the process name, 15 chars at most
     [ -n "$W" ] || { echo "app window not found"; return 1; }
 }
 input_stop() { kill "$APP" 2>/dev/null; pkill Xvfb 2>/dev/null; true; }

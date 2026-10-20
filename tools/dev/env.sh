@@ -5,4 +5,5 @@ REPO=$(cd "$(dirname "$0")/../.." && pwd)
 DEV=${AXISMUNDI_DEV:-$HOME/.cache/axismundi-dev}
 RAYLIB=$DEV/raylib
 BIN=$DEV/build/linalg_viz
+GTK_BIN=$DEV/build/axismundi-gtk
 mkdir -p "$DEV"

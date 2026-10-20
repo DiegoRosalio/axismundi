@@ -15,10 +15,23 @@ DEPFLAGS := -MMD -MP
 BIN_DIR  := bin
 SRC_DIR  := src
 TEST_DIR := tests
-SRCS != find $(SRC_DIR) -type f -name '*.cpp'
+# Everything but the GTK front end (src/gtk, built by `make gtk`)
+SRCS != find $(SRC_DIR) -type f -name '*.cpp' -not -path '$(SRC_DIR)/gtk/*'
 OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(SRCS))
 DEPS := $(OBJS:.o=.d)
 TARGET   := $(BIN_DIR)/linalg_viz
+
+# The GTK4 front end (docs/gtk-port.md): src/gtk plus the shared core (everything but the raylib UI: app/, edu/,
+# the panels in ui/; ui/core still draws the 3D labels for now). Needs gtkmm-4.0 and libadwaita-1 (pkg-config).
+GTK_TARGET := $(BIN_DIR)/axismundi-gtk
+GTK_SRCS != find $(SRC_DIR)/gtk -type f -name '*.cpp' 2>/dev/null
+GTK_CORE := $(filter-out $(SRC_DIR)/main.cpp $(SRC_DIR)/app/% $(SRC_DIR)/edu/% $(SRC_DIR)/ui/%,$(SRCS)) \
+            $(addprefix $(SRC_DIR)/ui/, SceneIO.cpp RayguiImpl.cpp core/Ui.cpp core/Theme.cpp core/Icons.cpp)
+GTK_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(GTK_CORE) $(GTK_SRCS))
+GTK_PKGS := gtkmm-4.0 libadwaita-1
+# Lazy (=): pkg-config runs only when the GTK app is built; -isystem keeps the library headers' warnings out
+GTK_CFLAGS = $(patsubst -I%,-isystem %,$(shell pkg-config --cflags $(GTK_PKGS)))
+GTK_LIBS = $(shell pkg-config --libs $(GTK_PKGS))
 
 # Math library + unit tests (no raylib needed)
 MATH_SRCS != find $(SRC_DIR)/math $(SRC_DIR)/animation $(SRC_DIR)/scene $(SRC_DIR)/export $(SRC_DIR)/text -type f -name '*.cpp'; echo $(SRC_DIR)/ui/SceneIO.cpp
@@ -27,7 +40,7 @@ TEST_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(MATH_SRCS)) \
              $(patsubst $(TEST_DIR)/%.cpp, $(BIN_DIR)/tests/%.o, $(TEST_SRCS))
 TEST_TARGET := $(BIN_DIR)/run_tests
 
-.PHONY: default build run clean help test fonts icon install uninstall
+.PHONY: default build run clean help test fonts icon install uninstall gtk run-gtk
 default: run
 
 list:
@@ -77,6 +90,23 @@ build: $(TARGET)
 $(TARGET): $(OBJS) | $(BIN_DIR)
 	@echo "linking: $@"
 	@$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $@
+
+## build the GTK4 front end (bin/axismundi-gtk; work in progress, see docs/gtk-port.md)
+gtk: $(GTK_TARGET)
+
+## run the GTK4 front end
+run-gtk: gtk
+	@$(GTK_TARGET)
+
+$(GTK_TARGET): $(GTK_OBJS) | $(BIN_DIR)
+	@echo "linking: $@"
+	@$(CXX) $(GTK_OBJS) $(LDFLAGS) $(GTK_LIBS) $(LDLIBS) -o $@
+
+# GTK sources need the GTK headers
+$(BIN_DIR)/gtk/%.o: $(SRC_DIR)/gtk/%.cpp | $(BIN_DIR)
+	@echo "compiling: $<"
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) $(GTK_CFLAGS) -c $< -o $@
 
 # compile files
 $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BIN_DIR)
@@ -146,4 +176,4 @@ $(BIN_DIR)/tests/%.o: $(TEST_DIR)/%.cpp | $(BIN_DIR)
 $(BIN_DIR):
 	@mkdir -p $@
 
--include $(DEPS) $(TEST_OBJS:.o=.d)
+-include $(DEPS) $(TEST_OBJS:.o=.d) $(GTK_OBJS:.o=.d)

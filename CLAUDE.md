@@ -31,6 +31,10 @@ list, then Medium/Low priority, code quality, research, known issues). Done work
    - input handling (clicks, typing, editors, dialogs): `tools/dev/input-test.sh` drives the real app with
      xdotool under Xvfb and saves a PNG per step to `$DEV/input` (helpers in `tools/dev/input-lib.sh`,
      which can also be sourced by hand to explore).
+   - the GTK front end (`src/gtk`, docs/gtk-port.md): `tools/dev/build-gtk.sh`, `tools/dev/tour-gtk.sh WxH [name]
+     [--theme dark]` (PNGs in `$DEV/shots-gtk`), `tools/dev/input-test-gtk.sh` (0 problems expected). Changes to
+     the shared 3D code must leave the raylib tour pixel-identical (compare against a build of the previous
+     commit; only the HUD's frame-rate text may differ).
 4. **Keep the docs in step** with each feature: README, UI_GUIDE, QUICKSTART, this file, gallery/tutorial
    when user-facing, a formula-reference entry for new formula functions. Move finished TODO items to
    `FEATURES.md` (never delete open TODO items).
@@ -46,11 +50,13 @@ make build   # bin/linalg_viz (needs raylib 5.5 dev headers)
 make run
 make test    # bin/run_tests: math, expression engine, scene, animation, explanations (no raylib)
 make fonts   # regenerate src/ui/generated/fonts.inc from assets/fonts
+make gtk     # bin/axismundi-gtk, the GTK4 front end in progress (also needs gtkmm-4.0, libadwaita-1)
 ```
 
 - Compiler: `clang++ -Wall -Wextra -Wshadow -O2 -std=c++20`. Keep the build **warning-free**
   (multi-line string literals inside arrays need parentheses for -Wstring-concatenation).
-- `SRCS` globs every `src/**/*.cpp`; the test target builds `src/math/**`, `src/text/*`, `src/animation/*`,
+- `SRCS` globs every `src/**/*.cpp` except `src/gtk`; `GTK_CORE` is the shared core for the GTK binary (no
+  `app/`, `edu/`, UI panels; `ui/core` Ui/Theme/Icons still draw the 3D labels), compiled once for both. The test target builds `src/math/**`, `src/text/*`, `src/animation/*`,
   `src/scene/*`, `src/export/*`, `src/ui/SceneIO.cpp` and `tests/*`.
 - **raylib 5.5 is required**: the bundled raygui 5.1-dev calls `TextToFloat` (new in 5.5), and the UI
   uses `DrawRectangleRoundedLinesEx` and `ToggleBorderlessWindowed`. Alpine's `raylib-dev` is 5.0: too old.
@@ -131,9 +137,17 @@ src/
                       ~16 px, outline when selected; drawArrow clamps given sizes in pixels; pixelsAt(point, px) from
                       setScreenScale, set each frame from DrawOptions.cameraPosition/worldPerPixel), PlotRenderer (GPU meshes from expressions + resolver),
                       FieldRenderer (vector field arrows/lines/particles), MeshBuilder (MeshData, tubes, cones,
-                      MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
+                      MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up),
+                      GpuContext (`gpuContextReady()`: raylib's window or the GTK GL area is alive, so GPU memory
+                      can be freed)
+  gtk/                the GTK4 + libadwaita front end in progress (docs/gtk-port.md; gtkmm, libadwaita's C API):
+                      main.cpp (options, Gtk::Application + adw_init), MainWindow (AdwApplicationWindow, header bar
+                      with the space switch), SceneArea (Gtk::GLArea: GL context, gestures → camera), SceneRenderer
+                      (raylib only: rlgl started in GTK's context with an EGL/GLX loader, then grid, SceneView,
+                      labels like App), Tour (--tour), Capture (widget → PNG, also on SIGUSR1)
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
-                      latch), TextEditor (wrapping multi-line editor), Theme, Layout, Icons,
+                      latch; `setScreenSize` for a host that isn't raylib's window; the fonts upload their atlas
+                      themselves, since raylib skips it without its own window), TextEditor (wrapping multi-line editor), Theme, Layout, Icons,
                       FloatingPanel + PanelManager
   ui/                 ScenePanel (objects list + inspector; ScenePanelInspectors.cpp has one inspect<Type>
                       method per object type, with rangeRow/toggleProp helpers), AddMenu (types + templates from the
