@@ -17,7 +17,7 @@ pkgbase = axismundi-git
 	optdepends = texlive-latexextra: the standalone class for exported figures
 	provides = axismundi
 	conflicts = axismundi
-	source = axismundi::git+file:///path/to/axismundi#branch=claude
+	source = axismundi::git+file:///path/to/axismundi#branch=main
 	sha256sums = SKIP
 
 pkgname = axismundi-git

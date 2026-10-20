@@ -21,7 +21,7 @@ optdepends=('texlive-basic: compile LaTeX figure exports to PDF from the app'
 provides=("$_name")
 conflicts=("$_name")
 _repo="${_repo:-$(cd "$startdir/../.." 2>/dev/null && pwd)}"
-_branch="${_branch:-claude}"
+_branch="${_branch:-main}"
 source=("$_name::git+file://$_repo#branch=$_branch")
 sha256sums=('SKIP')
 

@@ -157,7 +157,7 @@ data/                 desktop integration, app ID com.bisonanon.axismundi: the .
                       copies them under PREFIX (~/.local). The window title "axismundi" is also GLFW's X11
                       WM_CLASS, matched by StartupWMClass in the desktop file: keep them equal
 packaging/arch/       PKGBUILD + .SRCINFO for axismundi-git (AUR style; source = this clone via git+file, branch
-                      claude; honors makepkg flags; check() = make test; package() = make install DESTDIR PREFIX=/usr,
+                      main; honors makepkg flags; check() = make test; package() = make install DESTDIR PREFIX=/usr,
                       which skips the desktop/icon caches when DESTDIR is set). Not testable here (no makepkg):
                       the user builds it on Arch
 LICENSE               GPL-3.0-or-later (official text, unmodified; the copyright line is in README's License)

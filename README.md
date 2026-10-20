@@ -174,7 +174,7 @@ make build && sudo make install   # system-wide, into /usr/local (build as yours
 ### Arch Linux package
 
 `packaging/arch/PKGBUILD` builds an `axismundi-git` package like the AUR's -git packages, from this clone's
-`claude` branch (committed work only):
+`main` branch (committed work only; releases are tagged vX.Y.Z there):
 
 ```bash
 cd packaging/arch
