@@ -1,10 +1,11 @@
 #include "rendering/PlotRenderer.hpp"
+#include "gfx/Canvas3D.hpp"
+#include "gfx/Pure.hpp"
 #include "math/Contour.hpp"
 #include "rendering/Labels.hpp"
 #include "rendering/WorldMapping.hpp"
 #include "ui/core/Theme.hpp"
 #include <raymath.h>
-#include <rlgl.h>
 #include <cstring>
 #include <algorithm>
 #include <cmath>
@@ -306,7 +307,7 @@ void PlotRenderer::buildSurface(const PlotSpec& spec, const Expression& f) {
     const int stepX = wireStep(nx, spec.xMax - spec.xMin), stepY = wireStep(ny, spec.yMax - spec.yMin);
     const Color wire = spec.print ? Color{0, 0, 0, 220}
                        : spec.wire.a ? spec.wire
-                                     : Fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
+                                     : gfx::fade(ui::theme().dark ? BLACK : WHITE, 0.28f);
     // Indexed meshes share each vertex between its cells. raylib indices are
     // 16-bit, so the grid is split into bands of rows under 65536 vertices.
     const int rowsPerBand = std::max(1, 65535 / (nx + 1) - 1);
@@ -413,7 +414,7 @@ void PlotRenderer::buildImplicit(const PlotSpec& spec, const Expression& f) {
                 if (!std::isfinite(c)) continue;
                 // Compress the range so values near zero still show contrast
                 float t = 0.5f + 0.5f * static_cast<float>(std::tanh(3.0 * c / maxAbs));
-                Color col = Fade(heatColor(spec, t), 0.35f);
+                Color col = gfx::fade(heatColor(spec, t), 0.35f);
                 Vector3 a = mathToWorld(xAt(i), yAt(j), kLift / 2), b = mathToWorld(xAt(i1), yAt(j), kLift / 2);
                 Vector3 d = mathToWorld(xAt(i1), yAt(j1), kLift / 2), e = mathToWorld(xAt(i), yAt(j1), kLift / 2);
                 m_triangles.add(a, col);
@@ -439,7 +440,7 @@ void PlotRenderer::draw(float fade) const {
     for (const auto& s : m_wireframe) {
         Color c = s.color;
         c.a = static_cast<unsigned char>(c.a * std::clamp(fade, 0.0f, 1.0f));
-        DrawLine3D(s.a, s.b, c);
+        gfx::line(s.a, s.b, c);
     }
 }
 
@@ -448,12 +449,12 @@ void PlotRenderer::drawAxes(float length) const {
     const ui::Theme& t = ui::theme();
     Vector3 o = {0, 0, 0};
     if (is3D()) {
-        DrawCylinderEx(o, mathToWorld(length, 0, 0), 0.02f, 0.02f, 6, t.axisX);
-        DrawCylinderEx(o, mathToWorld(0, length, 0), 0.02f, 0.02f, 6, t.axisY);
-        DrawCylinderEx(o, mathToWorld(0, 0, length), 0.02f, 0.02f, 6, t.axisZ);
+        gfx::cylinder(o, mathToWorld(length, 0, 0), 0.02f, 0.02f, 6, t.axisX);
+        gfx::cylinder(o, mathToWorld(0, length, 0), 0.02f, 0.02f, 6, t.axisY);
+        gfx::cylinder(o, mathToWorld(0, 0, length), 0.02f, 0.02f, 6, t.axisZ);
     } else {
-        DrawCylinderEx({-length, 0, 0}, {length, 0, 0}, 0.02f, 0.02f, 6, t.axisX);
-        DrawCylinderEx({0, -length, 0}, {0, length, 0}, 0.02f, 0.02f, 6, t.axisY);
+        gfx::cylinder({-length, 0, 0}, {length, 0, 0}, 0.02f, 0.02f, 6, t.axisX);
+        gfx::cylinder({0, -length, 0}, {0, length, 0}, 0.02f, 0.02f, 6, t.axisY);
     }
 }
 

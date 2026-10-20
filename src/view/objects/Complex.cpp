@@ -1,6 +1,7 @@
 // The complex plane: numbers as arrows (with Euler-style extras), products as a turn plus a stretch,
 // Fourier epicycles
 #include "view/ObjectViews.hpp"
+#include "gfx/Canvas3D.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
@@ -26,7 +27,7 @@ void drawEpicycles(const scene::EpicyclesObject& o, Color c, bool fade, bool pri
     // The target curve, faint
     Color faint = print ? Color{200, 200, 200, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 110);
     const auto& target = o.target();
-    for (size_t i = 0; i < target.size(); i++) DrawLine3D(at(target[i]), at(target[(i + 1) % target.size()]), faint);
+    for (size_t i = 0; i < target.size(); i++) gfx::line(at(target[i]), at(target[(i + 1) % target.size()]), faint);
     if (!o.error().empty() || o.terms().empty()) return;
     int count = o.circles() + 1;  // with the center term
     double u = o.angle();
@@ -37,8 +38,8 @@ void drawEpicycles(const scene::EpicyclesObject& o, Color c, bool fade, bool pri
     fourier::cplx prev = fourier::evaluate(o.terms(), start, count);
     for (int i = 1; i <= steps; i++) {
         fourier::cplx next = fourier::evaluate(o.terms(), start + (u - start) * i / steps, count);
-        if (print) DrawLine3D(at(prev), at(next), path);
-        else DrawCylinderEx(at(prev), at(next), 0.02f * st.lineScale, 0.02f * st.lineScale, 5, path);
+        if (print) gfx::line(at(prev), at(next), path);
+        else gfx::cylinder(at(prev), at(next), 0.02f * st.lineScale, 0.02f * st.lineScale, 5, path);
         prev = next;
     }
     // The circles and their radius arms, largest first
@@ -52,12 +53,12 @@ void drawEpicycles(const scene::EpicyclesObject& o, Color c, bool fade, bool pri
             const int seg = 64;
             for (int k = 0; k < seg; k++) {
                 float a0 = 2.0f * PI * k / seg, a1 = 2.0f * PI * (k + 1) / seg;
-                DrawLine3D({center.x + static_cast<float>(r) * std::cos(a0), center.y + static_cast<float>(r) * std::sin(a0), 0},
+                gfx::line({center.x + static_cast<float>(r) * std::cos(a0), center.y + static_cast<float>(r) * std::sin(a0), 0},
                            {center.x + static_cast<float>(r) * std::cos(a1), center.y + static_cast<float>(r) * std::sin(a1), 0},
                            ring);
             }
         }
-        DrawLine3D(center, at(centers[i]), arm);
+        gfx::line(center, at(centers[i]), arm);
     }
     Vector3 tip = at(centers.back());
     dot(tip, (selected ? 0.1f : 0.07f) * std::sqrt(st.lineScale), print ? ink : (fade ? faded(c) : c));
@@ -69,7 +70,7 @@ void printNumber(const SceneObject& o, const DrawContext& c, float re, float im)
     if (o.propBool("circle") && std::fabs(r - 1.0f) > 1e-3f) {
         for (int i = 0; i < 96; i += 2) {
             float a0 = 2.0f * PI * i / 96, a1 = 2.0f * PI * (i + 1) / 96;
-            DrawLine3D({r * std::cos(a0), r * std::sin(a0), 0}, {r * std::cos(a1), r * std::sin(a1), 0}, c.color);
+            gfx::line({r * std::cos(a0), r * std::sin(a0), 0}, {r * std::cos(a1), r * std::sin(a1), 0}, c.color);
         }
     }
     if (o.propBool("projections")) {
@@ -97,13 +98,13 @@ void drawNumber(const SceneObject& o, const DrawContext& c) {
     if (o.propBool("projections")) {
         dashed(tip, {re, 0, 0}, t.muted, 0.08f);
         dashed(tip, {0, im, 0}, t.muted, 0.08f);
-        DrawCylinderEx({0, 0, 0}, {re, 0, 0}, 0.035f, 0.035f, 6, t.axisX);
-        DrawCylinderEx({0, 0, 0}, {0, im, 0}, 0.035f, 0.035f, 6, t.axisY);
+        gfx::cylinder({0, 0, 0}, {re, 0, 0}, 0.035f, 0.035f, 6, t.axisX);
+        gfx::cylinder({0, 0, 0}, {0, im, 0}, 0.035f, 0.035f, 6, t.axisY);
     }
     if (o.propBool("circle") && std::fabs(r - 1.0f) > 1e-3f) {
         for (int i = 0; i < 96; i++) {
             float a0 = 2.0f * PI * i / 96, a1 = 2.0f * PI * (i + 1) / 96;
-            DrawLine3D({r * std::cos(a0), r * std::sin(a0), 0}, {r * std::cos(a1), r * std::sin(a1), 0},
+            gfx::line({r * std::cos(a0), r * std::sin(a0), 0}, {r * std::cos(a1), r * std::sin(a1), 0},
                        withAlpha(c.color, 120));
         }
     }
@@ -113,7 +114,7 @@ void drawNumber(const SceneObject& o, const DrawContext& c) {
         Vector3 prev = {r, 0, 0};
         for (float s = step; s <= theta + 1e-4f; s += step) {
             Vector3 next = {r * std::cos(s), r * std::sin(s), s * pitch};
-            DrawLine3D(prev, next, t.helix);
+            gfx::line(prev, next, t.helix);
             prev = next;
         }
         Vector3 top = {re, im, theta * pitch};

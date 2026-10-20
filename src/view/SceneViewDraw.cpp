@@ -1,5 +1,6 @@
 // Small drawing helpers shared by SceneView.cpp and SceneViewObjects.cpp
 #include "view/SceneViewDraw.hpp"
+#include "gfx/Canvas3D.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
@@ -40,7 +41,7 @@ Color faded(Color c) {
 
 // Arrow between two world points; selected arrows are thicker with a halo
 void dot(Vector3 at, float worldRadius, Color color) {
-    DrawSphere(at, std::clamp(worldRadius, VectorRenderer::pixelsAt(at, 2.5f), VectorRenderer::pixelsAt(at, 7.0f)), color);
+    gfx::sphere(at, std::clamp(worldRadius, VectorRenderer::pixelsAt(at, 2.5f), VectorRenderer::pixelsAt(at, 7.0f)), color);
 }
 
 void arrow(Vector3 from, Vector3 to, Color color, bool selected) {
@@ -52,7 +53,7 @@ void dashed(Vector3 a, Vector3 b, Color color, float dash) {
     if (len < 1e-6f) return;
     for (float s = 0.0f; s < len; s += 2.0f * dash) {
         float e = std::fmin(s + dash, len);
-        DrawLine3D(Vector3Lerp(a, b, s / len), Vector3Lerp(a, b, e / len), color);
+        gfx::line(Vector3Lerp(a, b, s / len), Vector3Lerp(a, b, e / len), color);
     }
 }
 
@@ -61,7 +62,7 @@ void arcXY(float r, float a0, float a1, Color color) {
     int segments = static_cast<int>(std::fabs(a1 - a0) / 0.05f) + 2;
     for (int i = 0; i < segments; i++) {
         float t0 = a0 + (a1 - a0) * i / segments, t1 = a0 + (a1 - a0) * (i + 1) / segments;
-        DrawCylinderEx({r * std::cos(t0), r * std::sin(t0), 0}, {r * std::cos(t1), r * std::sin(t1), 0}, 0.012f, 0.012f, 4,
+        gfx::cylinder({r * std::cos(t0), r * std::sin(t0), 0}, {r * std::cos(t1), r * std::sin(t1), 0}, 0.012f, 0.012f, 4,
                        color);
     }
 }
@@ -83,7 +84,7 @@ void printLine(Vector3 a, Vector3 b, Color color, int dash, float radius) {
     float len = Vector3Distance(a, b);
     if (len < 1e-6f) return;
     if (dash == 0) {
-        DrawCylinderEx(a, b, radius, radius, 6, color);
+        gfx::cylinder(a, b, radius, radius, 6, color);
         return;
     }
     float on1, off1, on2, off2;
@@ -98,7 +99,7 @@ void printLine(Vector3 a, Vector3 b, Color color, int dash, float radius) {
     while (pos < len) {
         float on = (k % 2 == 0) ? on1 : on2, off = (k % 2 == 0) ? off1 : off2;
         float e = std::fmin(pos + on, len);
-        DrawCylinderEx(Vector3Lerp(a, b, pos / len), Vector3Lerp(a, b, e / len), radius, radius, 6, color);
+        gfx::cylinder(Vector3Lerp(a, b, pos / len), Vector3Lerp(a, b, e / len), radius, radius, 6, color);
         pos += on + off;
         k++;
     }
@@ -111,10 +112,10 @@ void printArrow(Vector3 from, Vector3 to, Color color, int dash, bool selected) 
     Vector3 base = Vector3Lerp(from, to, (len - head) / len);
     if (selected) {  // a narrow gray outline on paper
         float pad = VectorRenderer::pixelsAt(Vector3Lerp(from, to, 0.5f), 2.5f);
-        DrawCylinderEx(from, to, pad, pad, 10, Color{0, 0, 0, 30});
+        gfx::cylinder(from, to, pad, pad, 10, Color{0, 0, 0, 30});
     }
     printLine(from, base, color, dash, 0.016f);
-    DrawCylinderEx(base, to, 0.065f, 0.0f, 12, color);
+    gfx::cylinder(base, to, 0.065f, 0.0f, 12, color);
 }
 
 Color paletteColor(const std::vector<Color>& palette, int index) {
@@ -139,7 +140,7 @@ void basis(const Matrix4D& m, float alpha, bool selected, bool fade) {
         Color c = withAlpha(colors[i], static_cast<unsigned char>(255 * alpha));
         VectorRenderer::drawVectorArrow(o, tip, c, selected && alpha > 0.9f, t.lineScale);
     }
-    DrawSphere(o, VectorRenderer::pixelsAt(o, 3.0f), withAlpha(t.text, static_cast<unsigned char>(255 * alpha)));
+    gfx::sphere(o, VectorRenderer::pixelsAt(o, 3.0f), withAlpha(t.text, static_cast<unsigned char>(255 * alpha)));
 }
 
 // --- Quaternions: axis and angle, rotated basis, a vector before and after ----------------
@@ -172,7 +173,7 @@ std::vector<Vector3D> arcPoints(const Vector3D& center, const Vector3D& axis, co
 
 void tubeAlong(const std::vector<Vector3D>& pts, float radius, Color color) {
     for (size_t i = 1; i < pts.size(); i++)
-        DrawCylinderEx(mathToWorld(pts[i - 1]), mathToWorld(pts[i]), radius, radius, 6, color);
+        gfx::cylinder(mathToWorld(pts[i - 1]), mathToWorld(pts[i]), radius, radius, 6, color);
 }
 
 // An arc with an arrowhead at its end (the direction of turning)
@@ -184,7 +185,7 @@ void angleArc(const std::vector<Vector3D>& pts, float radius, Color color) {
     if (d.magnitude() < 1e-6f) return;
     d = d.normalized();
     float head = 0.14f * std::sqrt(activeStyle().lineScale);
-    DrawCylinderEx(mathToWorld(end - d * (head * 0.3f)), mathToWorld(end + d * (head * 0.7f)), head * 0.38f, 0.0f, 10,
+    gfx::cylinder(mathToWorld(end - d * (head * 0.3f)), mathToWorld(end + d * (head * 0.7f)), head * 0.38f, 0.0f, 10,
                    color);
 }
 

@@ -1,7 +1,7 @@
 #include "rendering/GridShader.hpp"
-#include "rendering/GpuContext.hpp"
+#include "gfx/Canvas3D.hpp"
+#include <cstdio>
 #include <cstdlib>
-#include <rlgl.h>
 
 namespace linalg {
 
@@ -84,31 +84,31 @@ void main() {
 }  // namespace
 
 GridShader::~GridShader() {
-    // The GPU resource can only be freed while the window (the GL context) still exists
-    if (m_ok && gpuContextReady()) UnloadShader(m_shader);
+    if (m_ok) gfx::canvas().unloadShader(m_shader);  // frees the GPU copy only while the GL context exists
 }
 
 bool GridShader::valid() {
     if (m_tried) return m_ok;
     m_tried = true;
     if (std::getenv("AXISMUNDI_NO_SHADER")) {  // for testing the fallback
-        TraceLog(LOG_INFO, "GRID: shader grid disabled (AXISMUNDI_NO_SHADER), using lines");
+        std::fprintf(stderr, "INFO: GRID: shader grid disabled (AXISMUNDI_NO_SHADER), using lines\n");
         return false;
     }
-    m_shader = LoadShaderFromMemory(kVertex, kFragment);
-    m_ok = IsShaderValid(m_shader) && m_shader.id != rlGetShaderIdDefault();
+    gfx::Canvas3D& c = gfx::canvas();
+    m_shader = c.loadShader(kVertex, kFragment);
+    m_ok = m_shader != 0;
     if (!m_ok) {
-        TraceLog(LOG_WARNING, "GRID: the grid shader did not compile; using the line grid instead");
+        std::fprintf(stderr, "WARNING: GRID: the grid shader did not compile; using the line grid instead\n");
         return false;
     }
-    m_locColor = GetShaderLocation(m_shader, "gridColor");
-    m_locCenter = GetShaderLocation(m_shader, "center");
-    m_locRadius = GetShaderLocation(m_shader, "radius");
-    m_locSpacing = GetShaderLocation(m_shader, "spacing");
-    m_locFade = GetShaderLocation(m_shader, "fade");
-    m_locRatio = GetShaderLocation(m_shader, "ratio");
-    m_locPlane = GetShaderLocation(m_shader, "plane");
-    m_locPolar = GetShaderLocation(m_shader, "polar");
+    m_locColor = c.uniformLocation(m_shader, "gridColor");
+    m_locCenter = c.uniformLocation(m_shader, "center");
+    m_locRadius = c.uniformLocation(m_shader, "radius");
+    m_locSpacing = c.uniformLocation(m_shader, "spacing");
+    m_locFade = c.uniformLocation(m_shader, "fade");
+    m_locRatio = c.uniformLocation(m_shader, "ratio");
+    m_locPlane = c.uniformLocation(m_shader, "plane");
+    m_locPolar = c.uniformLocation(m_shader, "polar");
     return true;
 }
 
@@ -120,17 +120,18 @@ void GridShader::draw(GridPlane plane, const GridSpec& spec) {
     float ratio = static_cast<float>(spec.level.ratio), radius = spec.radius;
     int planeIndex = static_cast<int>(plane), polar = spec.polar ? 1 : 0;
 
-    BeginShaderMode(m_shader);  // flushes what was drawn before with the default shader
-    SetShaderValue(m_shader, m_locColor, color, SHADER_UNIFORM_VEC4);
-    SetShaderValue(m_shader, m_locCenter, center, SHADER_UNIFORM_VEC3);
-    SetShaderValue(m_shader, m_locRadius, &radius, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(m_shader, m_locSpacing, &spacing, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(m_shader, m_locFade, &fade, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(m_shader, m_locRatio, &ratio, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(m_shader, m_locPlane, &planeIndex, SHADER_UNIFORM_INT);
-    SetShaderValue(m_shader, m_locPolar, &polar, SHADER_UNIFORM_INT);
-    rlDisableDepthMask();
-    rlDisableBackfaceCulling();
+    gfx::Canvas3D& canvas = gfx::canvas();
+    canvas.beginShader(m_shader);  // flushes what was drawn before with the default shader
+    canvas.setUniform(m_shader, m_locColor, color, gfx::UniformType::Vec4);
+    canvas.setUniform(m_shader, m_locCenter, center, gfx::UniformType::Vec3);
+    canvas.setUniform(m_shader, m_locRadius, &radius, gfx::UniformType::Float);
+    canvas.setUniform(m_shader, m_locSpacing, &spacing, gfx::UniformType::Float);
+    canvas.setUniform(m_shader, m_locFade, &fade, gfx::UniformType::Float);
+    canvas.setUniform(m_shader, m_locRatio, &ratio, gfx::UniformType::Float);
+    canvas.setUniform(m_shader, m_locPlane, &planeIndex, gfx::UniformType::Int);
+    canvas.setUniform(m_shader, m_locPolar, &polar, gfx::UniformType::Int);
+    gfx::setDepthWrite(false);
+    gfx::setBackfaceCulling(false);
     // One square, `radius` from the center in each direction, in the chosen plane
     const float r = radius;
     Vector3 c = spec.center;
@@ -143,13 +144,13 @@ void GridShader::draw(GridPlane plane, const GridSpec& spec) {
             case GridPlane::WorldYZ: corners[k] = {c.x, c.y + dv, c.z + du}; break;
         }
     }
-    rlBegin(RL_QUADS);
-    rlColor4ub(255, 255, 255, 255);
-    for (const Vector3& v : corners) rlVertex3f(v.x, v.y, v.z);
-    rlEnd();
-    EndShaderMode();  // draws the square with the grid shader
-    rlEnableBackfaceCulling();
-    rlEnableDepthMask();
+    gfx::begin(gfx::Primitive::Quads);
+    gfx::color(255, 255, 255, 255);
+    for (const Vector3& v : corners) gfx::vertex(v.x, v.y, v.z);
+    gfx::end();
+    canvas.endShader();  // draws the square with the grid shader
+    gfx::setBackfaceCulling(true);
+    gfx::setDepthWrite(true);
 }
 
 } // namespace linalg

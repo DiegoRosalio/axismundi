@@ -1,5 +1,6 @@
 // The basic objects: vectors (arrows), matrices (the moved basis), eigenvectors, plots, vector fields
 #include "view/ObjectViews.hpp"
+#include "gfx/Canvas3D.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
@@ -43,9 +44,9 @@ void drawMatrix(const SceneObject& o, const DrawContext& c) {
     for (int a = 0; a < 2; a++)
         for (int b = 0; b < 2; b++)
             for (int cc = 0; cc < 2; cc++) {
-                if (a == 0) DrawLine3D(corner(a, b, cc), corner(1, b, cc), cubeGray);
-                if (b == 0) DrawLine3D(corner(a, b, cc), corner(a, 1, cc), cubeGray);
-                if (cc == 0) DrawLine3D(corner(a, b, cc), corner(a, b, 1), cubeGray);
+                if (a == 0) gfx::line(corner(a, b, cc), corner(1, b, cc), cubeGray);
+                if (b == 0) gfx::line(corner(a, b, cc), corner(a, 1, cc), cubeGray);
+                if (cc == 0) gfx::line(corner(a, b, cc), corner(a, b, 1), cubeGray);
             }
     int dash = dashOf(c.printStyle);
     for (int k = 0; k < 3; k++) printArrow(mathToWorld(origin), mathToWorld(origin + cols[k]), c.color, dash, c.selected);

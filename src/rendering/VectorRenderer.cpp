@@ -1,4 +1,5 @@
 #include "rendering/VectorRenderer.hpp"
+#include "gfx/Canvas3D.hpp"
 #include <raylib.h>
 #include <raymath.h>
 #include <algorithm>
@@ -61,8 +62,8 @@ void VectorRenderer::drawArrow(const Vector3D& start, const Vector3D& end, Color
     float head = std::min({headSize, 0.35f * length, pixelsAt(b, 18.0f)});
     float headR = std::max(head * 0.45f, r * 1.8f);
     Vector3 neck = Vector3Lerp(a, b, (length - head) / length);
-    DrawCylinderEx(a, neck, r, r, 8, color);
-    DrawCylinderEx(neck, b, headR, 0.0f, 10, color);
+    gfx::cylinder(a, neck, r, r, 8, color);
+    gfx::cylinder(neck, b, headR, 0.0f, 10, color);
 }
 
 void VectorRenderer::drawVectorArrow(Vector3 from, Vector3 to, Color color, bool selected, float lineScale) {
@@ -78,11 +79,11 @@ void VectorRenderer::drawVectorArrow(Vector3 from, Vector3 to, Color color, bool
         // A narrow, faint outline around the shaft and the head
         Color glow = {color.r, color.g, color.b, 70};
         float pad = pixelsAt(mid, 1.6f * k);
-        DrawCylinderEx(from, neck, shaft + pad, shaft + pad, 10, glow);
-        DrawCylinderEx(neck, to, headR + pad, pad * 0.5f, 12, glow);
+        gfx::cylinder(from, neck, shaft + pad, shaft + pad, 10, glow);
+        gfx::cylinder(neck, to, headR + pad, pad * 0.5f, 12, glow);
     }
-    DrawCylinderEx(from, neck, shaft, shaft, 8, color);
-    DrawCylinderEx(neck, to, headR, 0.0f, 10, color);
+    gfx::cylinder(from, neck, shaft, shaft, 8, color);
+    gfx::cylinder(neck, to, headR, 0.0f, 10, color);
 }
 
 } // namespace linalg

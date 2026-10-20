@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gfx/Canvas3D.hpp"
 #include "math/GridMath.hpp"
 #include <raylib.h>
 
@@ -38,7 +39,7 @@ public:
     void draw(GridPlane plane, const GridSpec& spec);
 
 private:
-    Shader m_shader{};
+    gfx::ShaderId m_shader = 0;
     bool m_tried = false;
     bool m_ok = false;
     int m_locColor = -1, m_locCenter = -1, m_locRadius = -1, m_locSpacing = -1, m_locFade = -1, m_locRatio = -1,

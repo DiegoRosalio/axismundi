@@ -1,6 +1,7 @@
 // The calculus objects: volume under a surface, work along a curve, the moving frame, the tangent line,
 // the tangent plane with the gradient, velocity and acceleration
 #include "view/ObjectViews.hpp"
+#include "gfx/Canvas3D.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
@@ -27,8 +28,8 @@ void floorPolyline(const std::vector<std::pair<double, double>>& pts, Color col,
         if (!std::isfinite(a.second) || !std::isfinite(b.second) || std::fabs(a.second) > 100 || std::fabs(b.second) > 100)
             continue;
         if (dashedLine && (i / 4) % 2 == 1) continue;
-        if (radius <= 0) DrawLine3D(at(a.first, a.second), at(b.first, b.second), col);
-        else DrawCylinderEx(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
+        if (radius <= 0) gfx::line(at(a.first, a.second), at(b.first, b.second), col);
+        else gfx::cylinder(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
     }
 }
 
@@ -37,8 +38,8 @@ void floorLine(double x, double y, double m, double half, Color col, float radiu
     double dx = half / std::sqrt(1 + m * m);
     Vector3 a = mathToWorld(static_cast<float>(x - dx), static_cast<float>(y - m * dx), 0.01f);
     Vector3 b = mathToWorld(static_cast<float>(x + dx), static_cast<float>(y + m * dx), 0.01f);
-    if (radius <= 0) DrawLine3D(a, b, col);
-    else DrawCylinderEx(a, b, radius, radius, 5, col);
+    if (radius <= 0) gfx::line(a, b, col);
+    else gfx::cylinder(a, b, radius, radius, 5, col);
 }
 
 void drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color c, bool fade, bool print, Color ink) {
@@ -52,14 +53,14 @@ void drawDoubleIntegral(const scene::DoubleIntegralObject& o, Color c, bool fade
             Vector3 center = mathToWorld(static_cast<float>((b.x0 + b.x1) / 2), static_cast<float>((b.y0 + b.y1) / 2),
                                          h / 2);
             Vector3 size = {static_cast<float>(b.x1 - b.x0), std::fabs(h), static_cast<float>(b.y1 - b.y0)};
-            DrawCubeV(center, size, h >= 0 ? up : down);
-            DrawCubeWiresV(center, size, edge);
+            gfx::cube(center, size, h >= 0 ? up : down);
+            gfx::cubeWires(center, size, edge);
         }
     }
     if (o.showSurface()) {
         Color line = print ? ink : (fade ? faded(c) : c);
         for (const auto& l : o.surfaceLines())
-            for (size_t i = 1; i < l.size(); i++) DrawLine3D(w3(l[i - 1]), w3(l[i]), line);
+            for (size_t i = 1; i < l.size(); i++) gfx::line(w3(l[i - 1]), w3(l[i]), line);
     }
 }
 void drawLineIntegral(const scene::LineIntegralObject& o, Color c, bool fade, bool print, Color ink,
@@ -78,12 +79,12 @@ void drawLineIntegral(const scene::LineIntegralObject& o, Color c, bool fade, bo
         double a = (path[i - 1].along + path[i].along) / 2 * scale;
         Color col = a >= 0 ? mixColor(neutral, helps, static_cast<float>(a)) : mixColor(neutral, opposes, static_cast<float>(-a));
         float r = (i <= done ? 0.035f : 0.018f) * k;  // the part travelled so far is thicker
-        DrawCylinderEx(w3(path[i - 1].p), w3(path[i].p), r, r, 6, col);
+        gfx::cylinder(w3(path[i - 1].p), w3(path[i].p), r, r, 6, col);
     }
     if (selected && !print) {  // a narrow faint outline along the path
         for (size_t i = 1; i < path.size(); i++) {
             float pad = 0.035f * k + VectorRenderer::pixelsAt(w3(path[i].p), 2.0f);
-            DrawCylinderEx(w3(path[i - 1].p), w3(path[i].p), pad, pad, 8, withAlpha(c, 45));
+            gfx::cylinder(w3(path[i - 1].p), w3(path[i].p), pad, pad, 8, withAlpha(c, 45));
         }
     }
     // F along the path (the longest arrow 0.7 units)
@@ -106,16 +107,16 @@ void drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Colo
     Color curveColor = print ? ink : (fade ? faded(c) : c);
     if (o.showCurve()) {
         for (size_t i = 1; i < curve.size(); i++) {
-            if (print) DrawLine3D(w3(curve[i - 1]), w3(curve[i]), curveColor);
-            else DrawCylinderEx(w3(curve[i - 1]), w3(curve[i]), 0.016f * k, 0.016f * k, 5, curveColor);
+            if (print) gfx::line(w3(curve[i - 1]), w3(curve[i]), curveColor);
+            else gfx::cylinder(w3(curve[i - 1]), w3(curve[i]), 0.016f * k, 0.016f * k, 5, curveColor);
         }
     }
     if (o.showComb()) {
         Color comb = print ? Color{150, 150, 150, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 200);
         const auto& teeth = o.comb();
         for (size_t i = 0; i < teeth.size(); i++) {
-            DrawLine3D(w3(teeth[i].first), w3(teeth[i].second), comb);
-            if (i > 0) DrawLine3D(w3(teeth[i - 1].second), w3(teeth[i].second), comb);
+            gfx::line(w3(teeth[i].first), w3(teeth[i].second), comb);
+            if (i > 0) gfx::line(w3(teeth[i - 1].second), w3(teeth[i].second), comb);
         }
     }
     if (!o.error().empty()) return;
@@ -133,10 +134,10 @@ void drawFrame(const scene::FrameObject& o, Color c, bool fade, bool print, Colo
                 return w3(geometry::add(center, geometry::add(geometry::scale(f.N, -radius * std::cos(a)),
                                                               geometry::scale(f.T, radius * std::sin(a)))));
             };
-            DrawLine3D(at(a0), at(a1), circle);
+            gfx::line(at(a0), at(a1), circle);
         }
         dot(w3(center), 0.04f, circle);
-        DrawLine3D(p, w3(center), withAlpha(circle, 120));
+        gfx::line(p, w3(center), withAlpha(circle, 120));
     }
     if (o.showFrame()) {
         // T, N, B in the axis colors (like x, y, z): a right-handed frame riding the curve
@@ -174,11 +175,11 @@ void drawTangent(const scene::TangentObject& o, Color c, bool fade, bool print, 
         Vector3 p1 = mathToWorld(static_cast<float>(x0 + 1), static_cast<float>(y0), 0.01f);
         Vector3 p2 = mathToWorld(static_cast<float>(x0 + 1), static_cast<float>(y0 + m), 0.01f);
         if (print) {
-            DrawLine3D(p0, p1, muted);
-            DrawLine3D(p1, p2, muted);
+            gfx::line(p0, p1, muted);
+            gfx::line(p1, p2, muted);
         } else {
-            DrawCylinderEx(p0, p1, 0.008f * k, 0.008f * k, 5, muted);
-            DrawCylinderEx(p1, p2, 0.008f * k, 0.008f * k, 5, muted);
+            gfx::cylinder(p0, p1, 0.008f * k, 0.008f * k, 5, muted);
+            gfx::cylinder(p1, p2, 0.008f * k, 0.008f * k, 5, muted);
         }
     }
     Color line = print ? ink : withAlpha(fade ? faded(st.text) : st.text, 230);
@@ -194,7 +195,7 @@ void drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bool fade, bo
     if (o.showSurface()) {
         Color wire = print ? Color{170, 170, 170, 255} : withAlpha(shade(c), 170);
         for (const auto& l : o.surfaceLines())
-            for (size_t i = 1; i < l.size(); i++) DrawLine3D(w3(l[i - 1]), w3(l[i]), wire);
+            for (size_t i = 1; i < l.size(); i++) gfx::line(w3(l[i - 1]), w3(l[i]), wire);
     }
     if (!o.error().empty()) return;
     integrals::D3 p = o.point();
@@ -206,16 +207,16 @@ void drawTangentPlane(const scene::TangentPlaneObject& o, Color c, bool fade, bo
         if (!print) {
             Color fill = withAlpha(fade ? faded(st.muted) : st.muted, 70);
             // Both windings, so the patch shows from above and below
-            DrawTriangle3D(a, b, cc, fill);
-            DrawTriangle3D(a, cc, d, fill);
-            DrawTriangle3D(a, cc, b, fill);
-            DrawTriangle3D(a, d, cc, fill);
+            gfx::triangle(a, b, cc, fill);
+            gfx::triangle(a, cc, d, fill);
+            gfx::triangle(a, cc, b, fill);
+            gfx::triangle(a, d, cc, fill);
         }
         Color edge = print ? ink : withAlpha(fade ? faded(st.text) : st.text, 160);
-        DrawLine3D(a, b, edge);
-        DrawLine3D(b, cc, edge);
-        DrawLine3D(cc, d, edge);
-        DrawLine3D(d, a, edge);
+        gfx::line(a, b, edge);
+        gfx::line(b, cc, edge);
+        gfx::line(cc, d, edge);
+        gfx::line(d, a, edge);
     }
     Vector3 pw = w3(p);
     if (o.showSlopes()) {
@@ -246,8 +247,8 @@ void drawVelocity(const scene::VelocityObject& o, Color c, bool fade, bool print
         Color curve = print ? Color{120, 120, 120, 255} : withAlpha(fade ? faded(st.muted) : st.muted, 230);
         const auto& pts = o.curve();
         for (size_t i = 1; i < pts.size(); i++) {
-            if (print) DrawLine3D(w3(pts[i - 1]), w3(pts[i]), curve);
-            else DrawCylinderEx(w3(pts[i - 1]), w3(pts[i]), 0.014f * k, 0.014f * k, 5, curve);
+            if (print) gfx::line(w3(pts[i - 1]), w3(pts[i]), curve);
+            else gfx::cylinder(w3(pts[i - 1]), w3(pts[i]), 0.014f * k, 0.014f * k, 5, curve);
         }
     }
     if (!o.error().empty()) return;
@@ -307,8 +308,8 @@ void drawNewton(const scene::NewtonObject& o, Color c, bool fade, bool print, Co
         // The tangent from (x_k, f(x_k)) down to the axis at x_{k+1}
         Color tangent = withAlpha(text, latest ? 240 : 170);
         float r = (latest ? 0.012f : 0.007f) * k;
-        if (print) DrawLine3D(at(s.x, s.fx), at(steps[i + 1].x, 0), tangent);
-        else DrawCylinderEx(at(s.x, s.fx), at(steps[i + 1].x, 0), r, r, 5, tangent);
+        if (print) gfx::line(at(s.x, s.fx), at(steps[i + 1].x, 0), tangent);
+        else gfx::cylinder(at(s.x, s.fx), at(steps[i + 1].x, 0), r, r, 5, tangent);
         dot(at(s.x, s.fx), 0.045f * std::sqrt(k), withAlpha(text, latest ? 255 : 150));
         dot(at(s.x, 0), 0.04f * std::sqrt(k), withAlpha(muted, latest ? 255 : 150));
     }

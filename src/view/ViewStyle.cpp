@@ -1,4 +1,5 @@
 #include "view/ViewStyle.hpp"
+#include "gfx/Pure.hpp"
 
 namespace linalg::view {
 
@@ -55,7 +56,7 @@ ViewStyle styleFor(StyleId id, const ui::Theme& t) {
     s.complexes = {t.z1, t.z2, t.euler, t.helix, t.vecSum, t.success};
     s.eigen = t.eigen, s.product = t.zProduct, s.z1 = t.z1, s.z2 = t.z2, s.helix = t.helix;
     s.curve = t.curve, s.surface = t.surface;
-    s.wire = Fade(t.dark ? BLACK : WHITE, 0.28f);
+    s.wire = gfx::fade(t.dark ? BLACK : WHITE, 0.28f);
     s.labelBg = t.labelBg;
 
     switch (id) {

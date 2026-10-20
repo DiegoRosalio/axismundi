@@ -1,4 +1,5 @@
 #include "rendering/Labels.hpp"
+#include "gfx/Pure.hpp"
 #include "ui/core/Theme.hpp"
 #include "ui/core/Ui.hpp"
 #include <raymath.h>
@@ -15,7 +16,7 @@ bool labelScreenPoint(const Camera3D& camera, Vector3 position, Vector2& out) {
     Vector3 forward = Vector3Subtract(camera.target, camera.position);
     Vector3 toPoint = Vector3Subtract(position, camera.position);
     if (Vector3DotProduct(forward, toPoint) <= 0.0f) return false;
-    out = GetWorldToScreenEx(position, camera, static_cast<int>(ui::screenWidth()), static_cast<int>(ui::screenHeight()));
+    out = gfx::worldToScreen(position, camera, static_cast<int>(ui::screenWidth()), static_cast<int>(ui::screenHeight()));
     return true;
 }
 

@@ -1,4 +1,5 @@
 #include "rendering/FieldRenderer.hpp"
+#include "gfx/Canvas3D.hpp"
 #include "rendering/PlotRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
 #include <raymath.h>
@@ -103,7 +104,7 @@ void FieldRenderer::draw(double time, float fade) const {
     for (const field::FlowLine& line : m_lines) {
         for (int k = 0; k < perLine; k++) {
             double tau = field::particleTime(line, k, perLine, time, m_spec.speed);
-            DrawSphereEx(world(field::particleAt(line, tau)), r, 5, 6, c);
+            gfx::sphere(world(field::particleAt(line, tau)), r, 5, 6, c);
         }
     }
 }

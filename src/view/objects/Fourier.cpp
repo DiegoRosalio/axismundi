@@ -1,5 +1,6 @@
 // The Fourier series of f(x) on the floor: f, the partial sum, the separate harmonics
 #include "view/ObjectViews.hpp"
+#include "gfx/Canvas3D.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
@@ -27,8 +28,8 @@ void drawFourierSeries(const scene::FourierSeriesObject& o, Color c, bool fade, 
             const auto &a = pts[i - 1], &b = pts[i];
             if (!std::isfinite(a.second) || !std::isfinite(b.second) || std::fabs(a.second) > 100 || std::fabs(b.second) > 100)
                 continue;
-            if (radius <= 0) DrawLine3D(at(a.first, a.second), at(b.first, b.second), col);
-            else DrawCylinderEx(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
+            if (radius <= 0) gfx::line(at(a.first, a.second), at(b.first, b.second), col);
+            else gfx::cylinder(at(a.first, a.second), at(b.first, b.second), radius, radius, 5, col);
         }
     };
     if (o.showHarmonics()) {

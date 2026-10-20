@@ -1,7 +1,6 @@
 #include "rendering/MeshBuilder.hpp"
-#include "rendering/GpuContext.hpp"
+#include "gfx/Canvas3D.hpp"
 #include <raymath.h>
-#include <rlgl.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -9,11 +8,6 @@
 namespace linalg::mesh {
 
 namespace {
-
-Material& vertexColorMaterial() {
-    static Material material = LoadMaterialDefault();  // vertex colors, white texture
-    return material;
-}
 
 // Two unit vectors perpendicular to d (and to each other)
 void basisAround(Vector3 d, Vector3& u, Vector3& v) {
@@ -94,54 +88,30 @@ void MeshSet::upload(MeshData& data) {
         data = MeshData{};
         return;
     }
-    Mesh mesh = {};
-    mesh.vertexCount = static_cast<int>(data.count());
-    mesh.triangleCount = static_cast<int>(data.indices.empty() ? data.count() / 3 : data.indices.size() / 3);
-    mesh.vertices = static_cast<float*>(MemAlloc(static_cast<unsigned>(data.positions.size() * sizeof(float))));
-    mesh.colors = static_cast<unsigned char*>(MemAlloc(static_cast<unsigned>(data.colors.size())));
-    std::memcpy(mesh.vertices, data.positions.data(), data.positions.size() * sizeof(float));
-    std::memcpy(mesh.colors, data.colors.data(), data.colors.size());
-    if (!data.indices.empty()) {
-        mesh.indices = static_cast<unsigned short*>(
-            MemAlloc(static_cast<unsigned>(data.indices.size() * sizeof(unsigned short))));
-        std::memcpy(mesh.indices, data.indices.data(), data.indices.size() * sizeof(unsigned short));
-    }
-    UploadMesh(&mesh, false);
-    m_meshes.push_back(mesh);
+    int vertices = static_cast<int>(data.count());
+    gfx::MeshId id = gfx::canvas().uploadMesh(data.positions.data(), data.colors.data(), vertices,
+                                              data.indices.empty() ? nullptr : data.indices.data(),
+                                              static_cast<int>(data.indices.size()));
+    m_meshes.push_back(id);
+    m_vertexCount += static_cast<size_t>(vertices);
     data = MeshData{};
 }
 
 void MeshSet::release() {
-    for (Mesh& mesh : m_meshes) {
-        if (gpuContextReady()) {
-            UnloadMesh(mesh);
-        } else {
-            // The GL context is gone (app shutdown): only free the CPU copies
-            MemFree(mesh.vertices);
-            MemFree(mesh.colors);
-            MemFree(mesh.indices);
-            MemFree(mesh.vboId);
-        }
-    }
+    for (gfx::MeshId id : m_meshes) gfx::canvas().freeMesh(id);
     m_meshes.clear();
+    m_vertexCount = 0;
 }
 
 void MeshSet::draw(float fade) const {
     if (m_meshes.empty()) return;
-    rlDrawRenderBatchActive();
-    rlDisableBackfaceCulling();  // surfaces are visible from above and below
-    Material& material = vertexColorMaterial();
+    gfx::flush();
+    gfx::setBackfaceCulling(false);  // surfaces are visible from above and below
     unsigned char alpha = static_cast<unsigned char>(255.0f * std::clamp(fade, 0.0f, 1.0f));
-    material.maps[MATERIAL_MAP_DIFFUSE].color = {255, 255, 255, alpha};
-    for (const Mesh& mesh : m_meshes) DrawMesh(mesh, material, MatrixIdentity());
-    material.maps[MATERIAL_MAP_DIFFUSE].color = WHITE;
-    rlEnableBackfaceCulling();
+    for (gfx::MeshId id : m_meshes) gfx::canvas().drawMesh(id, alpha);
+    gfx::setBackfaceCulling(true);
 }
 
-size_t MeshSet::vertexCount() const {
-    size_t n = 0;
-    for (const Mesh& m : m_meshes) n += static_cast<size_t>(m.vertexCount);
-    return n;
-}
+size_t MeshSet::vertexCount() const { return m_vertexCount; }
 
 } // namespace linalg::mesh

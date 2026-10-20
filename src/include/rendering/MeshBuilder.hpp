@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gfx/Canvas3D.hpp"
 #include <raylib.h>
 #include <vector>
 
@@ -41,7 +42,8 @@ public:
     bool empty() const { return m_meshes.empty(); }
 
 private:
-    std::vector<Mesh> m_meshes;
+    std::vector<gfx::MeshId> m_meshes;
+    size_t m_vertexCount = 0;
 };
 
 } // namespace linalg::mesh

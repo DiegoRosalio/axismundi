@@ -1,5 +1,6 @@
 // Quaternions in the 3D view: the rotation axis and angle, the rotated basis, a vector before and after
 #include "view/ObjectViews.hpp"
+#include "gfx/Canvas3D.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/VectorRenderer.hpp"
 #include "rendering/WorldMapping.hpp"
@@ -53,8 +54,8 @@ void drawQuaternion(const scene::QuaternionObject& o, bool selected, Color c, bo
             for (size_t n = 1; n < pts.size(); n++) printLine(mathToWorld(pts[n - 1]), mathToWorld(pts[n]), arc, 0, 0.01f);
         } else {
             angleArc(pts, 0.018f * k, arc);
-            DrawLine3D({0, 0, 0}, mathToWorld(pts.front()), withAlpha(arc, 140));
-            DrawLine3D({0, 0, 0}, mathToWorld(pts.back()), withAlpha(arc, 140));
+            gfx::line({0, 0, 0}, mathToWorld(pts.front()), withAlpha(arc, 140));
+            gfx::line({0, 0, 0}, mathToWorld(pts.back()), withAlpha(arc, 140));
         }
     }
     if (o.actsOnVector()) {
@@ -71,7 +72,7 @@ void drawQuaternion(const scene::QuaternionObject& o, bool selected, Color c, bo
             } else {
                 arrow({0, 0, 0}, mathToWorld(v), muted, false);
                 arrow({0, 0, 0}, mathToWorld(w), c, false);
-                for (size_t n = 1; n < path.size(); n += 2) DrawLine3D(mathToWorld(path[n - 1]), mathToWorld(path[n]), c);
+                for (size_t n = 1; n < path.size(); n += 2) gfx::line(mathToWorld(path[n - 1]), mathToWorld(path[n]), c);
             }
         }
     }

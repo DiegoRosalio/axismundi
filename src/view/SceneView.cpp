@@ -1,4 +1,6 @@
 #include "view/SceneView.hpp"
+#include "gfx/Canvas3D.hpp"
+#include "gfx/Pure.hpp"
 #include "math/Decompositions.hpp"
 #include "rendering/Labels.hpp"
 #include "rendering/VectorRenderer.hpp"
@@ -57,7 +59,7 @@ public:
             if (std::fabs(pill.x - pills[i].x) > 0.5f || std::fabs(pill.y - pills[i].y) > 0.5f) {
                 Vector2 near = {std::clamp(it.screen.x, pill.x, pill.x + pill.width),
                                 std::clamp(it.screen.y, pill.y, pill.y + pill.height)};
-                DrawLineEx(it.screen, near, ui::px(1.0f), Fade(it.color, 0.6f));
+                DrawLineEx(it.screen, near, ui::px(1.0f), gfx::fade(it.color, 0.6f));
             }
             drawLabelPill(pill, it.text.c_str(), it.color, it.background, it.large, it.ring);
         }
@@ -120,7 +122,7 @@ void SceneView::updatePlots(scene::Space& space) {
         if (!p) continue;
         PlotCache& cache = m_plots[p->id()];
         Color color = colorOf(*p);
-        unsigned colorKey = static_cast<unsigned>(ColorToInt(color));
+        unsigned colorKey = static_cast<unsigned>(gfx::colorToInt(color));
         int dark = static_cast<int>(activeStyle().id) * 2 + (ui::theme().dark ? 1 : 0);  // style + theme
         int printKey = m_print ? printStyleOf(p->id()) * 2 + (m_printGray ? 1 : 0) : -2;
         if (cache.builtAt == p->changedAt() && cache.builtAt != 0 && cache.dark == dark && cache.color == colorKey &&
@@ -199,7 +201,7 @@ void SceneView::updateFields(scene::Space& space) {
         if (!f) continue;
         FieldCache& cache = m_fields[f->id()];
         Color color = colorOf(*f);
-        unsigned colorKey = static_cast<unsigned>(ColorToInt(color));
+        unsigned colorKey = static_cast<unsigned>(gfx::colorToInt(color));
         int printStyle = m_print ? printStyleOf(f->id()) : -2;
         int styleKey = ((static_cast<int>(style.id) * 2 + (ui::theme().dark ? 1 : 0)) * 64) + printStyle + 2;
         if (cache.builtAt == f->changedAt() && cache.builtAt != 0 && cache.styleKey == styleKey &&
@@ -274,9 +276,9 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
         // About 2-3 px wide on screen whatever the zoom
         float r = std::clamp(0.02f * t.lineScale, VectorRenderer::pixelsAt({0, 0, 0}, 0.75f),
                              VectorRenderer::pixelsAt({0, 0, 0}, 2.0f));
-        DrawCylinderEx({0, 0, 0}, mathToWorld(len, 0, 0), r, r, 8, t.axisX);
-        DrawCylinderEx({0, 0, 0}, mathToWorld(0, len, 0), r, r, 8, t.axisY);
-        DrawCylinderEx({0, 0, 0}, mathToWorld(0, 0, len), r, r, 8, t.axisZ);
+        gfx::cylinder({0, 0, 0}, mathToWorld(len, 0, 0), r, r, 8, t.axisX);
+        gfx::cylinder({0, 0, 0}, mathToWorld(0, len, 0), r, r, 8, t.axisY);
+        gfx::cylinder({0, 0, 0}, mathToWorld(0, 0, len), r, r, 8, t.axisZ);
     }
 
     updatePlots(space);
@@ -288,9 +290,9 @@ void SceneView::drawEuclidean(scene::Space& space, const DrawOptions& options) {
             for (int k = 0; k < 3; k++) {
                 Vector3 tip = mathToWorld(k == 0 ? len : 0, k == 1 ? len : 0, k == 2 ? len : 0);
                 Vector3 back = mathToWorld(k == 0 ? -len : 0, k == 1 ? -len : 0, k == 2 ? -len : 0);
-                DrawCylinderEx(back, tip, 0.008f, 0.008f, 6, ink);
+                gfx::cylinder(back, tip, 0.008f, 0.008f, 6, ink);
                 Vector3 base = Vector3Lerp(back, tip, 1.0f - 0.18f / (2 * len));
-                DrawCylinderEx(base, tip, 0.04f, 0.0f, 10, ink);
+                gfx::cylinder(base, tip, 0.04f, 0.0f, 10, ink);
             }
         }
     } else {
@@ -314,35 +316,35 @@ void SceneView::drawComplex(scene::Space& space, const DrawOptions& options) {
     if (options.print) {
         const Color ink = {20, 20, 20, 255}, light = {160, 160, 160, 255};
         if (view.showAxes) {
-            DrawCylinderEx({-extent, 0, 0}, {extent, 0, 0}, 0.008f, 0.008f, 6, ink);
-            DrawCylinderEx({0, -extent, 0}, {0, extent, 0}, 0.008f, 0.008f, 6, ink);
-            DrawCylinderEx({extent - 0.18f, 0, 0}, {extent, 0, 0}, 0.04f, 0.0f, 10, ink);
-            DrawCylinderEx({0, extent - 0.18f, 0}, {0, extent, 0}, 0.04f, 0.0f, 10, ink);
+            gfx::cylinder({-extent, 0, 0}, {extent, 0, 0}, 0.008f, 0.008f, 6, ink);
+            gfx::cylinder({0, -extent, 0}, {0, extent, 0}, 0.008f, 0.008f, 6, ink);
+            gfx::cylinder({extent - 0.18f, 0, 0}, {extent, 0, 0}, 0.04f, 0.0f, 10, ink);
+            gfx::cylinder({0, extent - 0.18f, 0}, {0, extent, 0}, 0.04f, 0.0f, 10, ink);
         }
         for (int i = 0; i < 96; i++) {
             float a0 = 2.0f * PI * i / 96, a1 = 2.0f * PI * (i + 1) / 96;
-            DrawLine3D({std::cos(a0), std::sin(a0), 0}, {std::cos(a1), std::sin(a1), 0}, light);
+            gfx::line({std::cos(a0), std::sin(a0), 0}, {std::cos(a1), std::sin(a1), 0}, light);
         }
     } else {
         if (view.showAxes) {
             float r = std::clamp(0.015f * t.lineScale, VectorRenderer::pixelsAt({0, 0, 0}, 0.75f),
                                  VectorRenderer::pixelsAt({0, 0, 0}, 2.0f));
-            DrawCylinderEx({-extent, 0, 0}, {extent, 0, 0}, r, r, 6, t.axisX);
-            DrawCylinderEx({0, -extent, 0}, {0, extent, 0}, r, r, 6, t.axisY);
+            gfx::cylinder({-extent, 0, 0}, {extent, 0, 0}, r, r, 6, t.axisX);
+            gfx::cylinder({0, -extent, 0}, {0, extent, 0}, r, r, 6, t.axisY);
             // Tick marks at the step the axis numbers use (at most 400 per axis)
             double step = std::max(options.tickStep, extent / 200.0);
             float tick = std::min(0.08f, static_cast<float>(step) * 0.3f);
             for (int i = -static_cast<int>(extent / step); i <= static_cast<int>(extent / step); i++) {
                 if (i == 0) continue;
                 float f = static_cast<float>(i * step);
-                DrawLine3D({f, -tick, 0}, {f, tick, 0}, t.axisX);
-                DrawLine3D({-tick, f, 0}, {tick, f, 0}, t.axisY);
+                gfx::line({f, -tick, 0}, {f, tick, 0}, t.axisX);
+                gfx::line({-tick, f, 0}, {tick, f, 0}, t.axisY);
             }
         }
         // Unit circle
         for (int i = 0; i < 96; i++) {
             float a0 = 2.0f * PI * i / 96, a1 = 2.0f * PI * (i + 1) / 96;
-            DrawLine3D({std::cos(a0), std::sin(a0), 0}, {std::cos(a1), std::sin(a1), 0}, t.faint);
+            gfx::line({std::cos(a0), std::sin(a0), 0}, {std::cos(a1), std::sin(a1), 0}, t.faint);
         }
     }
     drawObjects(space, options, true);

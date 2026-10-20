@@ -1,4 +1,5 @@
 #include "view/AxisNumbers.hpp"
+#include "gfx/Pure.hpp"
 #include "math/GridMath.hpp"
 #include "rendering/WorldMapping.hpp"
 #include "ui/core/Ui.hpp"
@@ -38,7 +39,7 @@ void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec) {
             if (k == 0) continue;
             Vector3 p = at(k * spec.step);
             if (Vector3DotProduct(forward, Vector3Subtract(p, camera.position)) <= 0.0f) continue;  // behind
-            Vector2 s = GetWorldToScreenEx(p, camera, static_cast<int>(w), static_cast<int>(h));
+            Vector2 s = gfx::worldToScreen(p, camera, static_cast<int>(w), static_cast<int>(h));
             std::string text = grid::formatTick(k * spec.step, spec.step);
             float tw = ui::textWidth(text.c_str(), ui::FontRole::Small);
             // Beside the axis: below it for horizontal axes, to the right for the vertical one
@@ -48,7 +49,7 @@ void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec) {
             if (r.x < 0 || r.y < 0 || r.x + r.width > w || r.y + r.height > h) continue;
             Rectangle padded = {r.x - ui::px(3), r.y - ui::px(1), r.width + ui::px(6), r.height + ui::px(2)};
             bool overlaps = false;
-            for (const Rectangle& q : placed) overlaps = overlaps || CheckCollisionRecs(padded, q);
+            for (const Rectangle& q : placed) overlaps = overlaps || gfx::overlaps(padded, q);
             if (overlaps) continue;
             placed.push_back(padded);
             ui::textIn(r, text.c_str(), ui::FontRole::Small, spec.color);
