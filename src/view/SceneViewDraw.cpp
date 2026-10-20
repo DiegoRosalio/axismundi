@@ -39,15 +39,12 @@ Color faded(Color c) {
 }
 
 // Arrow between two world points; selected arrows are thicker with a halo
+void dot(Vector3 at, float worldRadius, Color color) {
+    DrawSphere(at, std::clamp(worldRadius, VectorRenderer::pixelsAt(at, 2.5f), VectorRenderer::pixelsAt(at, 7.0f)), color);
+}
+
 void arrow(Vector3 from, Vector3 to, Color color, bool selected) {
-    float k = activeStyle().lineScale;
-    float radius = (selected ? 0.034f : 0.022f) * k;
-    float head = (selected ? 0.24f : 0.2f) * std::sqrt(k);
-    if (selected) {
-        DrawCylinderEx(from, to, 0.085f * k, 0.085f * k, 12, withAlpha(color, 75));
-        DrawSphere(to, 0.16f * std::sqrt(k), withAlpha(color, 60));
-    }
-    VectorRenderer::drawArrow(toVec(from), toVec(to), color, radius, head);
+    VectorRenderer::drawVectorArrow(from, to, color, selected, activeStyle().lineScale);
 }
 
 void dashed(Vector3 a, Vector3 b, Color color, float dash) {
@@ -112,7 +109,10 @@ void printArrow(Vector3 from, Vector3 to, Color color, int dash, bool selected) 
     if (len < 1e-6f) return;
     float head = std::fmin(0.22f, len * 0.4f);
     Vector3 base = Vector3Lerp(from, to, (len - head) / len);
-    if (selected) DrawCylinderEx(from, to, 0.06f, 0.06f, 10, Color{0, 0, 0, 30});  // soft gray halo on paper
+    if (selected) {  // a narrow gray outline on paper
+        float pad = VectorRenderer::pixelsAt(Vector3Lerp(from, to, 0.5f), 2.5f);
+        DrawCylinderEx(from, to, pad, pad, 10, Color{0, 0, 0, 30});
+    }
     printLine(from, base, color, dash, 0.016f);
     DrawCylinderEx(base, to, 0.065f, 0.0f, 12, color);
 }
@@ -133,16 +133,13 @@ void basis(const Matrix4D& m, float alpha, bool selected, bool fade) {
     Color colors[3] = {t.basisX, t.basisY, t.basisZ};
     if (fade)
         for (Color& c : colors) c = faded(c);
-    float radius = (selected ? 0.04f : 0.03f) * t.lineScale;
     for (int i = 0; i < 3; i++) {
+        // The moved basis vectors are vectors too: the same arrows (outlined when selected)
         Vector3 tip = mathToWorld(origin + axes[i]);
         Color c = withAlpha(colors[i], static_cast<unsigned char>(255 * alpha));
-        if (selected && alpha > 0.9f)
-            DrawCylinderEx(o, tip, 0.08f * t.lineScale, 0.08f * t.lineScale, 8, withAlpha(colors[i], 50));
-        DrawCylinderEx(o, tip, radius, radius, 8, c);
-        DrawSphere(tip, selected ? 0.11f : 0.09f, c);
+        VectorRenderer::drawVectorArrow(o, tip, c, selected && alpha > 0.9f, t.lineScale);
     }
-    DrawSphere(o, 0.06f, withAlpha(t.text, static_cast<unsigned char>(255 * alpha)));
+    DrawSphere(o, VectorRenderer::pixelsAt(o, 3.0f), withAlpha(t.text, static_cast<unsigned char>(255 * alpha)));
 }
 
 // --- Quaternions: axis and angle, rotated basis, a vector before and after ----------------

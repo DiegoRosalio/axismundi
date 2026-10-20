@@ -1,8 +1,10 @@
 #include "ui/HelpOverlay.hpp"
+#include "app/Version.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
 #include <raylib.h>
+#include <string>
 #include <algorithm>
 
 namespace linalg {
@@ -113,6 +115,8 @@ void HelpOverlay::draw() const {
     float y2 = drawColumn("Panels and tools", kPanels, nPanels, box.x + 2 * pad + colW, colY, colW, step);
     drawColumn("Editing", kEdit, nEdit, box.x + 2 * pad + colW, y2 + ui::px(12.0f), colW, step);
 
+    ui::textIn({box.x + pad, box.y + boxH - pad, boxW - 2 * pad, ui::px(20.0f)},
+               (std::string("axismundi ") + kVersion).c_str(), ui::FontRole::Small, t.textFaint);
     ui::textIn({box.x, box.y + boxH - pad, boxW - pad, ui::px(20.0f)}, "Press H or Esc to close",
                ui::FontRole::Small, t.textFaint, ui::Align::Right);
 }

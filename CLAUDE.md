@@ -127,7 +127,9 @@ src/
                       plane, GLSL 330 fragment shader with fwidth lines, families from math/GridMath, polar mode;
                       the project's only shader: strings in the .cpp, LoadShaderFromMemory, valid() false ->
                       fallback; AXISMUNDI_NO_SHADER=1 forces the fallback), Grid (the fallback line grid),
-                      VectorRenderer::drawArrow, PlotRenderer (GPU meshes from expressions + resolver),
+                      VectorRenderer (drawVectorArrow: the vector look, ~2 px shaft, head 30% of the length up to
+                      ~16 px, outline when selected; drawArrow clamps given sizes in pixels; pixelsAt(point, px) from
+                      setScreenScale, set each frame from DrawOptions.cameraPosition/worldPerPixel), PlotRenderer (GPU meshes from expressions + resolver),
                       FieldRenderer (vector field arrows/lines/particles), MeshBuilder (MeshData, tubes, cones,
                       MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up)
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
@@ -148,6 +150,17 @@ docs/architecture.md  how the pieces fit together (data flow per frame, where to
 docs/learn/           a guide to the code for C++ beginners (9 chapters + glossary). Its ```cpp snippets are
                       real code: when renaming or moving what a snippet shows, update the guide too
 assets/fonts/         subset TTFs + OFL licenses; tools/fonts.py subsets (fonttools) and embeds
+data/                 desktop integration, app ID com.bisonanon.axismundi: the .desktop file and icons/hicolor
+                      (scalable SVG, PNG sizes, symbolic SVG), drawn by tools/icon.py (`make icon`, GNOME icon
+                      style: light tile with a darker bottom edge, GNOME palette), which also writes
+                      src/ui/generated/icon.inc (ui/AppIcon: window icons + the top bar logo). `make install`
+                      copies them under PREFIX (~/.local). The window title "axismundi" is also GLFW's X11
+                      WM_CLASS, matched by StartupWMClass in the desktop file: keep them equal
+packaging/arch/       PKGBUILD + .SRCINFO for axismundi-git (AUR style; source = this clone via git+file, branch
+                      main; honors makepkg flags; check() = make test; package() = make install DESTDIR PREFIX=/usr,
+                      which skips the desktop/icon caches when DESTDIR is set). Not testable here (no makepkg):
+                      the user builds it on Arch
+LICENSE               GPL-3.0-or-later (official text, unmodified; the copyright line is in README's License)
 docs/screenshots/     images for the docs, produced by --tour
 ```
 
@@ -209,6 +222,8 @@ docs/screenshots/     images for the docs, produced by --tour
   `smoothDefault`). Drawing code reads only the style, never `ui::theme()` for scene colors. The View section
   shows 2×2 cards (`ViewPanel::styleCard`); more styles need another card row.
 - The export panel's B/W preview is synced with Paper in `App::update` (`m_previewShown`, `m_styleBeforePaper`).
+- Sizes on screen: arrows, axes and point markers (`draw::dot`) are sized in pixels through
+  `VectorRenderer::pixelsAt`, so zooming in never makes them fat; plots, fields and surfaces keep world sizes.
 - Selection: `DrawOptions.dimUnselected` (Settings `ui.dim_unselected`, off during lessons and the breakdown)
   fades the others by blending toward the background (not alpha: keeps depth right; plots use `draw(fade)`);
   `DrawOptions.solo` (`ViewSettings::soloSelection`, key O) draws and picks only the selection.
@@ -331,6 +346,13 @@ overload; before it, a literal picked the bool overload).
   `git -c user.name="Diego Rosalio" -c user.email="diegorosalio19@gmail.com" commit ...`
   and end messages with the `Co-Authored-By` trailer. Don't modify the git config.
 - Pushing needs an SSH key in the session; on "Permission denied (publickey)" ask the user.
+
+## Releases
+
+Semantic versions (`vMAJOR.MINOR.PATCH`). To release: bump `kVersion` in `src/include/app/Version.hpp` (shown by
+`--version` and the keyboard help) and `pkgver` in `packaging/arch/PKGBUILD` + `.SRCINFO` on `claude`, merge
+`claude` into `main` with `git merge --no-ff`, put an annotated tag `vX.Y.Z` on the merge commit, push `main` and
+the tag. The PKGBUILD's `pkgver()` derives the package version from the latest tag.
 
 ## Performance notes
 

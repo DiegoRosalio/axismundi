@@ -24,7 +24,9 @@ Color paletteColor(const std::vector<Color>& palette, int index);
 // The second color of an object: f', the gradient, the acceleration
 Color derivativeColor(const scene::SceneObject& o);
 
-// Arrow between two world points; selected arrows are thicker with a halo
+// A point marker: a sphere of the given world radius, kept between about 5 and 14 pixels across on screen
+void dot(Vector3 at, float worldRadius, Color color);
+// Arrow between two world points; selected arrows are a bit thicker with a narrow outline
 void arrow(Vector3 from, Vector3 to, Color color, bool selected);
 void dashed(Vector3 a, Vector3 b, Color color, float dash = 0.12f);
 // Arc in the complex plane (world XY), radius r, from angle a0 to a1

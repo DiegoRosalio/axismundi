@@ -61,13 +61,13 @@ void drawEigen(const SceneObject& o, const DrawContext& c) {
         if (c.print) {
             float l = std::fmax(2.0f, std::fabs(ev.re) * 1.3f);
             printLine(mathToWorld(ev.vector * -l), mathToWorld(ev.vector * l), c.color, 1, 0.008f);
-            DrawSphere(mathToWorld(ev.vector * ev.re), 0.05f, c.color);
+            dot(mathToWorld(ev.vector * ev.re), 0.05f, c.color);
             continue;
         }
         dashed(mathToWorld(ev.vector * -len), mathToWorld(ev.vector * len), withAlpha(c.color, c.selected ? 255 : 180),
                0.25f);
         VectorRenderer::drawArrow(Vector3D::zero(), toVec(mathToWorld(ev.vector)), withAlpha(c.color, 210), 0.015f, 0.15f);
-        DrawSphere(mathToWorld(ev.vector * ev.re), c.selected ? 0.09f : 0.07f, c.color);
+        dot(mathToWorld(ev.vector * ev.re), c.selected ? 0.09f : 0.07f, c.color);
     }
 }
 

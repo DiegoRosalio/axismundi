@@ -160,6 +160,37 @@ Building raylib needs the X11 and OpenGL development headers (for example on Alp
 make build
 ```
 
+### Install (desktop menu and icon)
+
+```bash
+make install            # into ~/.local: the app as `axismundi`, a desktop entry and the icons
+make uninstall          # removes them again
+
+make build && sudo make install   # system-wide, into /usr/local (build as yourself first)
+```
+
+`axismundi --version` prints the installed version.
+
+### Arch Linux package
+
+`packaging/arch/PKGBUILD` builds an `axismundi-git` package like the AUR's -git packages, from this clone's
+`main` branch (committed work only; releases are tagged vX.Y.Z there):
+
+```bash
+cd packaging/arch
+makepkg -si        # builds, runs the unit tests, installs with pacman (remove with: sudo pacman -R axismundi-git)
+```
+
+Remove a `make install` copy first (`make uninstall`), since both provide `axismundi`. To build from a server
+instead of this clone, run `_repo=<git url> makepkg -si`.
+
+The build uses `clang++` when it's installed (the compiler the project is tested with) and `g++` otherwise; on
+Arch, `sudo pacman -S clang raylib` gives you both dependencies.
+
+After installing, axismundi appears in the GNOME (or other freedesktop) app grid with its icon. The desktop
+entry and the icons (a scalable SVG, PNG sizes and a one-color symbolic icon) are in `data/`, named after the
+app ID `com.bisonanon.axismundi`; `make icon` redraws them with `tools/icon.py`.
+
 ## Usage
 
 ```bash
@@ -260,5 +291,13 @@ checks are in `tools/dev/` (see CLAUDE.md, "Development process").
 
 ## License
 
-The code is provided as-is for educational purposes. The embedded fonts are under the SIL Open Font License 1.1
-(see `assets/fonts/`).
+axismundi — Copyright (C) 2026 Diego Rosalio
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation, either version 3 of the License, or (at your
+option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE)
+for the full text (SPDX: `GPL-3.0-or-later`).
+
+Third-party parts keep their own licenses: the embedded fonts Inter and JetBrains Mono are under the SIL Open
+Font License 1.1 (`assets/fonts/OFL-*.txt`); raygui (`include/raygui.h`) and raylib are under the zlib license.

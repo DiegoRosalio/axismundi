@@ -1,0 +1,23 @@
+pkgbase = axismundi-git
+	pkgdesc = Interactive 3D visualizer for linear algebra, calculus and complex numbers
+	pkgver = 0.1.0
+	pkgrel = 1
+	arch = x86_64
+	arch = aarch64
+	license = GPL-3.0-or-later
+	license = OFL-1.1
+	makedepends = git
+	makedepends = clang
+	depends = raylib>=5.5
+	depends = gcc-libs
+	depends = glibc
+	depends = hicolor-icon-theme
+	optdepends = texlive-basic: compile LaTeX figure exports to PDF from the app
+	optdepends = texlive-pictures: PGFPlots/TikZ for the exported figures
+	optdepends = texlive-latexextra: the standalone class for exported figures
+	provides = axismundi
+	conflicts = axismundi
+	source = axismundi::git+file:///path/to/axismundi#branch=main
+	sha256sums = SKIP
+
+pkgname = axismundi-git

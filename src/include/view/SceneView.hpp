@@ -34,6 +34,9 @@ struct DrawOptions {
     bool solo = false;
     // Distance between tick marks on the complex plane's axes (follows the zoom, math/GridMath tickStep)
     double tickStep = 1.0;
+    // The camera, so arrows can keep a constant width on screen (VectorRenderer::setScreenScale)
+    Vector3 cameraPosition{0, 0, 0};
+    float worldPerPixel = 0.0f;  // at distance 1: 2·tan(fovy/2) / screen height (0: fixed sizes)
 };
 
 // Draws the objects of a space. 3D space: math coordinates with z up (see

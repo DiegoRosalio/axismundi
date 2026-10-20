@@ -1,4 +1,5 @@
 #include "app/App.hpp"
+#include "ui/AppIcon.hpp"
 #include "view/ViewStyle.hpp"
 #include "app/Tour.hpp"
 #include "edu/Examples.hpp"
@@ -54,8 +55,11 @@ App::App(const AppOptions& options)
     }
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
-    InitWindow(width, height, "axismundi - Linear Algebra 3D Visualizer");
+    // Just the app's name: GLFW also uses it as the X11 window class, which GNOME matches with
+    // StartupWMClass in data/com.bisonanon.axismundi.desktop to show the right icon in the dock
+    InitWindow(width, height, "axismundi");
     ui::installClickLatch();  // touchpad taps shorter than a frame still count as clicks
+    ui::setWindowIcons();
     SetWindowMinSize(800, 600);
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);  // Esc never quits; close the window to exit
