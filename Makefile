@@ -135,7 +135,7 @@ test: $(TEST_TARGET)
 
 $(TEST_TARGET): $(TEST_OBJS) | $(BIN_DIR)
 	@echo "linking: $@"
-	@$(CXX) $(TEST_OBJS) -o $@
+	@$(CXX) $(TEST_OBJS) $(LDFLAGS) -o $@
 
 $(BIN_DIR)/tests/%.o: $(TEST_DIR)/%.cpp | $(BIN_DIR)
 	@echo "compiling: $<"

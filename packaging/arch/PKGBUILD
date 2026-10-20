@@ -36,12 +36,12 @@ pkgver() {
 build() {
     cd "$_name"
     # makepkg's flags (from /etc/makepkg.conf) plus what the project needs
-    make build CXX=clang++ CXXFLAGS="$CXXFLAGS -std=c++20" LDFLAGS="$LDFLAGS"
+    make -j8 build CXX=clang++ CXXFLAGS="$CXXFLAGS -std=c++20" LDFLAGS="$LDFLAGS"
 }
 
 check() {
     cd "$_name"
-    make test CXX=clang++ CXXFLAGS="$CXXFLAGS -std=c++20" LDFLAGS="$LDFLAGS"
+    make -j8 test CXX=clang++ CXXFLAGS="$CXXFLAGS -std=c++20" LDFLAGS="$LDFLAGS"
 }
 
 package() {
