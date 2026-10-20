@@ -129,6 +129,9 @@ Everything that is done, grouped by area. Open work is in [TODO.md](TODO.md); ho
 - [x] Larger floor grid (±5 to ±100) with major lines and a soft edge
 
 ## Interface
+- [x] App icon in the GNOME style (light tile, darker bottom edge, the world axis through an orbit with the x and y
+      axes, GNOME palette) as SVG, PNG sizes and a symbolic icon; window icon and top bar logo; a desktop entry
+      and `make install` / `make uninstall` (into ~/.local by default)
 - [x] Add help overlay (press H for help)
 - [x] Show current camera position
 - [x] Add reset camera button

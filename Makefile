@@ -26,7 +26,7 @@ TEST_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(MATH_SRCS)) \
              $(patsubst $(TEST_DIR)/%.cpp, $(BIN_DIR)/tests/%.o, $(TEST_SRCS))
 TEST_TARGET := $(BIN_DIR)/run_tests
 
-.PHONY: default build run clean help test fonts
+.PHONY: default build run clean help test fonts icon install uninstall
 default: run
 
 list:
@@ -86,6 +86,26 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BIN_DIR)
 ## regenerate src/ui/generated/fonts.inc from assets/fonts
 fonts:
 	@python3 tools/fonts.py embed
+
+## redraw the app icon (data/icons, src/ui/generated/icon.inc) with tools/icon.py
+icon:
+	@python3 tools/icon.py
+
+APP_ID := com.bisonanon.axismundi
+PREFIX ?= $(HOME)/.local
+
+## install the app, its desktop file and icons under PREFIX (default ~/.local)
+install: build
+	install -Dm755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/axismundi
+	install -Dm644 data/$(APP_ID).desktop $(DESTDIR)$(PREFIX)/share/applications/$(APP_ID).desktop
+	cd data/icons && find hicolor -type f -exec install -Dm644 {} $(DESTDIR)$(PREFIX)/share/icons/{} \;
+	@command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t $(DESTDIR)$(PREFIX)/share/icons/hicolor || true
+	@command -v update-desktop-database >/dev/null && update-desktop-database -q $(DESTDIR)$(PREFIX)/share/applications || true
+
+## remove what install put under PREFIX
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/axismundi $(DESTDIR)$(PREFIX)/share/applications/$(APP_ID).desktop
+	cd data/icons && find hicolor -type f -exec rm -f $(DESTDIR)$(PREFIX)/share/icons/{} \;
 
 ## build and run the math unit tests
 test: $(TEST_TARGET)

@@ -1,4 +1,5 @@
 #include "ui/TopBar.hpp"
+#include "ui/AppIcon.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
@@ -20,7 +21,7 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
 
     Rectangle bar = {ui::px(ui::kPad), 0, w - 2 * ui::px(ui::kPad), h};
 
-    // Side bar toggle, then the brand: a small accent mark and the name
+    // Side bar toggle, then the brand: the app icon and the name
     Rectangle side = ui::takeLeft(bar, 30.0f, 10.0f);
     side.y = (h - ui::px(30.0f)) / 2;
     side.height = ui::px(30.0f);
@@ -29,11 +30,9 @@ TopBarActions TopBar::draw(AppMode& mode, const TopBarState& state) {
     ui::tooltip(side, state.sidebarCollapsed ? "Show the objects list and the inspector (Ctrl+B)"
                                              : "Hide the side bar to give the view the whole window (Ctrl+B)",
                 "Side bar");
-    Rectangle mark = ui::takeLeft(bar, 22.0f, 10.0f);
-    float m = ui::px(18.0f);
-    Rectangle markBox = {mark.x, (h - m) / 2, m, m};
-    ui::fillRounded(markBox, ui::px(5.0f), t.accent);
-    ui::drawIcon(ui::Icon::Layers, ui::inset(markBox, 3.0f), t.onAccent);
+    Rectangle mark = ui::takeLeft(bar, 24.0f, 10.0f);
+    float m = ui::px(24.0f);
+    ui::drawAppIcon({mark.x, (h - m) / 2, m, m});
     Rectangle name = ui::takeLeft(bar, 104.0f, 18.0f);
     ui::textIn(name, "axismundi", ui::FontRole::Title, t.text);
 

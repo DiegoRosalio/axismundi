@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=axismundi
+GenericName=Math Visualizer
+Comment=Explore linear algebra, calculus and complex numbers in 3D
+Exec=axismundi
+Icon=com.bisonanon.axismundi
+Terminal=false
+Categories=Education;Science;Math;
+Keywords=linear algebra;matrix;vector;calculus;complex;quaternion;fourier;3D;
+StartupNotify=true
+StartupWMClass=axismundi

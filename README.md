@@ -160,6 +160,18 @@ Building raylib needs the X11 and OpenGL development headers (for example on Alp
 make build
 ```
 
+### Install (desktop menu and icon)
+
+```bash
+make install            # into ~/.local: the app as `axismundi`, a desktop entry and the icons
+make uninstall          # removes them again
+make install PREFIX=/usr/local   # system-wide (run with sudo)
+```
+
+After installing, axismundi appears in the GNOME (or other freedesktop) app grid with its icon. The desktop
+entry and the icons (a scalable SVG, PNG sizes and a one-color symbolic icon) are in `data/`, named after the
+app ID `com.bisonanon.axismundi`; `make icon` redraws them with `tools/icon.py`.
+
 ## Usage
 
 ```bash

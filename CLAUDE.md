@@ -150,6 +150,12 @@ docs/architecture.md  how the pieces fit together (data flow per frame, where to
 docs/learn/           a guide to the code for C++ beginners (9 chapters + glossary). Its ```cpp snippets are
                       real code: when renaming or moving what a snippet shows, update the guide too
 assets/fonts/         subset TTFs + OFL licenses; tools/fonts.py subsets (fonttools) and embeds
+data/                 desktop integration, app ID com.bisonanon.axismundi: the .desktop file and icons/hicolor
+                      (scalable SVG, PNG sizes, symbolic SVG), drawn by tools/icon.py (`make icon`, GNOME icon
+                      style: light tile with a darker bottom edge, GNOME palette), which also writes
+                      src/ui/generated/icon.inc (ui/AppIcon: window icons + the top bar logo). `make install`
+                      copies them under PREFIX (~/.local). The window title "axismundi" is also GLFW's X11
+                      WM_CLASS, matched by StartupWMClass in the desktop file: keep them equal
 docs/screenshots/     images for the docs, produced by --tour
 ```
 
