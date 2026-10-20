@@ -347,6 +347,13 @@ overload; before it, a literal picked the bool overload).
   and end messages with the `Co-Authored-By` trailer. Don't modify the git config.
 - Pushing needs an SSH key in the session; on "Permission denied (publickey)" ask the user.
 
+## Releases
+
+Semantic versions (`vMAJOR.MINOR.PATCH`). To release: bump `kVersion` in `src/include/app/Version.hpp` (shown by
+`--version` and the keyboard help) and `pkgver` in `packaging/arch/PKGBUILD` + `.SRCINFO` on `claude`, merge
+`claude` into `main` with `git merge --no-ff`, put an annotated tag `vX.Y.Z` on the merge commit, push `main` and
+the tag. The PKGBUILD's `pkgver()` derives the package version from the latest tag.
+
 ## Performance notes
 
 Measured under xvfb with Mesa llvmpipe (software rendering, so real GPUs are far faster): a 400×400

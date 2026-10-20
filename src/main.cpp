@@ -1,4 +1,5 @@
 #include "app/App.hpp"
+#include "app/Version.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -9,7 +10,7 @@ using namespace linalg;
 namespace {
 
 void printUsage(const char* program) {
-    std::printf("usage: %s [--size WxH] [--theme dark|light] [--tour OUTPUT_DIR]\n", program);
+    std::printf("usage: %s [--size WxH] [--theme dark|light] [--tour OUTPUT_DIR] [--version]\n", program);
     std::printf("  --size WxH     initial window size (default 1600x900)\n");
     std::printf("  --theme NAME   start with the dark or light theme\n");
     std::printf("  --tour DIR     save screenshots of a scripted UI tour to DIR, then exit\n");
@@ -39,6 +40,9 @@ int main(int argc, char** argv) {
             }
         } else if (std::strcmp(argv[i], "--tour") == 0 && i + 1 < argc) {
             options.tourDir = argv[++i];
+        } else if (std::strcmp(argv[i], "--version") == 0) {
+            std::printf("axismundi %s\n", kVersion);
+            return 0;
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             printUsage(argv[0]);
             return 0;

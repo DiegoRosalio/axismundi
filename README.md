@@ -169,6 +169,8 @@ make uninstall          # removes them again
 make build && sudo make install   # system-wide, into /usr/local (build as yourself first)
 ```
 
+`axismundi --version` prints the installed version.
+
 ### Arch Linux package
 
 `packaging/arch/PKGBUILD` builds an `axismundi-git` package like the AUR's -git packages, from this clone's

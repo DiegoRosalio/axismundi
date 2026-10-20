@@ -1,6 +1,6 @@
 pkgbase = axismundi-git
 	pkgdesc = Interactive 3D visualizer for linear algebra, calculus and complex numbers
-	pkgver = r0.0000000
+	pkgver = 0.1.0
 	pkgrel = 1
 	arch = x86_64
 	arch = aarch64
