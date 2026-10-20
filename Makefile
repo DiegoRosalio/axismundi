@@ -113,14 +113,20 @@ install: build
 	sed -e 's|^Exec=.*|Exec=$(PREFIX)/bin/axismundi|' -e 's|^TryExec=.*||' data/$(APP_ID).desktop \
 	  > $(DESTDIR)$(PREFIX)/share/applications/$(APP_ID).desktop
 	cd data/icons && find hicolor -type f -exec install -Dm644 {} $(ICONS)/../{} \;
+	@# The fonts are embedded in the program; the OFL asks for their license to travel with it
+	install -Dm644 -t $(DESTDIR)$(PREFIX)/share/licenses/axismundi assets/fonts/OFL-Inter.txt assets/fonts/OFL-JetBrainsMono.txt
+	@# Packages (DESTDIR set) leave the caches to the system: pacman hooks rebuild them on install
+ifeq ($(DESTDIR),)
 	$(refresh_icons)
 	@command -v update-desktop-database >/dev/null && update-desktop-database -q $(DESTDIR)$(PREFIX)/share/applications || true
 	@echo "installed under $(PREFIX): look for axismundi in the app grid (log out and in if it doesn't show)"
+endif
 
 ## remove what install put under PREFIX
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/axismundi $(DESTDIR)$(PREFIX)/share/applications/$(APP_ID).desktop
 	cd data/icons && find hicolor -type f -exec rm -f $(ICONS)/../{} \;
+	rm -rf $(DESTDIR)$(PREFIX)/share/licenses/axismundi
 	$(refresh_icons)
 
 ## build and run the math unit tests
