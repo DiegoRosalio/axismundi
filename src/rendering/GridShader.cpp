@@ -1,4 +1,5 @@
 #include "rendering/GridShader.hpp"
+#include "rendering/GpuContext.hpp"
 #include <cstdlib>
 #include <rlgl.h>
 
@@ -84,7 +85,7 @@ void main() {
 
 GridShader::~GridShader() {
     // The GPU resource can only be freed while the window (the GL context) still exists
-    if (m_ok && IsWindowReady()) UnloadShader(m_shader);
+    if (m_ok && gpuContextReady()) UnloadShader(m_shader);
 }
 
 bool GridShader::valid() {

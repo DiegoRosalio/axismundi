@@ -14,7 +14,7 @@ void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec) {
     const bool complex = spec.space == scene::SpaceKind::Complex;
     const int axes = complex ? 2 : 3;
     const Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
-    const float w = static_cast<float>(GetScreenWidth()), h = static_cast<float>(GetScreenHeight());
+    const float w = ui::screenWidth(), h = ui::screenHeight();
     std::vector<Rectangle> placed;  // so numbers never overlap each other
 
     for (int axis = 0; axis < axes; axis++) {
@@ -38,7 +38,7 @@ void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec) {
             if (k == 0) continue;
             Vector3 p = at(k * spec.step);
             if (Vector3DotProduct(forward, Vector3Subtract(p, camera.position)) <= 0.0f) continue;  // behind
-            Vector2 s = GetWorldToScreen(p, camera);
+            Vector2 s = GetWorldToScreenEx(p, camera, static_cast<int>(w), static_cast<int>(h));
             std::string text = grid::formatTick(k * spec.step, spec.step);
             float tw = ui::textWidth(text.c_str(), ui::FontRole::Small);
             // Beside the axis: below it for horizontal axes, to the right for the vertical one

@@ -1,4 +1,5 @@
 #include "rendering/MeshBuilder.hpp"
+#include "rendering/GpuContext.hpp"
 #include <raymath.h>
 #include <rlgl.h>
 #include <algorithm>
@@ -112,7 +113,7 @@ void MeshSet::upload(MeshData& data) {
 
 void MeshSet::release() {
     for (Mesh& mesh : m_meshes) {
-        if (IsWindowReady()) {
+        if (gpuContextReady()) {
             UnloadMesh(mesh);
         } else {
             // The GL context is gone (app shutdown): only free the CPU copies

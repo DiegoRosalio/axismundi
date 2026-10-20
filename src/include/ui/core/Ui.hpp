@@ -39,6 +39,10 @@ void shutdown();
 
 // --- Scale -------------------------------------------------------------------
 float scale();
+// The size of the area being drawn: raylib's window, or what a host (the GTK view) set
+float screenWidth();
+float screenHeight();
+void setScreenSize(float width, float height);  // 0 × 0: follow raylib's window again
 float zoom();
 void setZoom(float zoom);   // user multiplier, clamped to [0.7, 2.0]
 void zoomIn();

@@ -9,6 +9,7 @@
 
 #include <raygui.h>
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <cctype>
 #include <cmath>
@@ -62,15 +63,44 @@ std::map<std::string, Rectangle> g_lastAnchors;  // complete set from last frame
 
 int roleIndex(FontRole role) { return static_cast<int>(role); }
 
+// LoadFontFromMemory's steps, uploading the atlas ourselves: raylib skips the upload when it didn't open the
+// window (the GTK app draws in a GL context made by GTK), and the font then falls back to raylib's default font,
+// which doesn't exist either
+Font loadTtf(const unsigned char* data, int size, int pixelSize, const int* codepoints, int count) {
+    Font f{};
+    f.baseSize = pixelSize;
+    f.glyphCount = count;
+    f.glyphs = LoadFontData(data, size, pixelSize, const_cast<int*>(codepoints), count, FONT_DEFAULT);
+    if (!f.glyphs) return Font{};
+    f.glyphPadding = 4;  // raylib's FONT_TTF_DEFAULT_CHARS_PADDING
+    Image atlas = GenImageFontAtlas(f.glyphs, &f.recs, count, pixelSize, f.glyphPadding, 0);
+    f.texture = LoadTextureFromImage(atlas);
+    for (int i = 0; i < count; i++) {  // as raylib does: glyph images point into the atlas (ImageDrawText)
+        UnloadImage(f.glyphs[i].image);
+        f.glyphs[i].image = ImageFromImage(atlas, f.recs[i]);
+    }
+    UnloadImage(atlas);
+    return f;
+}
+
+void unloadTtf(Font& f) {
+    UnloadFontData(f.glyphs, f.glyphCount);
+    UnloadTexture(f.texture);
+    MemFree(f.recs);
+    f = Font{};
+}
+
 void buildFonts(float s) {
     for (int i = 0; i < kRoleCount; i++) {
         RoleSpec spec = roleSpec(static_cast<FontRole>(i));
         int pixelSize = static_cast<int>(std::lround(std::max(spec.minPixels, spec.designSize * s)));
-        Font f = LoadFontFromMemory(".ttf", spec.data, spec.size, pixelSize,
-                                    const_cast<int*>(kUiCodepoints), kUiCodepointCount);
-        if (f.texture.id == 0) continue;  // keep the previous atlas
+        Font f = loadTtf(spec.data, spec.size, pixelSize, kUiCodepoints, kUiCodepointCount);
+        if (f.texture.id == 0) {  // keep the previous atlas
+            if (f.glyphs) unloadTtf(f);
+            continue;
+        }
         SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
-        if (g.fontLoaded[i]) UnloadFont(g.fonts[i]);
+        if (g.fontLoaded[i]) unloadTtf(g.fonts[i]);
         g.fonts[i] = f;
         g.fontLoaded[i] = true;
     }
@@ -175,9 +205,16 @@ bool mouseReleased(int button) {
 namespace {
 float g_fixedStep = 0.0f;
 double g_fixedNow = 0.0;
+
+// Seconds since start: raylib's clock, or a steady clock when there is no raylib window (the GTK app)
+double realSeconds() {
+    if (IsWindowReady()) return GetTime();
+    static const auto start = std::chrono::steady_clock::now();
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
 }  // namespace
 
-double now() { return g_fixedStep > 0.0f ? g_fixedNow : GetTime(); }
+double now() { return g_fixedStep > 0.0f ? g_fixedNow : realSeconds(); }
 void setFixedStep(float step) { g_fixedStep = step; }
 float frameStep(float real) { return g_fixedStep > 0.0f ? g_fixedStep : real; }
 
@@ -192,8 +229,8 @@ void beginFrame() {
     g_lastAnchors.swap(g_anchors);
     g_anchors.clear();
 
-    float w = static_cast<float>(GetScreenWidth());
-    float h = static_cast<float>(GetScreenHeight());
+    float w = screenWidth();
+    float h = screenHeight();
     float automatic = std::clamp(std::min(w / kDesignWidth, h / kDesignHeight), 0.75f, 3.0f);
     g.scale = automatic * g.zoom;
 
@@ -201,7 +238,7 @@ void beginFrame() {
     // size settles (meanwhile the old atlas is scaled, which is still legible)
     bool needFonts = !g.fontLoaded[0] || std::fabs(g.scale - g.fontScale) / g.fontScale > 0.02f;
     if (needFonts) {
-        double now = GetTime();
+        double now = realSeconds();
         if (g.pendingSince < 0.0) g.pendingSince = now;
         if (!g.fontLoaded[0] || now - g.pendingSince > 0.15) {
             buildFonts(g.scale);
@@ -217,7 +254,7 @@ void beginFrame() {
 
 void shutdown() {
     for (int i = 0; i < kRoleCount; i++) {
-        if (g.fontLoaded[i]) UnloadFont(g.fonts[i]);
+        if (g.fontLoaded[i]) unloadTtf(g.fonts[i]);
         g.fontLoaded[i] = false;
     }
 }
@@ -227,6 +264,16 @@ void shutdown() {
 // ---------------------------------------------------------------------------
 
 float scale() { return g.scale; }
+
+namespace {
+float g_hostWidth = 0.0f, g_hostHeight = 0.0f;
+}
+float screenWidth() { return g_hostWidth > 0.0f ? g_hostWidth : static_cast<float>(GetScreenWidth()); }
+float screenHeight() { return g_hostHeight > 0.0f ? g_hostHeight : static_cast<float>(GetScreenHeight()); }
+void setScreenSize(float width, float height) {
+    g_hostWidth = width;
+    g_hostHeight = height;
+}
 float zoom() { return g.zoom; }
 void setZoom(float z) { g.zoom = std::clamp(z, 0.7f, 2.0f); }
 void zoomIn() { setZoom(std::round((g.zoom + 0.1f) * 10.0f) / 10.0f); }
@@ -527,7 +574,7 @@ void drawTooltip(bool enabled) {
     Vector2 m = GetMousePosition();
     float w = bodyW + 2 * pad, h = titleH + bodyH + 2 * pad - px(2.0f);
     float x = m.x + px(14.0f), y = m.y + px(20.0f);
-    float sw = static_cast<float>(GetScreenWidth()), sh = static_cast<float>(GetScreenHeight());
+    float sw = screenWidth(), sh = screenHeight();
     if (x + w > sw - px(6)) x = sw - w - px(6);
     if (y + h > sh - px(6)) y = m.y - h - px(10.0f);
     Rectangle box = snap({x, y, w, h});
