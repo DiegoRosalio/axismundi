@@ -12,7 +12,8 @@ namespace linalg::gtk {
 namespace {
 
 constexpr const char* kCss = R"(
-.lesson-card { padding: 14px 16px; }
+.lesson-card { padding: 14px 16px; background-color: @popover_bg_color; color: @popover_fg_color;
+               border-radius: 12px; box-shadow: 0 1px 3px 1px alpha(black, 0.12), 0 2px 12px 2px alpha(black, 0.18); }
 .lesson-dot { min-height: 4px; border-radius: 2px; background: alpha(currentColor, 0.15); }
 .lesson-dot.done { background: @success_color; }
 .lesson-dot.current { background: @accent_bg_color; }

@@ -136,8 +136,7 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
 }
 
 GtkWidget* MainWindow::buildSidebar() {
-    GtkWidget* header = adw_header_bar_new();
-    adw_header_bar_set_show_end_title_buttons(ADW_HEADER_BAR(header), FALSE);
+    GtkWidget* header = adw_header_bar_new();  // window buttons: the split view shows those at the window's edges
     GtkWidget* title = adw_window_title_new("Objects", "");
     adw_header_bar_set_title_widget(ADW_HEADER_BAR(header), title);
     m_add = Gtk::make_managed<AddButton>(m_session);
@@ -184,7 +183,6 @@ GtkWidget* MainWindow::buildSidebar() {
 
 GtkWidget* MainWindow::buildContent() {
     GtkWidget* header = adw_header_bar_new();
-    adw_header_bar_set_show_start_title_buttons(ADW_HEADER_BAR(header), FALSE);
 
     auto* sidebar = Gtk::make_managed<Gtk::ToggleButton>();
     sidebar->set_icon_name("sidebar-show-symbolic");

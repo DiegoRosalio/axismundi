@@ -49,9 +49,9 @@ InfoPane::InfoPane(Session& session) : Gtk::Box(Gtk::Orientation::VERTICAL), m_s
     GtkWidget* switcher = m_switcher = adw_view_switcher_new();
     adw_view_switcher_set_stack(ADW_VIEW_SWITCHER(switcher), m_stack);
     adw_view_switcher_set_policy(ADW_VIEW_SWITCHER(switcher), ADW_VIEW_SWITCHER_POLICY_NARROW);
+    // The window buttons (close...) show here when the pane is the rightmost part of the window; libadwaita's split
+    // views hide the ones that would sit in the middle
     GtkWidget* header = adw_header_bar_new();
-    adw_header_bar_set_show_start_title_buttons(ADW_HEADER_BAR(header), FALSE);
-    adw_header_bar_set_show_end_title_buttons(ADW_HEADER_BAR(header), FALSE);
     adw_header_bar_set_title_widget(ADW_HEADER_BAR(header), switcher);
 
     GtkWidget* toolbar = adw_toolbar_view_new();

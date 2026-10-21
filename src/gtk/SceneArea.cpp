@@ -93,6 +93,12 @@ bool SceneArea::on_render(const Glib::RefPtr<Gdk::GLContext>&) {
         glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(target));
     }
+    // GTK composites the picture with its alpha. Blending (grid lines, labels) leaves alpha below 1, which let the
+    // window show through and washed the grid out in the light theme: make the whole picture opaque.
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     m_dirty = false;
     m_frames++;
     return true;
