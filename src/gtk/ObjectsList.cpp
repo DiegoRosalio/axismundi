@@ -3,6 +3,8 @@
 #include "scene/Summaries.hpp"
 #include "scene/Types.hpp"
 #include "view/SceneView.hpp"
+#include <glibmm/main.h>
+#include <gtkmm/adjustment.h>
 #include <glibmm/markup.h>
 #include <algorithm>
 #include <cstdio>
@@ -142,6 +144,23 @@ void ObjectsList::syncSelection() {
         }
     }
     m_syncing = false;
+    // A new primary (added, picked in the view) comes into view
+    if (sel.primary() != m_primary) {
+        m_primary = sel.primary();
+        if (m_primary != scene::kNoObject) {
+            scene::ObjectId id = m_primary;
+            Glib::signal_idle().connect_once([this, id] { scrollTo(id); });  // once the rows have their sizes
+        }
+    }
+}
+
+void ObjectsList::scrollTo(scene::ObjectId id) {
+    for (Row& r : m_rows) {
+        if (r.id != id) continue;
+        graphene_rect_t bounds;
+        if (gtk_widget_compute_bounds(GTK_WIDGET(r.row->gobj()), GTK_WIDGET(m_list.gobj()), &bounds))
+            m_scroll.get_vadjustment()->clamp_page(bounds.origin.y, bounds.origin.y + bounds.size.height);
+    }
 }
 
 void ObjectsList::onSelectionChanged() {

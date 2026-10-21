@@ -1,7 +1,8 @@
 #!/bin/sh
 # Real X11 input on the GTK app under Xvfb (xdotool): the camera (orbit drag, pan, wheel), the space switch, the
 # Add menu, the objects list (click, Ctrl+click), picking in the view, undo, saving and opening a scene through the
-# file dialog. Saves a PNG per step to $DEV/input-gtk and checks that each step changed the picture.
+# file dialog, the inspector (typing, Esc, Delete inside a field, modes, rename, a slider), Delete in the list and
+# the view. Saves a PNG per step to $DEV/input-gtk and checks that each step changed the picture.
 DEV=${AXISMUNDI_DEV:-$HOME/.cache/axismundi-dev}
 BIN=$DEV/build/axismundi-gtk OUT=$DEV/input-gtk
 . "$(dirname "$0")/input-lib.sh"
@@ -39,6 +40,30 @@ dblclick 210 90; sleep 1
                                shot 18_opened
 # A click on the vector's arrow (the camera saved in the file puts its tip there) selects it
 click 905 429;                 shot 19_pick_vector
+# The inspector: type a component (Enter commits), Delete edits the text (it doesn't delete the object), Esc reverts
+click 84 527; key ctrl+a; type_ "2"; key Return
+                               shot 20_type_component
+click 195 527; key Home; key Delete
+                               shot 21_delete_key_in_field
+key Escape;                    shot 22_escape_reverts
+# Formula mode, a formula, a broken one (shown in red), undo, rename, save
+click 290 416;                 shot 23_formula_mode
+click 150 527; key ctrl+a; type_ "[1, 2, 2]"; key Return
+                               shot 24_formula_typed
+key ctrl+a; type_ "q*2"; key Return
+                               shot 25_bad_formula
+click 448 27;                  shot 26_undo_button
+click 150 362; key ctrl+a; type_ "w"; key Return
+                               shot 27_rename
+key ctrl+s;                    shot 28_saved
+# A parameter's slider
+click 1450 820; click 28 27; click 54 108
+                               shot 29_parameter_added
+drag 172 510 260 510;          shot 30_slider_drag
+# Delete still works where it belongs: in the list and in the view
+click 160 122; key Delete;     shot 31_list_delete
+click 874 296;                 shot 32_view_pick
+key Delete;                    shot 33_view_delete
 input_stop
 python3 - "$OUT" <<'PY'
 import sys, hashlib, os
@@ -46,7 +71,10 @@ out = sys.argv[1]
 names = sorted(f[:-4] for f in os.listdir(out) if f.endswith(".png") and f[:2].isdigit())
 want = ["00_start", "01_orbit_drag", "02_pan_right_drag", "03_wheel_zoom_in", "04_complex_toggle", "05_back_to_3d",
         "06_add_menu", "07_vector_added", "08_matrix_added", "09_list_select", "10_list_ctrl_click", "11_templates",
-        "12_pick_empty", "13_undo", "14_save_dialog", "15_saved", "16_new", "17_open_dialog", "18_opened", "19_pick_vector"]
+        "12_pick_empty", "13_undo", "14_save_dialog", "15_saved", "16_new", "17_open_dialog", "18_opened", "19_pick_vector",
+        "20_type_component", "21_delete_key_in_field", "22_escape_reverts", "23_formula_mode", "24_formula_typed",
+        "25_bad_formula", "26_undo_button", "27_rename", "28_saved", "29_parameter_added", "30_slider_drag",
+        "31_list_delete", "32_view_pick", "33_view_delete"]
 def digest(n):
     p = os.path.join(out, n + ".png")
     return hashlib.sha1(open(p, "rb").read()).hexdigest() if os.path.exists(p) else None
@@ -61,5 +89,11 @@ text = open(saved).read() if os.path.exists(saved) else ""
 ok = "type = vector" in text and "type = matrix" not in text
 problems += not ok
 print(("ok      " if ok else "PROBLEM ") + "the saved file holds the vector, not the undone matrix")
+# The inspector's edits reached the file saved at step 28
+for line in ["object.0.name = w", "object.0.prop.mode = formula", "object.0.field.value = [1, 2, 2]",
+             "object.0.field.x = 2"]:
+    ok = line in text
+    problems += not ok
+    print(("ok      " if ok else "PROBLEM ") + "the saved file has " + line)
 print("%d problems" % problems)
 PY

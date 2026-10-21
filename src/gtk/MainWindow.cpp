@@ -1,6 +1,7 @@
 #include "gtk/MainWindow.hpp"
 #include "app/Version.hpp"
 #include "gtk/AddButton.hpp"
+#include "gtk/Inspector.hpp"
 #include "gtk/ObjectsList.hpp"
 #include "gtk/SceneArea.hpp"
 #include "ui/SceneIO.hpp"
@@ -10,6 +11,8 @@
 #include <glibmm/main.h>
 #include <gtkmm/button.h>
 #include <gtkmm/menubutton.h>
+#include <gtkmm/paned.h>
+#include <gtkmm/shortcutcontroller.h>
 #include <gtkmm/togglebutton.h>
 #include <filesystem>
 #include <unistd.h>
@@ -54,8 +57,8 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
     m_split = ADW_OVERLAY_SPLIT_VIEW(adw_overlay_split_view_new());
     adw_overlay_split_view_set_sidebar(m_split, buildSidebar());
     adw_overlay_split_view_set_content(m_split, buildContent());
-    adw_overlay_split_view_set_min_sidebar_width(m_split, 260);
-    adw_overlay_split_view_set_max_sidebar_width(m_split, 340);
+    adw_overlay_split_view_set_min_sidebar_width(m_split, 280);
+    adw_overlay_split_view_set_max_sidebar_width(m_split, 380);
 
     m_toasts = ADW_TOAST_OVERLAY(adw_toast_overlay_new());
     adw_toast_overlay_set_child(m_toasts, GTK_WIDGET(m_split));
@@ -75,9 +78,11 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
     g_signal_connect(adw_style_manager_get_default(), "notify::dark", G_CALLBACK(onDarkChanged), this);
     applyDark();
 
-    // The list follows the scene (values change with the clock, edits, undo); cheap when nothing changed
+    // The list and the inspector follow the scene (values change with the clock, edits, undo); cheap when nothing
+    // changed
     Glib::signal_timeout().connect([this] {
         m_list->refresh();
+        m_inspector->refresh();
         return true;
     }, 150);
 }
@@ -92,11 +97,27 @@ GtkWidget* MainWindow::buildSidebar() {
     adw_header_bar_pack_start(ADW_HEADER_BAR(header), GTK_WIDGET(m_add->gobj()));
 
     m_list = Gtk::make_managed<ObjectsList>(m_session);
-    m_list->onChanged([this] { m_area->changed(); });
+    m_inspector = Gtk::make_managed<Inspector>(m_session);
+    m_list->onChanged([this] {
+        m_area->changed();
+        m_inspector->refresh();
+    });
+    m_inspector->onChanged([this] { sceneChanged(); });
+    m_inspector->onToast([this](const std::string& message) { toast(message); });
+
+    // The list above, the inspector below; the divider can be dragged
+    auto* paned = Gtk::make_managed<Gtk::Paned>(Gtk::Orientation::VERTICAL);
+    paned->set_start_child(*m_list);
+    paned->set_end_child(*m_inspector);
+    paned->set_resize_start_child(false);
+    paned->set_shrink_start_child(false);
+    paned->set_shrink_end_child(false);
+    paned->set_wide_handle(true);
+    paned->set_position(220);
 
     GtkWidget* toolbar = adw_toolbar_view_new();
     adw_toolbar_view_add_top_bar(ADW_TOOLBAR_VIEW(toolbar), header);
-    adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(toolbar), GTK_WIDGET(m_list->gobj()));
+    adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(toolbar), GTK_WIDGET(paned->gobj()));
     return toolbar;
 }
 
@@ -168,9 +189,17 @@ void MainWindow::buildActions(const Glib::RefPtr<Gtk::Application>& app) {
     };
     add("undo", [this] { undo(); }, {"<Control>z"});
     add("redo", [this] { redo(); }, {"<Control><Shift>z", "<Control>y"});
+    // Delete has no window-wide key: in a text field it must edit the text. The list and the view have it.
     add("delete", [this] {
         if (m_session.deleteSelection()) sceneChanged();
-    }, {"Delete"});
+    }, {});
+    for (Gtk::Widget* w : std::initializer_list<Gtk::Widget*>{m_list, m_area}) {
+        auto keys = Gtk::ShortcutController::create();
+        keys->set_scope(Gtk::ShortcutScope::LOCAL);
+        keys->add_shortcut(Gtk::Shortcut::create(Gtk::KeyvalTrigger::create(GDK_KEY_Delete),
+                                                 Gtk::NamedAction::create("win.delete")));
+        w->add_controller(keys);
+    }
     add("duplicate", [this] {
         if (m_session.duplicateSelection()) sceneChanged();
     }, {"<Control>d"});
@@ -215,6 +244,7 @@ void MainWindow::showSidebar(bool show) { adw_overlay_split_view_set_show_sideba
 void MainWindow::sceneChanged() {
     m_area->changed();
     m_list->refresh();
+    m_inspector->refresh();
 }
 
 void MainWindow::addObject(const AddChoice& choice) {
@@ -225,6 +255,7 @@ void MainWindow::addObject(const AddChoice& choice) {
 }
 
 void MainWindow::undo() {
+    m_inspector->flush();  // typing in progress becomes its own step first
     if (!m_session.scene().canUndo()) return;
     m_session.scene().undo();
     sceneChanged();

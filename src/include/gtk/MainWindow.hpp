@@ -1,7 +1,7 @@
 #pragma once
 
-// The GTK app's main window (an AdwApplicationWindow). A split view: the objects list (with the Add button) in
-// the sidebar, the 3D view as the content, a header bar with undo/redo, the 3D space / complex plane switch and
+// The GTK app's main window (an AdwApplicationWindow). A split view: the objects list (with the Add button) and
+// the inspector of the selected object in the sidebar, the 3D view as the content, a header bar with undo/redo, the 3D space / complex plane switch and
 // the main menu (scene files, About). Toasts report what happened. libadwaita has no C++ wrapper, so its
 // widgets are made through its C API and our own widgets (gtkmm) are put inside them.
 
@@ -21,6 +21,7 @@ namespace linalg::gtk {
 class SceneArea;
 class ObjectsList;
 class AddButton;
+class Inspector;
 
 class MainWindow {
 public:
@@ -29,6 +30,7 @@ public:
     void present();
     GtkWidget* widget() const { return m_window; }
     SceneArea& sceneArea() { return *m_area; }
+    Inspector& inspector() { return *m_inspector; }
     Session& session() { return m_session; }
 
     // Space switch: "space3d" or "complex"
@@ -67,6 +69,7 @@ private:
     AdwOverlaySplitView* m_split = nullptr;
     SceneArea* m_area = nullptr;        // managed gtkmm widgets inside the window
     ObjectsList* m_list = nullptr;
+    Inspector* m_inspector = nullptr;
     AddButton* m_add = nullptr;
     Glib::RefPtr<Gio::SimpleActionGroup> m_actions;
     std::string m_currentFile;          // the last file opened or saved ("" = none yet)

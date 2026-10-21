@@ -40,6 +40,7 @@ private:
     void rebuild();
     void syncSelection();
     void onSelectionChanged();
+    void scrollTo(scene::ObjectId id);
     std::string structureKey() const;
 
     Session& m_session;
@@ -49,6 +50,7 @@ private:
     std::vector<Row> m_rows;
     std::string m_key;   // structureKey() of the rows shown
     bool m_syncing = false;  // selection changes made by syncSelection, not by the user
+    scene::ObjectId m_primary = scene::kNoObject;  // the selection's primary, as last scrolled to
     std::function<void()> m_changed;
 };
 

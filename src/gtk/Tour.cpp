@@ -4,6 +4,7 @@
 #include "gtk/SceneArea.hpp"
 #include "gtk/SceneRenderer.hpp"
 #include "scene/Templates.hpp"
+#include "scene/Types.hpp"
 #include <gtk/gtk.h>
 #include <filesystem>
 #include <iostream>
@@ -44,6 +45,51 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
         {"10_gtk_light", [this] {
              m_window.setSpace("space3d");
              m_window.setTheme("light");
+         }},
+        // The inspector (run 5)
+        {"11_gtk_vector_inspector", [this, &s] {
+             m_window.setTheme("dark");
+             s.select("a");
+             m_window.sceneChanged();
+         }},
+        {"12_gtk_matrix_inspector", [this, &s] {
+             s.select("M");
+             m_window.sceneChanged();
+         }},
+        {"13_gtk_matrix_formula", [this, &s] {
+             if (auto* m = dynamic_cast<scene::MatrixObject*>(s.object("M"))) m->setByFormula(true);
+             s.scene().commit();
+             m_window.sceneChanged();
+         }},
+        {"14_gtk_parameter_slider", [this] { m_window.addObject(AddChoice{"parameter", "theta", {}, {}, ""}); }},
+        {"15_gtk_parameter_animate", [this, &s] {
+             if (auto* p = dynamic_cast<scene::ParameterObject*>(s.object("theta")))
+                 p->setMode(scene::ParameterObject::Mode::Animate);
+             s.scene().commit();
+             m_window.sceneChanged();
+         }},
+        {"16_gtk_surface_inspector", [this] { m_window.addObject(AddChoice{"surface", "", {}, {}, ""}); }},
+        {"17_gtk_field_error", [this, &s] {
+             s.select("a");
+             if (scene::SceneObject* a = s.object("a")) a->setField("y", "q + 1");
+             s.scene().commit();
+             m_window.sceneChanged();
+         }},
+        {"18_gtk_complex_inspector", [this, &s] {
+             m_window.setSpace("complex");
+             scene::Space& space = s.scene().space(scene::SpaceKind::Complex);
+             for (const auto& o : space.objects())
+                 if (o->typeId() == "complex") {
+                     s.select(o->name(), AppMode::Complex);
+                     break;
+                 }
+             m_window.sceneChanged();
+         }},
+        {"19_gtk_inspector_light", [this, &s] {
+             m_window.setSpace("space3d");
+             m_window.setTheme("light");
+             s.select("M");
+             m_window.sceneChanged();
          }},
     };
 }
