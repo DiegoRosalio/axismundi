@@ -18,7 +18,7 @@ and behaves like a GNOME app.
 - **Arch:** `sudo pacman -S --needed gtkmm-4.0 libadwaita adwaita-icon-theme pkgconf` (GNOME already has the
   icon theme).
 - **Alpine (the dev box):** `gtk4.0-dev gtkmm4-dev libadwaita-dev libepoxy-dev adwaita-fonts font-dejavu
-  adwaita-icon-theme` (the icon theme is still missing here, see run 4).
+  adwaita-icon-theme` (all installed).
 
 ### Layout
 
@@ -39,8 +39,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 | 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | done |
 | 5 | GTK inspectors I: framework + basic types | done |
 | 6 | GTK inspectors II: the remaining types | done |
-| 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | next |
-| 8 | tutorial with popovers, GTK tour, input test, lesson walk, docs/learn chapter | |
+| 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | done |
+| 8 | tutorial with popovers, GTK tour, input test, lesson walk, docs/learn chapter | next |
 | 9 | parity checklist; the user tries it on Arch + GNOME (⛔) | |
 | 10 | GTK becomes `axismundi`; the raylib UI is removed | |
 | later | own OpenGL renderer replaces raylib (⛔ separate decision) | |
@@ -262,4 +262,54 @@ scene/Summaries (tests for both). The raylib tour stayed pixel-identical.
 
 **Next (run 7):** the panels: Analysis, Time (the scene clock), Settings (AdwPreferencesDialog), Export + PDF,
 Gallery, Reference, Steps, Breakdown, Help (shortcuts); the big formula editor and the color reset.
+
+### Run 7: the panels (2026-10-21), done
+
+**Fixes for the user's Arch build first:**
+- raylib 6.2: `LoadFontData`'s new argument (before run 5).
+- The link: `gtk/Capture` calls Xlib, and only the dev scripts passed `-lX11`. `GTK_LIBS` now adds `x11` from pkg-config.
+
+**What exists (all in the GTK app):**
+- **The pane on the right** (F9, or the header button): view-switcher pages.
+  - Analysis: the sections as expander rows.
+  - Steps: topic chips and the worked calculation.
+  - Breakdown: the steps, controls and a slider. The view draws the matrix part-way through the renderer's frame hooks;
+    picking uses the same options.
+- **The scene clock** under the view: play/pause (also Space in the view), back to 0, a scrubber, the readout, loop,
+  and the speed and length in a popover.
+- **The View menu** (eye button): grid, axes, labels, numbers, grid spacing and planes (polar grid in the complex
+  plane), the four view styles, the axis length, the camera views.
+- **The main menu:**
+  - Examples (also the grid button in the sidebar): the gallery, run through the window's `AppApi` (`gtk/WindowApi`).
+  - Export to LaTeX (Ctrl+E): the options, the code as a live preview, Copy, Save .tex, Save PDF (compiled in a
+    background thread), and a black-and-white preview.
+  - Keyboard Shortcuts (Ctrl+?, AdwShortcutsDialog), Formula Reference (F1: search, try a formula, live examples).
+  - Preferences (Ctrl+comma: theme, dimming, surfaces; saved in `~/.config/axismundi/gtk.txt`, not read in the tour).
+- **The inspector:** ⤢ on every formula row opens the big formula editor (live result, Ctrl+Enter applies). A button next
+  to a hand-picked color goes back to the view style's color.
+
+**Shared code** (the raylib app stayed pixel-identical, and the lesson walk has 0 problems):
+- scene/Analysis;
+- `BreakdownPlayer` (math/Breakdown), and `StepsInput` / `stepTopics` / `explainTopic` (math/Explain);
+- `compactValue` / `evaluateExample` (math/Expr/Reference);
+- `fieldPreview` (scene/Summaries);
+- `Scene::togglePlay`;
+- `Session::stepsInput` and `applyBreakdown`;
+- Preferences take a file name.
+
+**Checks:**
+- `make test` (4,506), `check.sh` ALL CLEAN.
+- The GTK tour has 52 steps.
+- The GTK input test still has 0 problems. Its pick points moved: the clock bar makes the view shorter.
+
+**Open problems:**
+- **On the Breakdown page,** tiny dots show under the controls in the Xvfb screenshots. Not explained yet; check on a real
+  desktop.
+- **"M⁻¹" in the Analysis page** shows its superscript minus faintly or not at all with the fonts here. Arch's fonts are
+  probably fine.
+- **Gallery examples** record one undo step per object they add (as in the raylib app).
+- **Not there yet:** the HUD, fly camera mode, recent files.
+
+**Next (run 8):** the tutorial (lessons through `WindowApi`, steps pointing at widgets with popovers), the GTK tour
+at four sizes, more input tests, the lesson walk on GTK, and a docs/learn chapter.
 

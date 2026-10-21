@@ -109,7 +109,7 @@ src/
                       m_scene/m_camera/m_sceneView in App are references into it
   app/AppApi          the interface edu/ uses: scene work forwards to the Session, UI hooks are virtual (showPanel,
                       panelVisible, uiMode, restartBreakdown, breakdownFinished, toast, cameraMovedThisFrame);
-                      App implements it, the GTK app will
+                      App implements it, and gtk/WindowApi
   app/Tour            scripted screenshot tour (mouse positions come from ui anchors)
   math/               NO raylib: Vector3D, Matrix3D/4D, Decompositions (LU/QR/eigen3/svd3), Complex,
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
@@ -125,8 +125,9 @@ src/
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (basic object classes + registry), TypesAdvanced (quaternions, fields, integrals,
                       frames, derivatives, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import),
-                      Templates (AddChoice, addTemplates from the selection, applyAddChoice), Summaries (the objects
-                      list's one-line summary per type, shared by both front ends)
+                      Templates (AddChoice, addTemplates from the selection, applyAddChoice, the "Next example" lists),
+                      Summaries (the objects list's one-line summary per type, polynomialText, fieldPreview: the
+                      formula editors' live result), Analysis (the Analysis panel's sections, computed)
   text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
                       LabelLayout (placing screen labels without overlaps), Numbers (formatNumber)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table; the
@@ -178,7 +179,12 @@ src/
                       (one function per type, declared in gtk/Inspectors.hpp; the table `inspectorFor` in
                       Inspector.cpp also lists each type's layout props, whose change rebuilds the rows),
                       EditBinding (any GtkEditable bound to the scene: Enter/focus-out commit, Esc reverts, live
-                      syntax check; owned by its widget), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
+                      syntax check; owned by its widget), InfoPane (the pane on the right, F9: Analysis, Steps,
+                      Breakdown pages; the breakdown reaches the view through SceneRenderer::setFrameHooks, which picking
+                      shares), TimeBar (the clock under the view), ViewMenu (view settings + camera views),
+                      SettingsDialog (GtkSettings in ~/.config/axismundi/gtk.txt), ReferenceDialog (F1),
+                      GalleryDialog + WindowApi (the window's AppApi for edu/), ExportDialog (LaTeX/PDF, Ctrl+E),
+                      FormulaDialog (the big formula editor), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
                       MSAA framebuffer, gestures → camera, click → Session::pickAt), SceneRenderer (raylib only:
                       rlgl in GTK's context with an EGL/GLX loader, then the Session's drawing), Tour (--tour),
                       Capture (window → PNG from the X11 screen, so popovers and toasts are included; GTK's own
