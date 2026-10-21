@@ -91,6 +91,7 @@ Vector fields and quaternions are in (see FEATURES.md); the rest later.
 - [ ] Implement benchmark suite
 
 ### Refactoring
+- [ ] Modify the binary name from linalg_viz to axismundi
 - [ ] Improve error handling
 - [ ] Add configuration file support
 - [ ] Implement event system for better decoupling
