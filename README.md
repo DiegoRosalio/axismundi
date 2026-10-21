@@ -291,7 +291,8 @@ them unit-testable. See [docs/architecture.md](docs/architecture.md) for how the
   selected object (formulas, modes, sliders, colors, for every object type),
   undo/redo and opening/saving scenes (`bin/axismundi-gtk scene.txt` opens one), the Analysis / Steps / Breakdown
   pane, the scene clock, view settings, the example gallery, LaTeX/PDF export, the formula reference, keyboard
-  shortcuts and preferences; the tutorial is next. The plan and progress are
+  shortcuts, preferences and the tutorial (the lessons as a card over the view, pointing at the controls). It is
+  ready for a first try; the raylib app is still the main one until the parity review. The plan and progress are
   in [docs/gtk-port.md](docs/gtk-port.md).
 
 Open work is listed in [TODO.md](TODO.md) and finished features in [FEATURES.md](FEATURES.md). Helper

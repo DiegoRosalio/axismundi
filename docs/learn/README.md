@@ -17,6 +17,7 @@ from this project, so you learn the language and the program at the same time. E
 | 7 | [The UI toolkit](07-ui-toolkit.md) | Panels, widgets, the inspector, the text editor |
 | 8 | [Walkthrough: a new object type](08-walkthrough-new-object.md) | Every place a type touches, using the tangent line |
 | 9 | [Tests and tools](09-tests-and-tools.md) | Unit tests, the screenshot tour, the input test |
+| 10 | [The GTK front end](10-gtk-front-end.md) | The GTK 4 app in progress: retained widgets, signals, the inspector, the tutorial |
 | – | [Glossary](glossary.md) | Words used in the code and the math |
 
 Chapters 1–3 are the foundation; after them you can read in any order. Chapter 8 ties everything together.

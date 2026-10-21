@@ -32,9 +32,11 @@ list, then Medium/Low priority, code quality, research, known issues). Done work
      xdotool under Xvfb and saves a PNG per step to `$DEV/input` (helpers in `tools/dev/input-lib.sh`,
      which can also be sourced by hand to explore).
    - the GTK front end (`src/gtk`, docs/gtk-port.md): `tools/dev/build-gtk.sh`, `tools/dev/tour-gtk.sh WxH [name]
-     [--theme dark]` (PNGs in `$DEV/shots-gtk`), `tools/dev/input-test-gtk.sh` (camera, space switch, Add menu, list selection, picking, undo, file dialogs,
-     the inspector: typing, Esc, Delete inside a field, modes, rename, a slider;
-     0 problems expected). The GTK app needs the Adwaita icon theme for its header-bar icons. Changes to
+     [--theme dark]` (PNGs in `$DEV/shots-gtk`; up to ~5 min, `TOUR_TIMEOUT=600` while other jobs run),
+     `tools/dev/input-test-gtk.sh` (camera, space switch, Add menu, list selection, picking, undo, file dialogs,
+     the inspector: typing, Esc, Delete inside a field, modes, rename, a slider; a lesson done by hand;
+     0 problems expected), `tools/dev/lesson-walk-gtk.sh` (every lesson step through the GTK lesson card, ~16 min;
+     0 problems expected). Don't build while another script builds: both apps share `$DEV/build`. The GTK app needs the Adwaita icon theme for its header-bar icons. Changes to
      the shared 3D code must leave the raylib tour pixel-identical (compare against a build of the previous
      commit; only the HUD's frame-rate text may differ).
 4. **Keep the docs in step** with each feature: README, UI_GUIDE, QUICKSTART, this file, gallery/tutorial
@@ -143,7 +145,9 @@ src/
   view/ViewStyle      view styles as data (Colorful, Paper, High contrast, Chalkboard): `styleFor(id, theme)`,
                       `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
-  edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on AppApi
+  edu/                Tutorial lessons (setup/check/anchor) + TutorialRunner (the current lesson/step and the live
+                      check, shown by both apps' tutorial panels), TutorialSolutions (each task done the scripted
+                      way, for the lesson walks), Examples (gallery entries), built on AppApi
   rendering/          CameraController (Orbit = math/OrbitCamera around a pivot, or Fly = mouse look + WASD;
                       `camera.mode` preference; target = the real pivot, files with a 1-unit target get one
                       from `pivotAlong`), GridShader (the endless adaptive grid: one quad per
@@ -184,7 +188,10 @@ src/
                       shares), TimeBar (the clock under the view), ViewMenu (view settings + camera views),
                       SettingsDialog (GtkSettings in ~/.config/axismundi/gtk.txt), ReferenceDialog (F1),
                       GalleryDialog + WindowApi (the window's AppApi for edu/), ExportDialog (LaTeX/PDF, Ctrl+E),
-                      FormulaDialog (the big formula editor), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
+                      FormulaDialog (the big formula editor), LessonCard (the tutorial: the lesson list dialog, the
+                      step as a card over the view, the step's control outlined with a popover pointing at it; anchors
+                      are widgets: MainWindow::anchorWidget, InspectorBuilder::anchor), LessonTexts (GTK wording for
+                      steps that name raylib controls, by step title), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
                       MSAA framebuffer, gestures → camera, click → Session::pickAt), SceneRenderer (raylib only:
                       rlgl in GTK's context with an EGL/GLX loader, then the Session's drawing), Tour (--tour),
                       Capture (window → PNG from the X11 screen, so popovers and toasts are included; GTK's own
@@ -207,7 +214,7 @@ src/
 tests/                main.cpp (runner + list), TestSupport.hpp (CHECK / CHECK_NEAR, helpers), test_{linear,expr,
                       calculus,scene,export,text}.cpp; test_scene includes a check over every registered type
 docs/architecture.md  how the pieces fit together (data flow per frame, where to add things)
-docs/learn/           a guide to the code for C++ beginners (9 chapters + glossary). Its ```cpp snippets are
+docs/learn/           a guide to the code for C++ beginners (10 chapters + glossary; chapter 10 is the GTK app). Its ```cpp snippets are
                       real code: when renaming or moving what a snippet shows, update the guide too
 assets/fonts/         subset TTFs + OFL licenses; tools/fonts.py subsets (fonttools) and embeds
 data/                 desktop integration, app ID com.bisonanon.axismundi: the .desktop file and icons/hicolor
@@ -429,12 +436,16 @@ drawn per frame (capped at ~60 lines × ~150 segments per direction).
 Finished lessons are saved as a bitmask by position (`tutorial.completed`): add new lessons at the end of
 `lessons()` (or convert the preference) so existing progress keeps pointing at the right lessons.
 
-Lesson steps have `setup`/`check`; App calls `TutorialPanel::update` every frame while the tutorial panel is
-visible (this call was lost once, silently disabling every lesson). After changing lessons, walk them: a
-temporary tour loop that enters each step, applies a scripted solution through the App API and logs
-whether `check` passes (and does not pass before the solution) caught that regression.
-`tools/lesson_walk.py src/app/Tour.cpp` inserts that loop (solutions are matched by step title; add one for
-a new step), then build, run the tour, grep `WALK`/`SOLVED` in stderr, and restore Tour.cpp.
+Lesson steps have `setup`/`check`; `TutorialRunner` (edu/Tutorial) runs them: the setup when a step starts, the check
+from the next update on (so it sees the evaluated scene). App calls `TutorialPanel::update` every frame while the
+tutorial panel is visible (this call was lost once, silently disabling every lesson); the GTK LessonCard ticks every
+100 ms while a lesson is open. After changing lessons, walk them in both apps: `tools/dev/lesson-walk.sh` (raylib:
+`tools/lesson_walk.py` inserts a temporary loop into src/app/Tour.cpp, restored afterwards) and
+`tools/dev/lesson-walk-gtk.sh` (the GTK app's `--lesson-walk DIR`). Each enters every step, checks the task isn't done
+yet, applies the scripted solution (`solveTutorialStep` in edu/TutorialSolutions.cpp, matched by step title: add one
+for a new step) and checks that it counts as done. A new step whose text names raylib-only controls also needs GTK
+wording in gtk/LessonTexts.cpp, and a new anchor needs its widget (MainWindow::anchorWidget or an
+InspectorBuilder::anchor call).
 
 ## Not yet verified
 

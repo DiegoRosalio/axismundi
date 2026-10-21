@@ -7,8 +7,10 @@ Words used in the code and in this guide.
 | Word | Meaning |
 |------|---------|
 | **anchor** (view) | The world point of an object's handle: its label sits there and clicks aim at it (`ObjectView::anchor`) |
-| **anchor** (UI) | A name given to a control (`ui::anchor("view.gridspacing", rect)`) so tutorials can highlight it |
-| **AppApi** | The interface lessons and gallery examples use to drive an app (`addObject`, `select`, ...); `App` implements it |
+| **anchor** (UI) | A name given to a control (`ui::anchor("view.gridspacing", rect)`) so tutorials can highlight it; in the GTK app a widget (`MainWindow::anchorWidget`) |
+| **AppApi** | The interface lessons and gallery examples use to drive an app (`addObject`, `select`, ...); `App` and the GTK app's `WindowApi` implement it |
+| **retained mode** | A UI whose widgets are objects kept between frames (GTK), unlike immediate mode (the raylib UI, chapter 3) |
+| **signal** | A GTK event a callback can be connected to ("clicked", "changed"), chapter 10 |
 | **Session** | What both front ends share: the scene, camera, 3D view, grid and the scripting functions (`app/Session`) |
 | **cache** | Stored results reused until their inputs change: plot meshes, cached object values |
 | **changedAt** | The evaluation pass in which an object's value last changed; caches compare it |

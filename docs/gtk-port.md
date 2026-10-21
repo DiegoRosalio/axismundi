@@ -40,8 +40,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 | 5 | GTK inspectors I: framework + basic types | done |
 | 6 | GTK inspectors II: the remaining types | done |
 | 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | done |
-| 8 | tutorial with popovers, GTK tour, input test, lesson walk, docs/learn chapter | next |
-| 9 | parity checklist; the user tries it on Arch + GNOME (⛔) | |
+| 8 | tutorial with popovers, GTK tour, input test, lesson walk, docs/learn chapter | done |
+| 9 | parity checklist; the user tries it on Arch + GNOME (⛔) | next |
 | 10 | GTK becomes `axismundi`; the raylib UI is removed | |
 | later | own OpenGL renderer replaces raylib (⛔ separate decision) | |
 
@@ -313,3 +313,44 @@ Gallery, Reference, Steps, Breakdown, Help (shortcuts); the big formula editor a
 **Next (run 8):** the tutorial (lessons through `WindowApi`, steps pointing at widgets with popovers), the GTK tour
 at four sizes, more input tests, the lesson walk on GTK, and a docs/learn chapter.
 
+### Run 8: the tutorial and the checks (2026-10-21), done
+
+**What exists:**
+- **Lessons** (the ? button above the objects list, or Lessons in the main menu): the 17 lessons in a dialog, finished
+  ones ticked (remembered in `gtk.txt` as `tutorial.completed`, the raylib app's key).
+- **The lesson card** floats over the top right of the 3D view: the lesson, "Step 2 of 4" with progress bars, the
+  step's text, its task (ticked green when the scene shows it done), Back, Skip, Next / Finish, and a close button.
+  It narrows with the view (at 800×600 with the pane open the view is about 350 px wide).
+- **The pointer:** the step's control is outlined, and while the task is open a popover points at it with the task. Inspector
+  rows scroll into sight first. Without a window manager (Xvfb) popovers draw as plain boxes without their arrow;
+  on GNOME they look normal.
+- **GTK wording** for the 15 steps whose text names the raylib app's controls ("press E", "the layers icon in the top
+  bar"): gtk/LessonTexts.cpp, by step title.
+
+**Shared code:**
+- `TutorialRunner` (edu/Tutorial): the lesson, the step, the setup and the live check, taken out of the raylib
+  TutorialPanel. A check now waits for the update after the setup: in the GTK app it ran before the scene was evaluated,
+  so a new object's default value could pass it (the Newton lesson's "Take one step" showed done at once).
+- `solveTutorialStep` (edu/TutorialSolutions.cpp): the scripted solutions both lesson walks use (they were inside
+  tools/lesson_walk.py).
+- `InspectorBuilder::anchor` names rows for the lessons (24 anchors, as in the raylib inspectors).
+
+**Checks:**
+- The raylib tour is pixel-identical (111 shots) and its lesson walk has 0 problems in 62 steps.
+- **GTK lesson walk** (`tools/dev/lesson-walk-gtk.sh`, the app's `--lesson-walk`): 0 problems in 62 steps. Every scripted
+  task is seen as done by the card itself, and none before acting. A PNG per step (card and pointer) goes to
+  `$DEV/shots-gtk/walk`.
+- **GTK input test:** 0 problems in 52 checks. New: open the lesson list, start "Objects", Next, add a vector through
+  the + menu, type (0, 0, 2) into its cells, Finish; the preferences file then has the finished lesson.
+- **The GTK tour** has 59 steps (new: the lesson list, the card pointing at the + button, the matrix cells, a done task, the
+  parameter's mode switch, the pane's Breakdown button), at 800×600, 1600×900, 1920×1080 light and 2560×1440.
+- `make test`, `check.sh` ALL CLEAN; docs/learn chapter 10 (the GTK front end), its snippets checked against the code.
+
+**Open problems:**
+- The "Move the camera" step counts a camera move in the last 300 ms, checked every 100 ms; fine here, untested on a
+  real touchpad.
+- Lessons that open the Analysis pane cover part of the view at small widths (below 700 px the pane floats over it).
+- Not there yet in GTK: the HUD, fly camera mode, recent files.
+
+**Next (run 9, ⛔):** a side-by-side parity checklist against the raylib app, then the user tries the GTK app on
+Arch + GNOME (Wayland, HiDPI, touchpad) and decides on the switch.
