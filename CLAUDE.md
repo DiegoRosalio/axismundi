@@ -174,8 +174,9 @@ src/
                       (object, type, active fields, mode/size props), else runs the rows' update functions; rows
                       find the object again by id), InspectorBuilder (the rows an inspector function describes:
                       formula, cells, range, numbers, toggle, choice, combo, slider (undo step when it rests),
-                      value, line, button, exampleButton, buttonGrid, live), InspectorsBasic.cpp (one inspect
-                      function per basic type + `inspectorFor`; other types fall back to `inspectFields`),
+                      value, line, button, exampleButton, buttonGrid, widget, live), Inspectors{Basic,Calculus,More}.cpp
+                      (one function per type, declared in gtk/Inspectors.hpp; the table `inspectorFor` in
+                      Inspector.cpp also lists each type's layout props, whose change rebuilds the rows),
                       EditBinding (any GtkEditable bound to the scene: Enter/focus-out commit, Esc reverts, live
                       syntax check; owned by its widget), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
                       MSAA framebuffer, gestures → camera, click → Session::pickAt), SceneRenderer (raylib only:
@@ -331,7 +332,8 @@ section order.
    segments. SceneView and App's picking loop over the objects and call these; no if-chains to extend.
    Draw with `gfx::line/cylinder/sphere/...` (gfx/Canvas3D.hpp) and the helpers in SceneViewDraw, never raylib calls.
 4. Inspector: an `inspect<Type>` method in `ScenePanelInspectors.cpp` plus its row in `ScenePanel::typeUi`
-   (inspector + list summary; reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
+   (inspector + list summary; reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`), and the GTK
+   one: a function in gtk/Inspectors*.cpp (InspectorBuilder rows) plus its row in `inspectorFor`;
    optional templates in `addTemplates` (scene/Templates.cpp); optional analysis in `InfoPanel::update`.
 5. Tests in the topic file under `tests/` (model + evaluation; add the function to the list in `tests/main.cpp`),
    tour step + screenshots for the UI.

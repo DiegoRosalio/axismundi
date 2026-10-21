@@ -288,7 +288,7 @@ them unit-testable. See [docs/architecture.md](docs/architecture.md) for how the
 - `make gtk` builds `bin/axismundi-gtk`, a GTK4 + libadwaita front end in progress (it needs `gtkmm-4.0` and
   `libadwaita`, on Arch `sudo pacman -S --needed gtkmm-4.0 libadwaita adwaita-icon-theme`). So far it has the 3D
   view, an objects list with an Add menu (types and templates), selection by clicking, an inspector that edits the
-  selected object (formulas, modes, sliders, colors; complete for the basic types, the others list their fields),
+  selected object (formulas, modes, sliders, colors, for every object type),
   undo/redo and opening/saving scenes (`bin/axismundi-gtk scene.txt` opens one); the panels are next. The plan and progress are
   in [docs/gtk-port.md](docs/gtk-port.md).
 

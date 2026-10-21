@@ -38,8 +38,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 | 3 | `Session` + `AppApi` shared by both front ends; edu/ on AppApi | done |
 | 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | done |
 | 5 | GTK inspectors I: framework + basic types | done |
-| 6 | GTK inspectors II: the remaining types (parallel agents) | next |
-| 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | |
+| 6 | GTK inspectors II: the remaining types | done |
+| 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | next |
 | 8 | tutorial with popovers, GTK tour, input test, lesson walk, docs/learn chapter | |
 | 9 | parity checklist; the user tries it on Arch + GNOME (⛔) | |
 | 10 | GTK becomes `axismundi`; the raylib UI is removed | |
@@ -230,3 +230,36 @@ scene/Templates. Charts (the Fourier spectrum) need a small Gtk::DrawingArea.
   the panels).
 - Ctrl+Z inside a field undoes the scene (the typed text first becomes its own step), not the text.
 - At small window heights the inspector gets little room under the list; the divider can be dragged.
+
+### Run 6: inspectors II (2026-10-21), done
+
+**Done without agents:** the plan allowed parallel agents here, but they cost extra usage, so I wrote the twelve
+inspectors myself.
+
+**What exists:** every object type has its full GTK inspector.
+- `InspectorsCalculus.cpp`: double and line integrals, the Frenet frame, tangent, tangent plane, velocity, Taylor,
+  Newton (its steps as a monospace table).
+- `InspectorsMore.cpp`: quaternion (the vector it acts on appears with its switch), vector field (plane or volume;
+  flow-line and particle sliders appear with their switches), epicycles, Fourier series (the spectrum as a small
+  chart, the first coefficients).
+- `Inspector.cpp` holds the one table: type → inspector function + the properties that change its rows.
+
+**Shared code:** the quaternion and vector-field examples moved to scene/Templates, the Taylor polynomial text to
+scene/Summaries (tests for both). The raylib tour stayed pixel-identical.
+
+**Fixes found on the way:**
+- After a mode switch rebuilt the rows, the keyboard focus jumped into the name field with its text selected (the
+  next key would rename the object). It now goes back to the same place.
+- Choices didn't follow undo; they do now.
+- A new object's inspector opened at the previous object's scroll position; it starts at the top now.
+
+**Checks:**
+- `make test` (4,465), `check.sh` ALL CLEAN.
+- The GTK tour has 35 steps (each type alone, the long inspectors scrolled to their end), at 800×600, 1280×800 and
+  1600×900 light. It may take up to 300 s here (software rendering).
+- `input-test-gtk.sh`: 0 problems in 44 checks. New: a parameter switched to Animate, Ping-pong picked in the
+  Repeat drop-down, and both found in the saved file.
+
+**Next (run 7):** the panels: Analysis, Time (the scene clock), Settings (AdwPreferencesDialog), Export + PDF,
+Gallery, Reference, Steps, Breakdown, Help (shortcuts); the big formula editor and the color reset.
+
