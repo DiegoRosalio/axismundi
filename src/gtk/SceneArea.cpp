@@ -25,6 +25,7 @@ SceneArea::SceneArea(Session& session) : m_renderer(std::make_unique<SceneRender
     m_drag->set_button(0);  // every button: left/middle orbit, right pans
     m_drag->signal_drag_begin().connect(sigc::mem_fun(*this, &SceneArea::onDragBegin));
     m_drag->signal_drag_update().connect(sigc::mem_fun(*this, &SceneArea::onDragUpdate));
+    m_drag->signal_drag_end().connect(sigc::mem_fun(*this, &SceneArea::onDragEnd));
     add_controller(m_drag);
 
     m_scroll = Gtk::EventControllerScroll::create();
@@ -132,12 +133,16 @@ void SceneArea::releaseMultisample() {
     m_msWidth = m_msHeight = 0;
 }
 
-void SceneArea::onDragBegin(double, double) {
+void SceneArea::onDragBegin(double x, double y) {
     m_lastX = m_lastY = 0.0;
+    m_pressX = x;
+    m_pressY = y;
     m_dragging = false;
-    unsigned button = m_drag->get_current_button();
-    bool shift = (m_drag->get_current_event_state() & Gdk::ModifierType::SHIFT_MASK) == Gdk::ModifierType::SHIFT_MASK;
-    m_panning = button == 3 || shift;
+    m_button = m_drag->get_current_button();
+    Gdk::ModifierType state = m_drag->get_current_event_state();
+    bool shift = (state & Gdk::ModifierType::SHIFT_MASK) == Gdk::ModifierType::SHIFT_MASK;
+    m_ctrl = (state & Gdk::ModifierType::CONTROL_MASK) == Gdk::ModifierType::CONTROL_MASK;
+    m_panning = m_button == 3 || shift;
     grab_focus();
 }
 
@@ -153,6 +158,29 @@ void SceneArea::onDragUpdate(double offsetX, double offsetY) {
     if (m_panning) m_renderer->pan(dx, dy, h);
     else m_renderer->orbit(dx, dy, h);
     changed();
+}
+
+void SceneArea::onDragEnd(double, double) {
+    if (!m_dragging && m_button == 1) pickAt(m_pressX, m_pressY, m_ctrl);
+    m_dragging = false;
+}
+
+// The view draws at device pixels (get_scale_factor), so the click and the pick radius are scaled the same way
+void SceneArea::pickAt(double x, double y, bool add) {
+    Session& session = m_renderer->session();
+    int scale = get_scale_factor();
+    int w = get_width() * scale, h = get_height() * scale;
+    Vector2 point{static_cast<float>(x * scale), static_cast<float>(y * scale)};
+    scene::ObjectId hit = session.pickAt(point, w, h, 12.0f * static_cast<float>(scale), session.drawOptions(h));
+    scene::Selection& sel = session.scene().selection(session.spaceKind());
+    if (hit != scene::kNoObject) {
+        if (add) sel.toggle(hit);
+        else sel.set(hit);
+    } else if (!add) {
+        sel.clear();
+    }
+    changed();
+    if (m_sceneChanged) m_sceneChanged();
 }
 
 bool SceneArea::onScroll(double, double dy) {

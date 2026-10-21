@@ -32,7 +32,8 @@ list, then Medium/Low priority, code quality, research, known issues). Done work
      xdotool under Xvfb and saves a PNG per step to `$DEV/input` (helpers in `tools/dev/input-lib.sh`,
      which can also be sourced by hand to explore).
    - the GTK front end (`src/gtk`, docs/gtk-port.md): `tools/dev/build-gtk.sh`, `tools/dev/tour-gtk.sh WxH [name]
-     [--theme dark]` (PNGs in `$DEV/shots-gtk`), `tools/dev/input-test-gtk.sh` (0 problems expected). Changes to
+     [--theme dark]` (PNGs in `$DEV/shots-gtk`), `tools/dev/input-test-gtk.sh` (camera, space switch, Add menu, list selection, picking, undo, file dialogs;
+     0 problems expected). The GTK app needs the Adwaita icon theme for its header-bar icons. Changes to
      the shared 3D code must leave the raylib tour pixel-identical (compare against a build of the previous
      commit; only the HUD's frame-rate text may differ).
 4. **Keep the docs in step** with each feature: README, UI_GUIDE, QUICKSTART, this file, gallery/tutorial
@@ -100,7 +101,8 @@ src/
   app/Session         what both front ends share (no window, panels or input): the scene, the mode with one saved
                       camera per space, ViewSettings (ViewPanel edits them by reference), the camera, SceneView,
                       the grid, the drawing steps (drawOptions, drawGrid, draw3D, labels → gfx::Overlay) and the
-                      scripting functions (addObject, select, setMatrix3, values...). App holds one and forwards;
+                      scripting functions (addObject, select, setMatrix3, values...), pickAt, saveTo/loadFrom (the
+                      scene file's contents), delete/duplicateSelection. App holds one and forwards;
                       m_scene/m_camera/m_sceneView in App are references into it
   app/AppApi          the interface edu/ uses: scene work forwards to the Session, UI hooks are virtual (showPanel,
                       panelVisible, uiMode, restartBreakdown, breakdownFinished, toast, cameraMovedThisFrame);
@@ -120,7 +122,8 @@ src/
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (basic object classes + registry), TypesAdvanced (quaternions, fields, integrals,
                       frames, derivatives, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import),
-                      Templates (AddChoice, addTemplates from the selection, applyAddChoice)
+                      Templates (AddChoice, addTemplates from the selection, applyAddChoice), Summaries (the objects
+                      list's one-line summary per type, shared by both front ends)
   text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
                       LabelLayout (placing screen labels without overlaps), Numbers (formatNumber)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table; the
@@ -132,6 +135,7 @@ src/
                       SceneViewDraw.{hpp,cpp} the shared drawing helpers
   view/AxisNumbers    tick numbers along the axes (step = GridMath::tickStep of the zoom; App::pixelsPerUnit from
                       CameraController::viewDistance)
+  view/ViewSettings   grid/axes/labels/style settings + their scene-file keys (saveViewSettings/loadViewSettings)
   view/ViewStyle      view styles as data (Colorful, Paper, High contrast, Chalkboard): `styleFor(id, theme)`,
                       `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
@@ -156,10 +160,17 @@ src/
                       GpuContext (`gpuContextReady()`: raylib's window or the GTK GL area is alive). view/ and
                       rendering/ call no raylib function (types and raymath only): keep it that way
   gtk/                the GTK4 + libadwaita front end in progress (docs/gtk-port.md; gtkmm, libadwaita's C API):
-                      main.cpp (options, Gtk::Application + adw_init), MainWindow (AdwApplicationWindow, header bar
-                      with the space switch), SceneArea (Gtk::GLArea: GL context, gestures → camera), SceneRenderer
-                      (raylib only: rlgl started in GTK's context with an EGL/GLX loader, then grid, SceneView,
-                      labels like App), Tour (--tour), Capture (widget → PNG, also on SIGUSR1)
+                      main.cpp (options, a SCENE.txt argument, Gtk::Application + adw_init; starts empty except
+                      in the tour), MainWindow (AdwApplicationWindow: AdwOverlaySplitView with the objects list
+                      and the 3D view, toast overlay, header bar with undo/redo, the space switch and the main
+                      menu; actions "win.*" with accelerators; Gtk::FileDialog through its C API; AdwAboutDialog),
+                      ObjectsList (Gtk::ListBox synced with the scene by refresh(), every 150 ms and after
+                      changes), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
+                      MSAA framebuffer, gestures → camera, click → Session::pickAt), SceneRenderer (raylib only:
+                      rlgl in GTK's context with an EGL/GLX loader, then the Session's drawing), Tour (--tour),
+                      Capture (window → PNG from the X11 screen, so popovers and toasts are included; GTK's own
+                      rendering otherwise; also on SIGUSR1). Toasts only show once the window has focus (not in
+                      the scripted tour; the input test sees them)
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
                       latch; `setScreenSize` for a host that isn't raylib's window; the fonts upload their atlas
                       themselves, since raylib skips it without its own window), Overlay (paints a gfx::Overlay,

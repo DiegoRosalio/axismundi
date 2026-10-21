@@ -1,12 +1,14 @@
 #pragma once
 
 // The 3D view widget of the GTK app: a Gtk::GLArea that gives SceneRenderer its GL context and turns GTK's
-// input events into camera moves (drag = orbit, right-drag or Shift+drag = pan, wheel = zoom).
+// input events into camera moves (drag = orbit, right-drag or Shift+drag = pan, wheel = zoom). A click (a press
+// released before moving 4 px) selects the object under it; Ctrl+click adds to the selection.
 
 #include <gtkmm/eventcontrollerscroll.h>
 #include <gtkmm/gesturedrag.h>
 #include <gtkmm/glarea.h>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -24,6 +26,8 @@ public:
     SceneRenderer& renderer() { return *m_renderer; }
     // Something changed: draw a new frame
     void changed();
+    // Called after a click changed the selection
+    void onSceneChanged(std::function<void()> callback) { m_sceneChanged = std::move(callback); }
     // Fixed time per frame (screenshots that repeat exactly); 0 = real time
     void setFixedStep(double seconds) { m_fixedStep = seconds; }
     int framesDrawn() const { return m_frames; }
@@ -38,6 +42,8 @@ protected:
 private:
     void onDragBegin(double x, double y);
     void onDragUpdate(double offsetX, double offsetY);
+    void onDragEnd(double offsetX, double offsetY);
+    void pickAt(double x, double y, bool add);
     bool onScroll(double dx, double dy);
 
     // The scene is drawn into a multisampled framebuffer (4× MSAA, like the raylib app's window) and then copied
@@ -52,6 +58,10 @@ private:
     Glib::RefPtr<Gtk::GestureDrag> m_drag;
     Glib::RefPtr<Gtk::EventControllerScroll> m_scroll;
     double m_lastX = 0.0, m_lastY = 0.0;
+    double m_pressX = 0.0, m_pressY = 0.0;
+    unsigned m_button = 0;
+    bool m_ctrl = false;
+    std::function<void()> m_sceneChanged;
     bool m_dragging = false;  // moved far enough to be a drag (not a click)
     bool m_panning = false;
     bool m_dirty = true;

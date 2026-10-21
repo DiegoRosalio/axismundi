@@ -286,8 +286,10 @@ them unit-testable. See [docs/architecture.md](docs/architecture.md) for how the
   `xvfb-run`.
 
 - `make gtk` builds `bin/axismundi-gtk`, a GTK4 + libadwaita front end in progress (it needs `gtkmm-4.0` and
-  `libadwaita`, on Arch `sudo pacman -S --needed gtkmm-4.0 libadwaita`). So far it shows the 3D view with the
-  camera and the space switch; the plan and progress are in [docs/gtk-port.md](docs/gtk-port.md).
+  `libadwaita`, on Arch `sudo pacman -S --needed gtkmm-4.0 libadwaita adwaita-icon-theme`). So far it has the 3D
+  view, an objects list with an Add menu (types and templates), selection by clicking, undo/redo and opening/saving
+  scenes (`bin/axismundi-gtk scene.txt` opens one); the inspector and the panels are next. The plan and progress are
+  in [docs/gtk-port.md](docs/gtk-port.md).
 
 Open work is listed in [TODO.md](TODO.md) and finished features in [FEATURES.md](FEATURES.md). Helper
 scripts for building raylib 5.5, headless screenshot tours, warning checks, tutorial checks and LaTeX compile

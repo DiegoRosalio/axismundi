@@ -15,8 +15,10 @@ and behaves like a GNOME app.
 
 ### Dependencies
 
-- **Arch:** `sudo pacman -S --needed gtkmm-4.0 libadwaita pkgconf`.
-- **Alpine (the dev box):** `gtk4.0-dev gtkmm4-dev libadwaita-dev libepoxy-dev adwaita-fonts font-dejavu`.
+- **Arch:** `sudo pacman -S --needed gtkmm-4.0 libadwaita adwaita-icon-theme pkgconf` (GNOME already has the
+  icon theme).
+- **Alpine (the dev box):** `gtk4.0-dev gtkmm4-dev libadwaita-dev libepoxy-dev adwaita-fonts font-dejavu
+  adwaita-icon-theme` (the icon theme is still missing here, see run 4).
 
 ### Layout
 
@@ -34,8 +36,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 | 1 | skeleton (`make gtk`, Adw window, screenshot mode) + spike: the scene drawn by rlgl in a GLArea, orbit/pan/zoom (⛔ if rlgl can't run in GTK) | done |
 | 2 | `gfx::Canvas3D` + RaylibCanvas; labels as a list; the raylib tour pixel-identical | done |
 | 3 | `Session` + `AppApi` shared by both front ends; edu/ on AppApi | done |
-| 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | next |
-| 5 | GTK inspectors I: framework + basic types | |
+| 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | done |
+| 5 | GTK inspectors I: framework + basic types | next |
 | 6 | GTK inspectors II: the remaining types (parallel agents) | |
 | 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | |
 | 8 | tutorial with popovers, GTK tour, input test, lesson walk, docs/learn chapter | |
@@ -80,8 +82,7 @@ text differs):
 
 **Open problems (for later runs):**
 - ~~No antialiasing yet~~ (done in run 2).
-- The demo scene is fixed. No objects list, inspector or files yet (runs 4–5).
-- A click on the view doesn't pick yet (run 4).
+- ~~The demo scene is fixed; no objects list, files, picking~~ (run 4). No inspector yet (run 5).
 - ~~The grid and label code is duplicated from App~~ (shared through Session since run 3).
 - Not tried on a real desktop: Wayland, HiDPI (the view renders at device pixels, so labels follow the scale
   automatically), touchpad gestures.
@@ -147,3 +148,43 @@ raymath). A plain-OpenGL `Canvas3D` can now replace raylib by changing `src/gfx`
 - the Add menu (types + templates);
 - selection and picking in the view;
 - undo/redo, toasts, files (Gtk::FileDialog).
+
+### Run 4: the GTK main window (2026-10-21), done
+
+**What exists:**
+- **The window:** an AdwOverlaySplitView with the objects list in the sidebar and the 3D view; below 700 px the
+  sidebar floats over the view (AdwBreakpoint).
+- **The header bar:** the sidebar toggle, undo/redo, the space switch, and the main menu (New, Open…, Save,
+  Save As…, About with AdwAboutDialog).
+- **The objects list:** a color dot, the name and type, a summary that updates with the values, and a visibility
+  eye per row. Click selects; Ctrl+click and Shift+click select more.
+- **The Add button:** a popover with the "From selection" templates first, then every type by category.
+- **Picking:** a click on the view selects (Ctrl+click adds); a click on empty space clears the selection.
+- **Toasts** (AdwToastOverlay) report adds, files and errors.
+- **Keyboard:** Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y, Delete, Ctrl+D, Ctrl+N/O/S/Shift+S, Ctrl+B (sidebar),
+  Alt+1/Alt+2 (spaces), Ctrl+Shift+A (Add menu), F10 (main menu).
+- **Startup:** the app starts with an empty scene (the tour keeps the demo); `axismundi-gtk scene.txt` opens a
+  file.
+
+**Shared code moved out of the raylib UI:**
+- `Session::pickAt`, `saveTo/loadFrom` (with the old-keyframe conversion), `deleteSelection/duplicateSelection`;
+- `view/ViewSettings` (the struct and its file keys, out of ui/ViewPanel);
+- `scene/Summaries` (the list summaries, out of ScenePanel::typeUi).
+
+**Checks:**
+- The raylib tour is pixel-identical, the lesson walk has 0 problems, and the raylib input test (picking, file
+  dialog) passes.
+- `input-test-gtk.sh`, with real X11 clicks and keys, has 0 problems in 20 checks: camera, space switch, Add menu,
+  list click and Ctrl+click, templates, a click on empty space, undo, Save in the file dialog, New, Open
+  (double-click), and picking the vector by its arrow. The saved file holds the vector and not the undone matrix.
+- The GTK tour has 10 steps: list, selection, template, undo, Add menu, camera, hidden sidebar, complex plane,
+  light theme.
+- Screenshots now come from the X11 screen (`gtk/Capture`), so popovers and toasts are in them.
+
+**Open problems:**
+- **Icons:** this machine lacks the Adwaita icon theme, so the sidebar/undo/redo icons show as placeholders in
+  the screenshots. The user is asked to install `adwaita-icon-theme` (GNOME on Arch has it).
+- **Toasts** show only once the window has focus: the scripted tour doesn't see them, the input test does.
+- **Delete is a window-wide shortcut.** Run 5 adds text fields, where Delete must edit text: the shortcut moves
+  to the list and the view then.
+- **No window manager under Xvfb:** dialogs open at the screen's top left (the input test clicks there).

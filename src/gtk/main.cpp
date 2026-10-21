@@ -19,10 +19,11 @@ struct Options {
     int width = 1280, height = 800;
     std::string theme;  // "", "dark", "light"
     std::string tour;   // screenshot directory
+    std::string file;   // a scene to open
 };
 
 void usage(const char* program) {
-    std::printf("usage: %s [--size WxH] [--theme dark|light] [--tour OUTPUT_DIR] [--version]\n", program);
+    std::printf("usage: %s [--size WxH] [--theme dark|light] [--tour OUTPUT_DIR] [--version] [SCENE.txt]\n", program);
 }
 
 // SIGUSR1 saves signal_NNN.png in the working folder (the input tests use it, as with the raylib app)
@@ -48,6 +49,8 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--version") == 0) {
             std::printf("axismundi %s\n", kVersion);
             return 0;
+        } else if (argv[i][0] != '-' && options.file.empty()) {
+            options.file = argv[i];
         } else {
             usage(argv[0]);
             return std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0 ? 0 : 1;
@@ -73,6 +76,13 @@ int main(int argc, char** argv) {
 #ifdef SIGUSR1
         g_unix_signal_add(SIGUSR1, onShotSignal, window.get());
 #endif
+        // Start empty, as the raylib app does; the tour keeps the demo scene so its screenshots repeat
+        if (options.tour.empty()) {
+            window->session().scene().clearAll();
+            window->session().scene().clearHistory();
+            window->sceneChanged();
+        }
+        if (!options.file.empty()) window->openFile(options.file);
         if (!options.tour.empty()) {
             tour = std::make_unique<gtk::Tour>(*window, app, options.tour);
             tour->start();

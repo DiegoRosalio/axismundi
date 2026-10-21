@@ -1,19 +1,26 @@
 #pragma once
 
-// The GTK app's main window (an AdwApplicationWindow): a header bar with the 3D space / complex plane switch,
-// and the 3D view. libadwaita has no C++ wrapper, so its widgets are made through its C API and our own
-// widgets (gtkmm) are put inside them.
+// The GTK app's main window (an AdwApplicationWindow). A split view: the objects list (with the Add button) in
+// the sidebar, the 3D view as the content, a header bar with undo/redo, the 3D space / complex plane switch and
+// the main menu (scene files, About). Toasts report what happened. libadwaita has no C++ wrapper, so its
+// widgets are made through its C API and our own widgets (gtkmm) are put inside them.
 
 #include "app/Session.hpp"
+#include "scene/Templates.hpp"
+#include <giomm/simpleactiongroup.h>
 #include <gtkmm/application.h>
 #include <string>
 
 typedef struct _GtkWidget GtkWidget;
 typedef struct _AdwToggleGroup AdwToggleGroup;
+typedef struct _AdwToastOverlay AdwToastOverlay;
+typedef struct _AdwOverlaySplitView AdwOverlaySplitView;
 
 namespace linalg::gtk {
 
 class SceneArea;
+class ObjectsList;
+class AddButton;
 
 class MainWindow {
 public:
@@ -28,8 +35,27 @@ public:
     void setSpace(const std::string& name);
     // Dark or light: follow the system (empty), or force "dark" / "light"
     void setTheme(const std::string& theme);
+    void showSidebar(bool show);
+    void toast(const std::string& message);
+
+    // The scene changed (an edit, undo, a file): redraw the view and update the list
+    void sceneChanged();
+    void addObject(const AddChoice& choice);
+    void undo();
+    void redo();
+    void openFile(const std::string& path);
+    void openAddMenu();
+    void closeAddMenu();
+    void saveFile(const std::string& path);
 
 private:
+    void buildActions(const Glib::RefPtr<Gtk::Application>& app);
+    GtkWidget* buildSidebar();
+    GtkWidget* buildContent();
+    void chooseFileToOpen();
+    void chooseFileToSave();
+    void about();
+    void syncSpaceSwitch();
     static void onSpaceChanged(AdwToggleGroup* group, void* pspec, MainWindow* self);
     static void onDarkChanged(void* manager, void* pspec, MainWindow* self);
     void applyDark();
@@ -37,7 +63,14 @@ private:
     Session m_session;
     GtkWidget* m_window = nullptr;      // owned by GTK (the application's window list)
     AdwToggleGroup* m_spaces = nullptr;
-    SceneArea* m_area = nullptr;        // a managed gtkmm widget inside the window
+    AdwToastOverlay* m_toasts = nullptr;
+    AdwOverlaySplitView* m_split = nullptr;
+    SceneArea* m_area = nullptr;        // managed gtkmm widgets inside the window
+    ObjectsList* m_list = nullptr;
+    AddButton* m_add = nullptr;
+    Glib::RefPtr<Gio::SimpleActionGroup> m_actions;
+    std::string m_currentFile;          // the last file opened or saved ("" = none yet)
+    bool m_syncingSpace = false;
 };
 
 } // namespace linalg::gtk
