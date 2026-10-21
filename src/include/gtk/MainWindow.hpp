@@ -6,6 +6,7 @@
 // widgets are made through its C API and our own widgets (gtkmm) are put inside them.
 
 #include "app/Session.hpp"
+#include "gtk/SettingsDialog.hpp"
 #include "scene/Templates.hpp"
 #include <giomm/simpleactiongroup.h>
 #include <gtkmm/application.h>
@@ -22,6 +23,9 @@ class SceneArea;
 class ObjectsList;
 class AddButton;
 class Inspector;
+class InfoPane;
+class TimeBar;
+class ViewMenu;
 
 class MainWindow {
 public:
@@ -31,6 +35,9 @@ public:
     GtkWidget* widget() const { return m_window; }
     SceneArea& sceneArea() { return *m_area; }
     Inspector& inspector() { return *m_inspector; }
+    InfoPane& infoPane() { return *m_info; }
+    // The pane on the right (Analysis, Steps, Breakdown): open it on a page, or close it ("")
+    void showPane(const std::string& page);
     Session& session() { return m_session; }
 
     // Space switch: "space3d" or "complex"
@@ -39,6 +46,12 @@ public:
     void setTheme(const std::string& theme);
     const std::string& theme() const { return m_theme; }
     void showSidebar(bool show);
+    // The preferences in ~/.config/axismundi/gtk.txt (not read in the tour, so its screenshots repeat)
+    void loadSettings();
+    void applySettings();
+    void showPreferences();
+    void showReference();
+    void openViewMenu(bool open);
     void toast(const std::string& message);
 
     // The scene changed (an edit, undo, a file): redraw the view and update the list
@@ -67,13 +80,18 @@ private:
     GtkWidget* m_window = nullptr;      // owned by GTK (the application's window list)
     AdwToggleGroup* m_spaces = nullptr;
     AdwToastOverlay* m_toasts = nullptr;
-    AdwOverlaySplitView* m_split = nullptr;
+    AdwOverlaySplitView* m_split = nullptr;      // the objects on the left
+    AdwOverlaySplitView* m_paneSplit = nullptr;  // the pane on the right
     SceneArea* m_area = nullptr;        // managed gtkmm widgets inside the window
     ObjectsList* m_list = nullptr;
     Inspector* m_inspector = nullptr;
+    InfoPane* m_info = nullptr;
+    TimeBar* m_time = nullptr;
+    ViewMenu* m_viewMenu = nullptr;
     AddButton* m_add = nullptr;
     Glib::RefPtr<Gio::SimpleActionGroup> m_actions;
     std::string m_theme;                // the last setTheme ("" = the system's)
+    GtkSettings m_settings;
     std::string m_currentFile;          // the last file opened or saved ("" = none yet)
     bool m_syncingSpace = false;
 };

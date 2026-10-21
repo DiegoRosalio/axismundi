@@ -1,6 +1,7 @@
 #include "gtk/Tour.hpp"
 #include "gtk/Capture.hpp"
 #include "gtk/Inspector.hpp"
+#include "gtk/InfoPane.hpp"
 #include "gtk/MainWindow.hpp"
 #include "gtk/SceneArea.hpp"
 #include "gtk/SceneRenderer.hpp"
@@ -124,6 +125,61 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
         if (type == "newton" || type == "fourierseries")
             m_steps.push_back({std::string(m[0]) + "_end", [this] { m_window.inspector().scrollToEnd(); }});
     }
+    // The pane on the right (run 7), with the demo scene again
+    m_steps.push_back({"40_gtk_analysis", [this, &s] {
+                           m_window.setSpace("space3d");
+                           s.resetScene();
+                           s.select("a");
+                           s.select("b", AppMode::Space3D, true);
+                           m_window.showPane("analysis");
+                       }});
+    m_steps.push_back({"41_gtk_analysis_matrix", [this, &s] {
+                           s.select("M");
+                           m_window.sceneChanged();
+                       }});
+    m_steps.push_back({"42_gtk_steps", [this] { m_window.showPane("steps"); }});
+    m_steps.push_back({"43_gtk_breakdown", [this, &s] {
+                           if (auto* m = dynamic_cast<scene::MatrixObject*>(s.object("M"))) {
+                               m->applyPreset(Matrix3D::rotation(0.6f));
+                               s.scene().evaluate();  // presets act on the current value
+                               m->applyPreset(Matrix3D::scale(1.8f, 0.7f));
+                           }
+                           s.scene().commit();
+                           m_window.showPane("breakdown");
+                       }});
+    m_steps.push_back({"44_gtk_breakdown_end", [this] { m_window.infoPane().breakdown().seek(100.0f); }});
+    m_steps.push_back({"45_gtk_steps_complex", [this] {
+                           m_window.setSpace("complex");
+                           m_window.showPane("steps");
+                       }});
+    m_steps.push_back({"46_gtk_view_menu", [this] {
+                           m_window.showPane("");
+                           m_window.setSpace("space3d");
+                           m_window.openViewMenu(true);
+                       }});
+    m_steps.push_back({"47_gtk_view_paper_walls", [this, &s] {
+                           m_window.openViewMenu(false);
+                           ViewSettings& v = s.view();
+                           v.style = view::StyleId::Paper;
+                           v.gridWallXZ = true;
+                           v.gridAuto = false;
+                       }});
+    m_steps.push_back({"48_gtk_time_playing", [this, &s] {
+                           ViewSettings& v = s.view();
+                           v.style = view::StyleId::Colorful;
+                           v.gridWallXZ = false;
+                           v.gridAuto = true;
+                           m_window.addObject(AddChoice{"parameter", "k", {}, {{"mode", "animate"}}, ""});
+                           s.scene().timeline().time = 1.5;
+                           s.scene().timeline().playing = true;
+                       }});
+    m_steps.push_back({"49_gtk_preferences", [this, &s] {
+                           s.scene().timeline().playing = false;
+                           m_window.showPreferences();
+                       }});
+    m_steps.push_back({"50_gtk_reference", [this] {
+                           m_window.showReference();
+                       }});
 }
 
 void Tour::start() {

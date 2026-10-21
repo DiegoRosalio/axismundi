@@ -171,7 +171,7 @@ void SceneArea::pickAt(double x, double y, bool add) {
     int scale = get_scale_factor();
     int w = get_width() * scale, h = get_height() * scale;
     Vector2 point{static_cast<float>(x * scale), static_cast<float>(y * scale)};
-    scene::ObjectId hit = session.pickAt(point, w, h, 12.0f * static_cast<float>(scale), session.drawOptions(h));
+    scene::ObjectId hit = session.pickAt(point, w, h, 12.0f * static_cast<float>(scale), m_renderer->frameOptions(h));
     scene::Selection& sel = session.scene().selection(session.spaceKind());
     if (hit != scene::kNoObject) {
         if (add) sel.toggle(hit);

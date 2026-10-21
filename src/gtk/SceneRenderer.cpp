@@ -137,8 +137,15 @@ void SceneRenderer::zoom(float wheelSteps, float viewHeight) {
     m_session.camera().applyOrbit(in);
 }
 
+view::DrawOptions SceneRenderer::frameOptions(int pixelHeight) const {
+    view::DrawOptions options = m_session.drawOptions(pixelHeight);
+    if (m_adjust) m_adjust(options);
+    return options;
+}
+
 void SceneRenderer::render(int pixelWidth, int pixelHeight, double dt) {
     if (!m_started || pixelWidth <= 0 || pixelHeight <= 0) return;
+    m_moving = m_tick && m_tick(dt);
     ui::setScreenSize(static_cast<float>(pixelWidth), static_cast<float>(pixelHeight));
     ui::beginFrame();
     scene::Scene& scene = m_session.scene();
@@ -152,7 +159,7 @@ void SceneRenderer::render(int pixelWidth, int pixelHeight, double dt) {
     rlClearColor(bg.r, bg.g, bg.b, 255);
     rlClearScreenBuffers();
 
-    view::DrawOptions options = m_session.drawOptions(pixelHeight);
+    view::DrawOptions options = frameOptions(pixelHeight);
     begin3D(m_session.camera().camera(), pixelWidth, pixelHeight);
     m_session.drawGrid(pixelHeight);
     m_session.draw3D(options);

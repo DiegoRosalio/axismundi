@@ -39,7 +39,7 @@ key ctrl+o; sleep 1;           shot 17_open_dialog
 dblclick 210 90; sleep 1
                                shot 18_opened
 # A click on the vector's arrow (the camera saved in the file puts its tip there) selects it
-click 905 429;                 shot 19_pick_vector
+click 885 409;                 shot 19_pick_vector
 # The inspector: type a component (Enter commits), Delete edits the text (it doesn't delete the object), Esc reverts
 click 84 527; key ctrl+a; type_ "2"; key Return
                                shot 20_type_component

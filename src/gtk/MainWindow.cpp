@@ -2,6 +2,11 @@
 #include "app/Version.hpp"
 #include "gtk/AddButton.hpp"
 #include "gtk/Inspector.hpp"
+#include "gtk/InfoPane.hpp"
+#include "gtk/SceneRenderer.hpp"
+#include "gtk/ReferenceDialog.hpp"
+#include "gtk/TimeBar.hpp"
+#include "gtk/ViewMenu.hpp"
 #include "gtk/ObjectsList.hpp"
 #include "gtk/SceneArea.hpp"
 #include "ui/SceneIO.hpp"
@@ -54,9 +59,43 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
     m_area = Gtk::make_managed<SceneArea>(m_session);
     m_area->onSceneChanged([this] { sceneChanged(); });
 
+    // The pane on the right of the view: Analysis, Steps, Breakdown
+    m_info = Gtk::make_managed<InfoPane>(m_session);
+    m_paneSplit = ADW_OVERLAY_SPLIT_VIEW(adw_overlay_split_view_new());
+    adw_overlay_split_view_set_sidebar_position(m_paneSplit, GTK_PACK_END);
+    adw_overlay_split_view_set_sidebar(m_paneSplit, GTK_WIDGET(m_info->gobj()));
+    adw_overlay_split_view_set_show_sidebar(m_paneSplit, FALSE);
+    adw_overlay_split_view_set_min_sidebar_width(m_paneSplit, 300);
+    adw_overlay_split_view_set_max_sidebar_width(m_paneSplit, 400);
+    g_signal_connect_swapped(m_paneSplit, "notify::show-sidebar", G_CALLBACK(+[](MainWindow* self) {
+                                 bool open = adw_overlay_split_view_get_show_sidebar(self->m_paneSplit);
+                                 self->m_info->setOpen(open);
+                                 self->m_info->refresh();
+                                 self->m_area->changed();
+                             }),
+                             this);
+    // While the breakdown plays, the view shows the matrix part-way (and doesn't dim the others)
+    m_area->renderer().setFrameHooks(
+        [this](double dt) {
+            // Surfaces: smooth or faceted, as the preference (or the view style) says
+            using S = UiSettings::Surfaces;
+            m_session.sceneView().setSmoothSurfaces(m_settings.surfaces == S::StyleDefault ? view::activeStyle().smoothDefault
+                                                                                           : m_settings.surfaces == S::Smooth);
+            if (!m_info->breakdownActive()) return false;
+            m_info->breakdown().update(static_cast<float>(dt));
+            return m_info->breakdown().playing();
+        },
+        [this](view::DrawOptions& o) {
+            o.dimUnselected = m_settings.dimUnselected;
+            if (!m_info->breakdownActive()) return;
+            o.dimUnselected = false;
+            m_session.applyBreakdown(o, m_info->breakdown());
+        });
+
     m_split = ADW_OVERLAY_SPLIT_VIEW(adw_overlay_split_view_new());
     adw_overlay_split_view_set_sidebar(m_split, buildSidebar());
-    adw_overlay_split_view_set_content(m_split, buildContent());
+    adw_overlay_split_view_set_content(m_paneSplit, buildContent());
+    adw_overlay_split_view_set_content(m_split, GTK_WIDGET(m_paneSplit));
     adw_overlay_split_view_set_min_sidebar_width(m_split, 280);
     adw_overlay_split_view_set_max_sidebar_width(m_split, 380);
 
@@ -70,6 +109,7 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
     g_value_init(&collapsed, G_TYPE_BOOLEAN);
     g_value_set_boolean(&collapsed, TRUE);
     adw_breakpoint_add_setter(narrow, G_OBJECT(m_split), "collapsed", &collapsed);
+    adw_breakpoint_add_setter(narrow, G_OBJECT(m_paneSplit), "collapsed", &collapsed);
     g_value_unset(&collapsed);
     adw_application_window_add_breakpoint(ADW_APPLICATION_WINDOW(m_window), narrow);
 
@@ -83,6 +123,8 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
     Glib::signal_timeout().connect([this] {
         m_list->refresh();
         m_inspector->refresh();
+        m_info->refresh();
+        m_time->refresh();
         return true;
     }, 150);
 }
@@ -166,17 +208,56 @@ GtkWidget* MainWindow::buildContent() {
     files->append("Save _As…", "win.save-as");
     menu->append_section(files);
     auto help = Gio::Menu::create();
+    help->append("_Formula Reference", "win.reference");
+    help->append("_Preferences", "win.preferences");
     help->append("_About axismundi", "win.about");
     menu->append_section(help);
+    auto* pane = Gtk::make_managed<Gtk::ToggleButton>();
+    pane->set_icon_name("sidebar-show-right-symbolic");
+    pane->set_tooltip_text("Analysis, steps and breakdown (F9)");
+    g_object_bind_property(m_paneSplit, "show-sidebar", pane->gobj(), "active",
+                           static_cast<GBindingFlags>(G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE));
+
     auto* menuButton = Gtk::make_managed<Gtk::MenuButton>();
     menuButton->set_icon_name("open-menu-symbolic");
     menuButton->set_tooltip_text("Main menu");
     menuButton->set_menu_model(menu);
     menuButton->set_primary(true);  // F10 opens it
     adw_header_bar_pack_end(ADW_HEADER_BAR(header), GTK_WIDGET(menuButton->gobj()));
+    adw_header_bar_pack_end(ADW_HEADER_BAR(header), GTK_WIDGET(pane->gobj()));
+
+    auto* viewMenu = m_viewMenu = Gtk::make_managed<ViewMenu>(m_session);
+    viewMenu->onChanged([this] {
+        m_area->changed();
+        m_list->refresh();  // the dots follow the style's palette
+    });
+    viewMenu->onCamera([this](int view) {
+        CameraController& camera = m_session.camera();
+        switch (view) {
+            case 1: camera.frontView(); break;
+            case 2: camera.rightView(); break;
+            case 3: camera.topView(); break;
+            case 4: {
+                int h = m_area->get_height() * m_area->get_scale_factor();
+                if (!m_session.focusSelection(m_area->renderer().frameOptions(h))) toast("Select an object to focus on");
+                break;
+            }
+            default: m_session.resetCamera(); break;
+        }
+        m_area->changed();
+    });
+    adw_header_bar_pack_end(ADW_HEADER_BAR(header), GTK_WIDGET(viewMenu->gobj()));
+
+    // The scene clock under the view
+    m_time = Gtk::make_managed<TimeBar>(m_session);
+    m_time->onChanged([this] {
+        m_area->changed();
+        m_inspector->refresh();
+    });
 
     GtkWidget* toolbar = adw_toolbar_view_new();
     adw_toolbar_view_add_top_bar(ADW_TOOLBAR_VIEW(toolbar), header);
+    adw_toolbar_view_add_bottom_bar(ADW_TOOLBAR_VIEW(toolbar), GTK_WIDGET(m_time->gobj()));
     adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(toolbar), GTK_WIDGET(m_area->gobj()));
     return toolbar;
 }
@@ -193,6 +274,18 @@ void MainWindow::buildActions(const Glib::RefPtr<Gtk::Application>& app) {
     add("delete", [this] {
         if (m_session.deleteSelection()) sceneChanged();
     }, {});
+    // Play / pause: Space in the view (in a text field it must type a space)
+    add("play", [this] {
+        m_session.scene().togglePlay();
+        m_time->refresh();
+        m_area->changed();
+    }, {});
+    {
+        auto keys = Gtk::ShortcutController::create();
+        keys->set_scope(Gtk::ShortcutScope::LOCAL);
+        keys->add_shortcut(Gtk::Shortcut::create(Gtk::KeyvalTrigger::create(GDK_KEY_space), Gtk::NamedAction::create("win.play")));
+        m_area->add_controller(keys);
+    }
     for (Gtk::Widget* w : std::initializer_list<Gtk::Widget*>{m_list, m_area}) {
         auto keys = Gtk::ShortcutController::create();
         keys->set_scope(Gtk::ShortcutScope::LOCAL);
@@ -217,10 +310,15 @@ void MainWindow::buildActions(const Glib::RefPtr<Gtk::Application>& app) {
     }, {"<Control>s"});
     add("save-as", [this] { chooseFileToSave(); }, {"<Control><Shift>s"});
     add("toggle-sidebar", [this] { showSidebar(!adw_overlay_split_view_get_show_sidebar(m_split)); }, {"<Control>b"});
+    add("toggle-pane", [this] {
+        adw_overlay_split_view_set_show_sidebar(m_paneSplit, !adw_overlay_split_view_get_show_sidebar(m_paneSplit));
+    }, {"F9"});
     add("space3d", [this] { setSpace("space3d"); }, {"<Alt>1"});
     add("complex", [this] { setSpace("complex"); }, {"<Alt>2"});
     add("add", [this] { openAddMenu(); }, {"<Control><Shift>a"});
     add("about", [this] { about(); }, {});
+    add("preferences", [this] { showPreferences(); }, {"<Control>comma"});
+    add("reference", [this] { showReference(); }, {"F1"});
     gtk_widget_insert_action_group(m_window, "win", G_ACTION_GROUP(m_actions->gobj()));
 }
 
@@ -241,10 +339,35 @@ void MainWindow::toast(const std::string& message) {
 
 void MainWindow::showSidebar(bool show) { adw_overlay_split_view_set_show_sidebar(m_split, show); }
 
+void MainWindow::showReference() { showReferenceDialog(m_window, m_session); }
+
+void MainWindow::showPreferences() { showSettingsDialog(m_window, m_settings, [this] { applySettings(); }); }
+
+void MainWindow::openViewMenu(bool open) {
+    if (open) m_viewMenu->popup();
+    else m_viewMenu->popdown();
+}
+
+void MainWindow::loadSettings() {
+    m_settings.load();
+    applySettings();
+}
+
+void MainWindow::applySettings() {
+    setTheme(m_settings.theme);
+    m_area->changed();
+}
+
+void MainWindow::showPane(const std::string& page) {
+    if (!page.empty()) m_info->showPage(page);
+    adw_overlay_split_view_set_show_sidebar(m_paneSplit, !page.empty());
+}
+
 void MainWindow::sceneChanged() {
     m_area->changed();
     m_list->refresh();
     m_inspector->refresh();
+    m_info->refresh();
 }
 
 void MainWindow::addObject(const AddChoice& choice) {

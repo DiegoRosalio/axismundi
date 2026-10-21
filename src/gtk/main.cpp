@@ -70,6 +70,7 @@ int main(int argc, char** argv) {
             return;
         }
         window = std::make_unique<gtk::MainWindow>(app, options.width, options.height);
+        if (options.tour.empty()) window->loadSettings();  // the tour keeps the defaults
         if (!options.theme.empty()) window->setTheme(options.theme);
         gtk_window_set_default_icon_name("com.bisonanon.axismundi");
         window->present();
