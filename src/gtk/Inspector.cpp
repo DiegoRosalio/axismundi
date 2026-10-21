@@ -200,7 +200,10 @@ void Inspector::rebuild() {
         m_id = scene::kNoObject;
         return;
     }
-    if (o->id() != m_id) m_exampleIndex = 0;
+    if (o->id() != m_id || kind != m_kind) {
+        m_exampleIndex = 0;
+        m_scroll.get_vadjustment()->set_value(0.0);  // another object starts at its top
+    }
     m_id = o->id();
     m_kind = kind;
 

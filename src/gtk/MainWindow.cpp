@@ -355,6 +355,7 @@ void MainWindow::onSpaceChanged(AdwToggleGroup* group, void*, MainWindow* self) 
 }
 
 void MainWindow::setTheme(const std::string& theme) {
+    m_theme = theme;
     AdwColorScheme scheme = theme == "dark"    ? ADW_COLOR_SCHEME_FORCE_DARK
                             : theme == "light" ? ADW_COLOR_SCHEME_FORCE_LIGHT
                                                : ADW_COLOR_SCHEME_DEFAULT;

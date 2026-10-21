@@ -37,6 +37,7 @@ public:
     void setSpace(const std::string& name);
     // Dark or light: follow the system (empty), or force "dark" / "light"
     void setTheme(const std::string& theme);
+    const std::string& theme() const { return m_theme; }
     void showSidebar(bool show);
     void toast(const std::string& message);
 
@@ -72,6 +73,7 @@ private:
     Inspector* m_inspector = nullptr;
     AddButton* m_add = nullptr;
     Glib::RefPtr<Gio::SimpleActionGroup> m_actions;
+    std::string m_theme;                // the last setTheme ("" = the system's)
     std::string m_currentFile;          // the last file opened or saved ("" = none yet)
     bool m_syncingSpace = false;
 };

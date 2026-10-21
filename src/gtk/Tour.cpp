@@ -17,6 +17,7 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
     SceneRenderer& r = m_window.sceneArea().renderer();
     Session& s = m_window.session();
     float h = 600.0f;
+    std::string theme = m_window.theme();  // the tour's own theme (--theme), for the steps after the light one
     m_steps = {
         {"01_gtk_space3d", [] {}},
         {"02_gtk_select", [this, &s] {
@@ -48,8 +49,8 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
              m_window.setTheme("light");
          }},
         // The inspector (run 5)
-        {"11_gtk_vector_inspector", [this, &s] {
-             m_window.setTheme("dark");
+        {"11_gtk_vector_inspector", [this, &s, theme] {
+             m_window.setTheme(theme);
              s.select("a");
              m_window.sceneChanged();
          }},
@@ -93,7 +94,7 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
              m_window.sceneChanged();
          }},
     };
-    // The other types' inspectors (run 6): each alone in its space, dark theme
+    // The other types' inspectors (run 6): each alone in its space
     const char* more[][3] = {
         {"20_gtk_quaternion", "quaternion", "space3d"},   {"21_gtk_field", "field", "space3d"},
         {"22_gtk_double_integral", "doubleintegral", "space3d"}, {"23_gtk_line_integral", "lineintegral", "space3d"},
@@ -104,8 +105,8 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
     };
     for (auto& m : more) {
         std::string type = m[1], space = m[2];
-        m_steps.push_back({m[0], [this, &s, type, space] {
-                               m_window.setTheme("dark");
+        m_steps.push_back({m[0], [this, &s, type, space, theme] {
+                               m_window.setTheme(theme);
                                m_window.setSpace(space);
                                s.clearSpace(space == "complex" ? AppMode::Complex : AppMode::Space3D);
                                m_window.addObject(AddChoice{type, "", {}, {}, ""});
