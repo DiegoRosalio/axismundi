@@ -355,6 +355,18 @@ at four sizes, more input tests, the lesson walk on GTK, and a docs/learn chapte
 **Next (run 9, ⛔):** a side-by-side parity checklist against the raylib app, then the user tries the GTK app on
 Arch + GNOME (Wayland, HiDPI, touchpad) and decides on the switch.
 
+### After run 8: first try on Arch + GNOME (2026-10-21)
+
+The user's findings, fixed:
+- **No close button** while the right pane was open: its header bar hid the window buttons, and it is the rightmost
+  part of the window then. No header bar hides them by hand any more; libadwaita's split views hide those that would
+  sit in the middle.
+- **The lesson card was see-through** (libadwaita's `card` style is translucent, nearly invisible in the dark theme):
+  it has the popover background and a shadow now.
+- **The grid was barely visible in the light theme:** blending left alpha below 1 in the 3D view's picture, and GTK
+  composites with alpha, so the light window showed through the lines. The view now sets alpha to 1 after drawing.
+- README: a "Build the GTK app (preview)" section with the packages and commands.
+
 ## Parity checklist (run 9)
 
 The raylib app's features (UI_GUIDE.md) next to the GTK app. ✅ there, ≈ there in a GNOME way, ❌ missing.

@@ -160,6 +160,21 @@ Building raylib needs the X11 and OpenGL development headers (for example on Alp
 make build
 ```
 
+### Build the GTK app (preview)
+
+A GTK 4 + libadwaita version of the app is in progress on the `feature/gtkui` branch (see
+[docs/gtk-port.md](docs/gtk-port.md)). It builds next to the raylib app and uses the same raylib for its 3D view:
+
+```bash
+sudo pacman -S --needed gtkmm-4.0 libadwaita adwaita-icon-theme pkgconf   # Arch; GNOME has the icons already
+git switch feature/gtkui
+make gtk                          # bin/axismundi-gtk
+./bin/axismundi-gtk               # or: ./bin/axismundi-gtk scene.txt, --theme light, --size 1280x800
+```
+
+On Debian/Ubuntu the packages are `libgtkmm-4.0-dev libadwaita-1-dev`. Its preferences are kept in
+`~/.config/axismundi/gtk.txt`, apart from the raylib app's. `make install` still installs the raylib app.
+
 ### Install (desktop menu and icon)
 
 ```bash
@@ -285,8 +300,8 @@ them unit-testable. See [docs/architecture.md](docs/architecture.md) for how the
   PNG per step into `DIR` and exits. It is used to check the UI at different sizes, also headlessly with
   `xvfb-run`.
 
-- `make gtk` builds `bin/axismundi-gtk`, a GTK4 + libadwaita front end in progress (it needs `gtkmm-4.0` and
-  `libadwaita`, on Arch `sudo pacman -S --needed gtkmm-4.0 libadwaita adwaita-icon-theme`). So far it has the 3D
+- `make gtk` builds `bin/axismundi-gtk`, a GTK4 + libadwaita front end in progress (how to build it: "Build the GTK
+  app" above). So far it has the 3D
   view, an objects list with an Add menu (types and templates), selection by clicking, an inspector that edits the
   selected object (formulas, modes, sliders, colors, for every object type),
   undo/redo and opening/saving scenes (`bin/axismundi-gtk scene.txt` opens one), the Analysis / Steps / Breakdown
