@@ -28,12 +28,14 @@ GTK_TARGET := $(BIN_DIR)/axismundi-gtk
 GTK_SRCS != find $(SRC_DIR)/gtk -type f -name '*.cpp' 2>/dev/null
 GTK_CORE := $(filter-out $(SRC_DIR)/main.cpp $(SRC_DIR)/app/% $(SRC_DIR)/edu/% $(SRC_DIR)/ui/%,$(SRCS)) \
             $(SRC_DIR)/app/Session.cpp \
-            $(addprefix $(SRC_DIR)/ui/, SceneIO.cpp RayguiImpl.cpp core/Ui.cpp core/Theme.cpp core/Icons.cpp core/Overlay.cpp)
+            $(addprefix $(SRC_DIR)/ui/, SceneIO.cpp Preferences.cpp RayguiImpl.cpp core/Ui.cpp core/Theme.cpp core/Icons.cpp \
+                                      core/Overlay.cpp)
 GTK_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(GTK_CORE) $(GTK_SRCS))
 GTK_PKGS := gtkmm-4.0 libadwaita-1 epoxy
 # Lazy (=): pkg-config runs only when the GTK app is built; -isystem keeps the library headers' warnings out
 GTK_CFLAGS = $(patsubst -I%,-isystem %,$(shell pkg-config --cflags $(GTK_PKGS)))
-GTK_LIBS = $(shell pkg-config --libs $(GTK_PKGS))
+# gtk/Capture calls Xlib itself (screenshots on X11), so libX11 is linked when GTK has its X11 backend
+GTK_LIBS = $(shell pkg-config --libs $(GTK_PKGS)) $(shell pkg-config --exists x11 && pkg-config --libs x11)
 
 # Math library + unit tests (no raylib needed)
 MATH_SRCS != find $(SRC_DIR)/math $(SRC_DIR)/animation $(SRC_DIR)/scene $(SRC_DIR)/export $(SRC_DIR)/text -type f -name '*.cpp'; echo $(SRC_DIR)/ui/SceneIO.cpp
