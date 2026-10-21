@@ -32,7 +32,8 @@ list, then Medium/Low priority, code quality, research, known issues). Done work
      xdotool under Xvfb and saves a PNG per step to `$DEV/input` (helpers in `tools/dev/input-lib.sh`,
      which can also be sourced by hand to explore).
    - the GTK front end (`src/gtk`, docs/gtk-port.md): `tools/dev/build-gtk.sh`, `tools/dev/tour-gtk.sh WxH [name]
-     [--theme dark]` (PNGs in `$DEV/shots-gtk`), `tools/dev/input-test-gtk.sh` (camera, space switch, Add menu, list selection, picking, undo, file dialogs;
+     [--theme dark]` (PNGs in `$DEV/shots-gtk`), `tools/dev/input-test-gtk.sh` (camera, space switch, Add menu, list selection, picking, undo, file dialogs,
+     the inspector: typing, Esc, Delete inside a field, modes, rename, a slider;
      0 problems expected). The GTK app needs the Adwaita icon theme for its header-bar icons. Changes to
      the shared 3D code must leave the raylib tour pixel-identical (compare against a build of the previous
      commit; only the HUD's frame-rate text may differ).
@@ -165,9 +166,18 @@ src/
                       main.cpp (options, a SCENE.txt argument, Gtk::Application + adw_init; starts empty except
                       in the tour), MainWindow (AdwApplicationWindow: AdwOverlaySplitView with the objects list
                       and the 3D view, toast overlay, header bar with undo/redo, the space switch and the main
-                      menu; actions "win.*" with accelerators; Gtk::FileDialog through its C API; AdwAboutDialog),
+                      menu; actions "win.*" with accelerators; Delete is a local shortcut of the list and the view
+                      only, so it edits text in fields; Gtk::FileDialog through its C API; AdwAboutDialog),
                       ObjectsList (Gtk::ListBox synced with the scene by refresh(), every 150 ms and after
-                      changes), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
+                      changes; scrolls to a new selection), Inspector (under the list in a Gtk::Paned: name, color,
+                      the type's rows, Duplicate/Delete; refresh() rebuilds on idle only when layoutKey() changes
+                      (object, type, active fields, mode/size props), else runs the rows' update functions; rows
+                      find the object again by id), InspectorBuilder (the rows an inspector function describes:
+                      formula, cells, range, numbers, toggle, choice, combo, slider (undo step when it rests),
+                      value, line, button, exampleButton, buttonGrid, live), InspectorsBasic.cpp (one inspect
+                      function per basic type + `inspectorFor`; other types fall back to `inspectFields`),
+                      EditBinding (any GtkEditable bound to the scene: Enter/focus-out commit, Esc reverts, live
+                      syntax check; owned by its widget), AddButton (popover: templates + types), SceneArea (Gtk::GLArea: GL context, 4×
                       MSAA framebuffer, gestures → camera, click → Session::pickAt), SceneRenderer (raylib only:
                       rlgl in GTK's context with an EGL/GLX loader, then the Session's drawing), Tour (--tour),
                       Capture (window → PNG from the X11 screen, so popovers and toasts are included; GTK's own

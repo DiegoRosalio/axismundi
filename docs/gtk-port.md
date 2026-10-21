@@ -37,8 +37,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 | 2 | `gfx::Canvas3D` + RaylibCanvas; labels as a list; the raylib tour pixel-identical | done |
 | 3 | `Session` + `AppApi` shared by both front ends; edu/ on AppApi | done |
 | 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | done |
-| 5 | GTK inspectors I: framework + basic types | next |
-| 6 | GTK inspectors II: the remaining types (parallel agents) | |
+| 5 | GTK inspectors I: framework + basic types | done |
+| 6 | GTK inspectors II: the remaining types (parallel agents) | next |
 | 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | |
 | 8 | tutorial with popovers, GTK tour, input test, lesson walk, docs/learn chapter | |
 | 9 | parity checklist; the user tries it on Arch + GNOME (⛔) | |
@@ -185,6 +185,48 @@ raymath). A plain-OpenGL `Canvas3D` can now replace raylib by changing `src/gfx`
 - **Icons:** this machine lacks the Adwaita icon theme, so the sidebar/undo/redo icons show as placeholders in
   the screenshots. The user is asked to install `adwaita-icon-theme` (GNOME on Arch has it).
 - **Toasts** show only once the window has focus: the scripted tour doesn't see them, the input test does.
-- **Delete is a window-wide shortcut.** Run 5 adds text fields, where Delete must edit text: the shortcut moves
-  to the list and the view then.
+- ~~**Delete is a window-wide shortcut.**~~ Moved to the list and the view in run 5.
 - **No window manager under Xvfb:** dialogs open at the screen's top left (the input test clicks there).
+
+### Run 5: inspectors I (2026-10-21), done
+
+**Before the run:** Arch ships raylib 6.2, where `LoadFontData` takes an extra glyph-count argument, so the build
+failed there. `ui::loadTtf` now checks `RAYLIB_VERSION_MAJOR`; both apps were built and toured against a raylib
+6.2 build (same pictures apart from antialiasing).
+
+**What exists:**
+- **The inspector** under the objects list (the divider can be dragged): the type and color in the title, the name,
+  then the type's rows, then Duplicate and Delete. Nothing selected: "Select an object to edit it here."
+- **Text fields** (formulas, cells, ranges, names, numbers): Enter or leaving the field commits one undo step, Esc
+  goes back, a formula turns red while it doesn't parse, and a saved formula's problem ("unknown name 'q'") is
+  written underneath.
+- **The basic types** have their full inspectors:
+  - vector: components or formula, starting point, length;
+  - matrix: cells (3×3 or 4×4) with the five presets, or a formula; the determinant;
+  - eigenvectors, the four plots (formulas, ranges, detail slider, samples, heat map, value range, next example);
+  - parameter: slider, animate (repeat, easing, duration, start delay) or formula, the scene clock;
+  - complex number (polar form, three switches) and complex product (lengths and angles).
+- **The other types** list their formula fields until run 6.
+- **Delete** works in the list and the view, and edits text inside fields (before, it deleted the object).
+- The list scrolls to a newly selected object.
+
+**For run 6 (the agents):** an inspector is a function `void inspectX(InspectorBuilder& b)` registered in
+`inspectorFor` (gtk/InspectorsBasic.cpp); copy the raylib version in ui/ScenePanelInspectors.cpp row by row:
+`fieldRow` → `formula`, `rangeRow` → `range`, `toggleProp` → `toggle`, `segmented` → `choice`, `slider` → `slider`,
+`note` with live numbers → `value` or `line`, static hints → the group's description. The example lists are in
+scene/Templates. Charts (the Fourier spectrum) need a small Gtk::DrawingArea.
+
+**Checks:**
+- `make test` (4,449, with a new test that every example formula works), `check.sh` ALL CLEAN.
+- The GTK tour has 19 steps (vector, matrix cells and formula, parameter slider and animate, surface, a field
+  problem, complex number, light theme), checked at 800×600, 1280×800 and 1600×900 light.
+- `input-test-gtk.sh`: 0 problems in 38 checks. New: typing a component, Delete inside a field, Esc, the formula
+  mode, a broken formula, undo, rename, Save (the file has the edits), adding a parameter and dragging its slider,
+  Delete in the list and in the view.
+- The raylib app: only the example lists moved (tests, build); its UI code is unchanged otherwise.
+
+**Open problems:**
+- The big formula editor (⤢, Ctrl+Enter) and the color "reset to the theme color" aren't in GTK yet (run 7, with
+  the panels).
+- Ctrl+Z inside a field undoes the scene (the typed text first becomes its own step), not the text.
+- At small window heights the inspector gets little room under the list; the divider can be dragged.
