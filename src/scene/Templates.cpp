@@ -225,4 +225,48 @@ scene::SceneObject* applyAddChoice(scene::Scene& sc, scene::SpaceKind kind, cons
     return o;
 }
 
+const std::vector<PlotExample>& plotExamples(const std::string& type) {
+    static const std::vector<PlotExample> function = {
+        {"sin(x)", "", "", ""}, {"x^3/10 - x", "", "", ""}, {"3exp(-x^2/2)", "", "", ""}, {"tan(x)", "", "", ""}};
+    static const std::vector<PlotExample> surface = {{"sin(sqrt(x^2 + y^2))", "", "", ""},
+                                                     {"(x^2 - y^2)/5", "", "", ""},
+                                                     {"3exp(-(x^2 + y^2)/4)", "", "", ""},
+                                                     {"sin(x) cos(y)", "", "", ""}};
+    static const std::vector<PlotExample> implicit = {{"x^2 + y^2 - 9", "", "", ""},
+                                                      {"x^2/16 + y^2/4 - 1", "", "", ""},
+                                                      {"y^2 - x^3 + 3x", "", "", ""},
+                                                      {"(x^2 + y^2)^2 - 8(x^2 - y^2)", "", "", ""}};
+    static const std::vector<PlotExample> curve = {{"", "2cos(u)", "2sin(u)", "u/4"},
+                                                   {"", "sin(u) + 2sin(2u)", "cos(u) - 2cos(2u)", "-sin(3u)"},
+                                                   {"", "3sin(2u)", "3sin(3u)", "0"},
+                                                   {"", "2cos(u + t)", "2sin(u + t)", "sin(3u - 2t)"}};
+    if (type == "surface") return surface;
+    if (type == "implicit") return implicit;
+    if (type == "curve") return curve;
+    return function;
+}
+
+const std::vector<const char*>& epicycleExamples() {
+    static const std::vector<const char*> shapes = {
+        "(16sin(u)^3 + i*(13cos(u) - 5cos(2u) - 2cos(3u) - cos(4u)))/8",  // heart
+        "2(cos(u) + i*sin(u))/max(abs(cos(u)), abs(sin(u)))",             // square
+        "2.5exp(i*u)*(1 + 0.35cos(5u))",                                    // flower
+        "2sin(u) + i*sin(2u)",                                              // figure eight
+        "1.6exp(i*u) + 0.8exp(6i*u)",                                       // epitrochoid
+        "2exp(i*u)",                                                        // a circle: one circle
+    };
+    return shapes;
+}
+
+const std::vector<const char*>& fourierExamples() {
+    static const std::vector<const char*> fns = {
+        "sign(x)",      // square wave
+        "x",            // sawtooth
+        "abs(x)",       // triangle
+        "abs(sin(x))",  // rectified sine
+        "exp(-x^2)",    // a bump
+    };
+    return fns;
+}
+
 } // namespace linalg

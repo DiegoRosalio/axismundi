@@ -889,4 +889,25 @@ void testTemplates() {
     // Nothing selected: no templates
     sc.selection(SpaceKind::Euclidean3D).clear();
     CHECK(addTemplates(sc, SpaceKind::Euclidean3D).empty());
+
+    // Every "Next example" formula works in its object type
+    scene::Scene ex;
+    ex.clearAll();
+    auto works = [&ex](SpaceKind kind, const char* type, std::map<std::string, std::string> fields) {
+        scene::SceneObject* o = ex.add(kind, type, "");
+        if (!o) return false;
+        for (const auto& [k, v] : fields) o->setField(k, v);
+        ex.evaluate();
+        return o->error().empty();
+    };
+    for (const char* type : {"function", "surface", "implicit", "curve"}) {
+        CHECK(plotExamples(type).size() >= 4);
+        for (const PlotExample& e : plotExamples(type)) {
+            bool curve = std::string(type) == "curve";
+            CHECK(curve ? works(SpaceKind::Euclidean3D, type, {{"x", e.x}, {"y", e.y}, {"z", e.z}})
+                        : works(SpaceKind::Euclidean3D, type, {{"f", e.f}}));
+        }
+    }
+    for (const char* z : epicycleExamples()) CHECK(works(SpaceKind::Complex, "epicycles", {{"z", z}}));
+    for (const char* f : fourierExamples()) CHECK(works(SpaceKind::Euclidean3D, "fourierseries", {{"f", f}}));
 }

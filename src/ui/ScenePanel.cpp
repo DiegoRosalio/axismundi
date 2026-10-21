@@ -39,27 +39,6 @@ void note(ui::Column& col, const std::string& text, Color color, ui::FontRole ro
     col.space(h / ui::scale() + 4.0f);
 }
 
-const std::vector<PlotExample>& plotExamples(const std::string& type) {
-    static const std::vector<PlotExample> function = {
-        {"sin(x)", "", "", ""}, {"x^3/10 - x", "", "", ""}, {"3exp(-x^2/2)", "", "", ""}, {"tan(x)", "", "", ""}};
-    static const std::vector<PlotExample> surface = {{"sin(sqrt(x^2 + y^2))", "", "", ""},
-                                                     {"(x^2 - y^2)/5", "", "", ""},
-                                                     {"3exp(-(x^2 + y^2)/4)", "", "", ""},
-                                                     {"sin(x) cos(y)", "", "", ""}};
-    static const std::vector<PlotExample> implicit = {{"x^2 + y^2 - 9", "", "", ""},
-                                                      {"x^2/16 + y^2/4 - 1", "", "", ""},
-                                                      {"y^2 - x^3 + 3x", "", "", ""},
-                                                      {"(x^2 + y^2)^2 - 8(x^2 - y^2)", "", "", ""}};
-    static const std::vector<PlotExample> curve = {{"", "2cos(u)", "2sin(u)", "u/4"},
-                                                   {"", "sin(u) + 2sin(2u)", "cos(u) - 2cos(2u)", "-sin(3u)"},
-                                                   {"", "3sin(2u)", "3sin(3u)", "0"},
-                                                   {"", "2cos(u + t)", "2sin(u + t)", "sin(3u - 2t)"}};
-    if (type == "surface") return surface;
-    if (type == "implicit") return implicit;
-    if (type == "curve") return curve;
-    return function;
-}
-
 } // namespace panel
 
 using namespace panel;

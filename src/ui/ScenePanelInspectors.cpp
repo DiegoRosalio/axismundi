@@ -1,5 +1,6 @@
 // The inspector content of each object type (ScenePanel::drawInspector dispatches here).
 #include "ui/ScenePanel.hpp"
+#include "scene/Templates.hpp"
 #include "math/Decompositions.hpp"
 #include "math/VectorField.hpp"
 #include "ui/ScenePanelDetail.hpp"
@@ -330,17 +331,9 @@ void ScenePanel::inspectEpicycles(InspectorContext& c) {
     }
     if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
         m_activeId = -1;
-        static const char* kShapes[] = {
-            "(16sin(u)^3 + i*(13cos(u) - 5cos(2u) - 2cos(3u) - cos(4u)))/8",  // heart
-            "2(cos(u) + i*sin(u))/max(abs(cos(u)), abs(sin(u)))",             // square
-            "2.5exp(i*u)*(1 + 0.35cos(5u))",                                    // flower
-            "2sin(u) + i*sin(2u)",                                              // figure eight
-            "1.6exp(i*u) + 0.8exp(6i*u)",                                       // epitrochoid
-            "2exp(i*u)",                                                        // a circle: one circle
-        };
-        int n = static_cast<int>(sizeof(kShapes) / sizeof(kShapes[0]));
-        m_exampleIndex = (m_exampleIndex + 1) % n;
-        ep.setField("z", kShapes[m_exampleIndex]);
+        const auto& shapes = epicycleExamples();
+        m_exampleIndex = (m_exampleIndex + 1) % static_cast<int>(shapes.size());
+        ep.setField("z", shapes[m_exampleIndex]);
         commit();
     }
     note(col, "u runs once around the curve (0 to 2π). Each circle turns k times per lap; more circles follow "
@@ -410,16 +403,9 @@ void ScenePanel::inspectFourierSeries(InspectorContext& c) {
     }
     if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
         m_activeId = -1;
-        static const char* kFns[] = {
-            "sign(x)",            // square wave
-            "x",                           // sawtooth
-            "abs(x)",                      // triangle
-            "abs(sin(x))",                 // rectified sine
-            "exp(-x^2)",                   // a bump
-        };
-        int n = 5;
-        m_exampleIndex = (m_exampleIndex + 1) % n;
-        fs.setField("f", kFns[m_exampleIndex]);
+        const auto& fns = fourierExamples();
+        m_exampleIndex = (m_exampleIndex + 1) % static_cast<int>(fns.size());
+        fs.setField("f", fns[m_exampleIndex]);
         commit();
     }
     note(col, "The series repeats f with period b − a. Near a jump the partial sums overshoot by about 9% "

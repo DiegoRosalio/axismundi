@@ -5,7 +5,6 @@
 #include "ui/core/Ui.hpp"
 #include <raylib.h>
 #include <string>
-#include <vector>
 
 // Helpers shared by ScenePanel.cpp and ScenePanelInspectors.cpp (not part of the panel's interface)
 namespace linalg::panel {
@@ -17,13 +16,5 @@ const char* typeLabel(const scene::SceneObject& o);
 // A wrapped note under the controls
 void note(ui::Column& col, const std::string& text, Color color, ui::FontRole role = ui::FontRole::Small);
 
-// Sample functions per plot type, for the "Next example" button
-struct PlotExample {
-    const char* f;
-    const char* x;
-    const char* y;
-    const char* z;
-};
-const std::vector<PlotExample>& plotExamples(const std::string& type);
 
 } // namespace linalg::panel

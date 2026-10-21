@@ -28,4 +28,15 @@ std::vector<std::pair<std::string, AddChoice>> addTemplates(scene::Scene& scene,
 // Create the object described by a choice, select it and record an undo step
 scene::SceneObject* applyAddChoice(scene::Scene& scene, scene::SpaceKind kind, const AddChoice& choice);
 
+// The inspectors' "Next example" buttons: sample formulas per type
+struct PlotExample {
+    const char* f;  // function, surface, implicit: f
+    const char* x;  // curve: x, y, z of u
+    const char* y;
+    const char* z;
+};
+const std::vector<PlotExample>& plotExamples(const std::string& type);  // function, surface, implicit, curve
+const std::vector<const char*>& epicycleExamples();  // closed curves z(u) (heart, square, flower...)
+const std::vector<const char*>& fourierExamples();   // f(x) for Fourier series (square wave, sawtooth...)
+
 } // namespace linalg
