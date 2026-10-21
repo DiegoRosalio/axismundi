@@ -27,6 +27,7 @@ void quaternion(InspectorBuilder& b) {
     using Q = scene::QuaternionObject;
     b.group("", "qaxis(axis, angle) makes a rotation; q1*q2 does q2 first, then q1.");
     b.formula("value");
+    b.anchor("quaternion.value");
     b.value("Value", [](const Object& o) {
         expr::Rotation r;
         return o.error().empty() && expr::rotationOf(o.value(), r) ? o.value().summary() : std::string();
@@ -53,6 +54,7 @@ void quaternion(InspectorBuilder& b) {
     b.toggle("Rotated Basis", "basis", true, "Where the rotation sends the x, y and z axes (the faint ones are the originals).");
     b.toggle("Acts on a Vector", "act", false,
              "Shows a vector v (gray) and the turned vector q v q⁻¹, with the circle its tip follows.");
+    b.anchor("quaternion.act");
     if (as<Q>(b.object()).actsOnVector()) b.formula("v");
     b.exampleButton(static_cast<int>(quaternionExamples().size()),
                     [](Object& o, int i) { o.setField("value", quaternionExamples()[i]); });
@@ -63,6 +65,7 @@ void field(InspectorBuilder& b) {
     const F& fo = as<F>(b.object());
     b.group("", "F is a vector formula of x, y, z (and t, the scene time); parameters work by name, e.g. k*[-y, x, 0].");
     b.formula("F");
+    b.anchor("field.formula");
     b.choice({"Plane", "Volume"}, [](const Object& o) { return as<F>(o).volume() ? 1 : 0; },
              {"On the floor z = 0: F's x and y components, e.g. [-y, x, 0].",
               "A box of arrows in space: F(x, y, z) with all three components."},
@@ -123,7 +126,9 @@ void epicycles(InspectorBuilder& b) {
     b.group("", "u runs once around the curve (0 to 2π). Each circle turns k times per lap; more circles follow the "
                 "corners better.");
     b.formula("z");
+    b.anchor("epicycles.z");
     b.formula("N");
+    b.anchor("epicycles.N");
     b.formula("speed");
     b.value("Circles", [](const Object& o) {
         const E& ep = as<E>(o);
@@ -150,11 +155,14 @@ void fourierSeries(InspectorBuilder& b) {
     b.group("", "The series repeats f with period b − a. Near a jump the partial sums overshoot by about 9% (Gibbs), "
                 "however many terms.");
     b.formula("f");
+    b.anchor("series.f");
     b.range("a", "b", "x");
     b.formula("N");
+    b.anchor("series.N");
     b.group("Show");
     b.toggle("Show f", "original", true, "Draw f itself (gray) next to the partial sum.");
     b.toggle("Harmonics", "harmonics", false, "Draw the separate waves a_k cos + b_k sin (the first 8).");
+    b.anchor("series.harmonics");
     b.toggle("Repeat Outside", "extend", true, "Draw the sum over three periods: the series repeats f with period b − a.");
 
     // The spectrum: the amplitude √(a_k² + b_k²) of each wave, as bars
@@ -191,6 +199,7 @@ void fourierSeries(InspectorBuilder& b) {
         }
     });
     b.widget(GTK_WIDGET(chart->gobj()));
+    b.anchor("series.spectrum");
     b.live([bars, chart](const Object& o) {
         const S& fs = as<S>(o);
         std::vector<double> amps;

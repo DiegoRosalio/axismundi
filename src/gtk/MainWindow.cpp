@@ -3,6 +3,7 @@
 #include "gtk/AddButton.hpp"
 #include "gtk/Inspector.hpp"
 #include "gtk/InfoPane.hpp"
+#include "gtk/LessonCard.hpp"
 #include "gtk/SceneRenderer.hpp"
 #include "gtk/GalleryDialog.hpp"
 #include "gtk/ReferenceDialog.hpp"
@@ -18,6 +19,7 @@
 #include <glibmm/main.h>
 #include <gtkmm/button.h>
 #include <gtkmm/menubutton.h>
+#include <gtkmm/overlay.h>
 #include <gtkmm/paned.h>
 #include <gtkmm/shortcutcontroller.h>
 #include <gtkmm/togglebutton.h>
@@ -147,6 +149,13 @@ GtkWidget* MainWindow::buildSidebar() {
     gallery->set_tooltip_text("Examples: ready-made scenes to explore");
     gallery->set_action_name("win.gallery");
     adw_header_bar_pack_end(ADW_HEADER_BAR(header), GTK_WIDGET(gallery->gobj()));
+    m_galleryButton = GTK_WIDGET(gallery->gobj());
+    auto* lessons = Gtk::make_managed<Gtk::Button>();
+    lessons->set_icon_name("help-browser-symbolic");
+    lessons->set_tooltip_text("Lessons: guided steps with small tasks");
+    lessons->set_action_name("win.lessons");
+    adw_header_bar_pack_end(ADW_HEADER_BAR(header), GTK_WIDGET(lessons->gobj()));
+    m_lessonsButton = GTK_WIDGET(lessons->gobj());
 
     m_list = Gtk::make_managed<ObjectsList>(m_session);
     m_inspector = Gtk::make_managed<Inspector>(m_session);
@@ -217,6 +226,7 @@ GtkWidget* MainWindow::buildContent() {
     files->append("_Save", "win.save");
     files->append("Save _As…", "win.save-as");
     files->append("_Examples…", "win.gallery");
+    files->append("_Lessons…", "win.lessons");
     files->append("Export to _LaTeX…", "win.export");
     menu->append_section(files);
     auto help = Gio::Menu::create();
@@ -226,6 +236,7 @@ GtkWidget* MainWindow::buildContent() {
     help->append("_About axismundi", "win.about");
     menu->append_section(help);
     auto* pane = Gtk::make_managed<Gtk::ToggleButton>();
+    m_paneButton = GTK_WIDGET(pane->gobj());
     pane->set_icon_name("sidebar-show-right-symbolic");
     pane->set_tooltip_text("Analysis, steps and breakdown (F9)");
     g_object_bind_property(m_paneSplit, "show-sidebar", pane->gobj(), "active",
@@ -268,10 +279,20 @@ GtkWidget* MainWindow::buildContent() {
         m_inspector->refresh();
     });
 
+    // The current lesson step floats over the view
+    m_lessons = Gtk::make_managed<LessonCard>(*this);
+    m_lessons->onCompleted([this](unsigned int finished) {
+        m_settings.lessonsFinished = finished;
+        if (m_settingsLoaded) m_settings.save();
+    });
+    auto* overlay = Gtk::make_managed<Gtk::Overlay>();
+    overlay->set_child(*m_area);
+    overlay->add_overlay(*m_lessons);
+
     GtkWidget* toolbar = adw_toolbar_view_new();
     adw_toolbar_view_add_top_bar(ADW_TOOLBAR_VIEW(toolbar), header);
     adw_toolbar_view_add_bottom_bar(ADW_TOOLBAR_VIEW(toolbar), GTK_WIDGET(m_time->gobj()));
-    adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(toolbar), GTK_WIDGET(m_area->gobj()));
+    adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(toolbar), GTK_WIDGET(overlay->gobj()));
     return toolbar;
 }
 
@@ -333,6 +354,7 @@ void MainWindow::buildActions(const Glib::RefPtr<Gtk::Application>& app) {
     add("preferences", [this] { showPreferences(); }, {"<Control>comma"});
     add("reference", [this] { showReference(); }, {"F1"});
     add("gallery", [this] { showGallery(); }, {});
+    add("lessons", [this] { m_lessons->showList(); }, {});
     add("export", [this] { showExport(); }, {"<Control>e"});
     add("shortcuts", [this] { showShortcuts(); }, {"<Control>question"});
     gtk_widget_insert_action_group(m_window, "win", G_ACTION_GROUP(m_actions->gobj()));
@@ -415,10 +437,24 @@ void MainWindow::showExport() {
 }
 
 void MainWindow::showGallery() {
-    showGalleryDialog(m_window, api(), [this](const char* title) {
+    if (m_gallery) return;
+    m_gallery = showGalleryDialog(m_window, api(), [this](const char* title) {
         sceneChanged();
         toast(std::string("Example: ") + title);
     });
+    g_object_add_weak_pointer(G_OBJECT(m_gallery), reinterpret_cast<gpointer*>(&m_gallery));
+}
+
+GtkWidget* MainWindow::anchorWidget(const std::string& id) {
+    bool paneOpen = adw_overlay_split_view_get_show_sidebar(m_paneSplit);
+    if (id == "objects.list") return GTK_WIDGET(m_list->gobj());
+    if (id == "objects.add") return GTK_WIDGET(m_add->gobj());
+    if (id == "topbar.gallery") return m_galleryButton;
+    if (id == "topbar.tutorial") return m_lessonsButton;
+    // The pane: its button while it is closed, else its page buttons (or the whole Analysis page)
+    if (id == "topbar.breakdown" || id == "topbar.analysis") return paneOpen ? m_info->switcher() : m_paneButton;
+    if (id == "panel.analysis") return paneOpen ? GTK_WIDGET(m_info->gobj()) : m_paneButton;
+    return m_inspector->anchor(id);
 }
 
 void MainWindow::showReference() { showReferenceDialog(m_window, m_session); }
@@ -432,6 +468,8 @@ void MainWindow::openViewMenu(bool open) {
 
 void MainWindow::loadSettings() {
     m_settings.load();
+    m_settingsLoaded = true;
+    m_lessons->runner().setCompleted(m_settings.lessonsFinished);
     applySettings();
 }
 

@@ -13,7 +13,7 @@ class AppApi;
 
 namespace linalg::gtk {
 
-// `opened(title)` runs after an example was applied
-void showGalleryDialog(GtkWidget* parent, AppApi& api, std::function<void(const char*)> opened);
+// `opened(title)` runs after an example was applied. Returns the dialog (GTK frees it when it closes).
+GtkWidget* showGalleryDialog(GtkWidget* parent, AppApi& api, std::function<void(const char*)> opened);
 
 } // namespace linalg::gtk

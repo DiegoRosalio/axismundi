@@ -22,15 +22,18 @@ void doubleIntegral(InspectorBuilder& b) {
     b.group("", "More boxes get closer to the exact volume. Volume below the floor counts negative. Use a parameter "
                 "in n (e.g. round(2 + 18*s)) to watch the boxes refine.");
     b.formula("f");
+    b.anchor("integral.f");
     b.range("xmin", "xmax", "x");
     b.range("ymin", "ymax", "y");
     b.formula("n");
+    b.anchor("integral.n");
     b.choice({"Left", "Middle", "Right"}, [](const Object& o) { return static_cast<int>(as<D>(o).rule()); },
              {"Each box takes the height of f at its lower-left corner.",
               "Each box takes the height of f at its center (usually the most accurate).",
               "Each box takes the height of f at its upper-right corner."},
              [](Object& o, int rule) { o.setProp("rule", rule == 0 ? "left" : rule == 2 ? "right" : "middle"); });
     b.group();
+    b.anchor("integral.rule");
     b.toggle("Boxes", "boxes", true, "The Riemann boxes under the surface");
     b.toggle("Surface", "surface", true, "The surface z = f(x, y)");
     b.value("Boxes", [](const Object& o) {
@@ -60,9 +63,11 @@ void lineIntegral(InspectorBuilder& b) {
     b.group("", "Green where F pushes along the motion, red where it pushes against it. Up to: 0 to 1, e.g. a "
                 "parameter or mod(t/4, 1) to travel the path.");
     b.formula("F");
+    b.anchor("integral.F");
     for (const char* k : {"x", "y", "z"}) b.formula(k);
     b.range("umin", "umax", "u");
     b.formula("upto");
+    b.anchor("integral.upto");
     b.value("Work So Far", [](const Object& o) {
         const L& li = as<L>(o);
         return li.error().empty() ? format("%.4f   (%.0f%% of the path)", li.value().re, li.upto() * 100) : std::string();
@@ -76,9 +81,13 @@ void frame(InspectorBuilder& b) {
     using F = scene::FrameObject;
     b.group("", "κ: how sharply it turns (1/radius). τ: how fast it twists out of its plane (0 for flat curves). Use t "
                 "in \"At u\" to ride along.");
-    for (const char* k : {"x", "y", "z"}) b.formula(k);
+    b.formula("x");
+    b.anchor("frame.curve");
+    b.formula("y");
+    b.formula("z");
     b.range("umin", "umax", "u");
     b.formula("u0");
+    b.anchor("frame.u0");
     b.group("Show");
     b.toggle("Frame T, N, B", "frame", true,
              "Tangent T (direction of motion), normal N (towards the center of the turn), binormal B = T × N.");
@@ -86,6 +95,7 @@ void frame(InspectorBuilder& b) {
              "The circle that hugs the curve best at the point: radius 1/κ, in the plane of T and N.");
     b.toggle("Curvature Comb", "comb", false,
              "Teeth along the curve, as long as the curvature there: where it bends most, they are longest.");
+    b.anchor("frame.comb");
     b.toggle("Curve", "curve", true, "Draw the curve itself.");
     b.value("Curvature κ", [](const Object& o) {
         if (!o.error().empty()) return std::string();
@@ -106,12 +116,14 @@ void tangent(InspectorBuilder& b) {
     b.formula("f");
     b.formula("x0");
     b.formula("h");
+    b.anchor("tangent.h");
     b.range("xmin", "xmax", "x");
     b.group("Show");
     b.toggle("Graph of f", "function", true, "Draw y = f(x) itself.");
     b.toggle("Graph of f'", "derivative", true,
              "Draw the slope of f at every x as a second curve: where f climbs it is above 0, where f has a peak or a "
              "valley it crosses 0.");
+    b.anchor("tangent.derivative");
     b.toggle("Slope Triangle", "triangle", true,
              "One step right along the tangent climbs f'(x0): the slope read off the picture.");
     b.value("Slope", [](const Object& o) {
@@ -147,6 +159,7 @@ void tangentPlane(InspectorBuilder& b) {
                 "of this object.");
     b.formula("f");
     b.formula("x0");
+    b.anchor("tplane.point");
     b.formula("y0");
     b.range("xmin", "xmax", "x");
     b.range("ymin", "ymax", "y");
@@ -191,6 +204,7 @@ void velocity(InspectorBuilder& b) {
     b.toggle("Acceleration r''", "acceleration", true, "How the velocity is changing.");
     b.toggle("Split Acceleration", "split", false,
              "The part along the motion changes the speed; the part across it changes the direction (turning).");
+    b.anchor("velocity.split");
     b.toggle("Curve", "curve", true, "Draw the curve itself.");
     b.slider("Arrow Scale", [](const Object&) { return InspectorBuilder::Limits{0.1, 2.0, 0.05}; },
              [](const Object& o) { return as<V>(o).arrowScale(); },
@@ -219,7 +233,9 @@ void taylor(InspectorBuilder& b) {
                 "center, or past a singularity, the polynomial can't follow f.");
     b.formula("f");
     b.formula("a");
+    b.anchor("taylor.a");
     b.formula("N");
+    b.anchor("taylor.N");
     b.range("xmin", "xmax", "x");
     b.group("Show");
     b.toggle("Graph of f", "function", true, "Draw f itself (gray) to compare.");
@@ -258,6 +274,7 @@ void newton(InspectorBuilder& b) {
     b.formula("f");
     b.formula("x0");
     b.formula("steps");
+    b.anchor("newton.steps");
     b.range("xmin", "xmax", "x");
     b.toggle("Graph of f", "function", true, "Draw y = f(x).");
     b.group("Steps");

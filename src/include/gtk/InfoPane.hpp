@@ -34,6 +34,7 @@ public:
     // "analysis", "steps" or "breakdown"
     void showPage(const std::string& name);
     std::string page() const;
+    GtkWidget* switcher() const { return m_switcher; }  // the page buttons (lessons point at them)
 
     // The breakdown plays while its page is shown (and the pane is open, which the window tells)
     void setOpen(bool open) { m_open = open; }
@@ -51,6 +52,7 @@ private:
 
     Session& m_session;
     AdwViewStack* m_stack = nullptr;
+    GtkWidget* m_switcher = nullptr;
     bool m_open = false;
     bool m_wasActive = false;  // the breakdown was playing in the view at the last refresh
 

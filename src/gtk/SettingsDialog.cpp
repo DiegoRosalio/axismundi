@@ -23,6 +23,8 @@ void GtkSettings::load() {
         surfaces = it->second == "smooth"    ? UiSettings::Surfaces::Smooth
                    : it->second == "faceted" ? UiSettings::Surfaces::Faceted
                                              : UiSettings::Surfaces::StyleDefault;
+    int finished = 0;
+    if (getInt(data, "tutorial.completed", finished)) lessonsFinished = static_cast<unsigned int>(finished);
 }
 
 void GtkSettings::save() const {
@@ -30,6 +32,7 @@ void GtkSettings::save() const {
     data["gtk.theme"] = theme.empty() ? "system" : theme;
     putBool(data, "ui.dim_unselected", dimUnselected);
     data["ui.surfaces"] = surfacesKey(surfaces);
+    putInt(data, "tutorial.completed", static_cast<int>(lessonsFinished));
     std::string error;
     Preferences::save(data, error, kFile);  // a failure only loses the preference
 }

@@ -2,7 +2,7 @@
 # Real X11 input on the GTK app under Xvfb (xdotool): the camera (orbit drag, pan, wheel), the space switch, the
 # Add menu, the objects list (click, Ctrl+click), picking in the view, undo, saving and opening a scene through the
 # file dialog, the inspector (typing, Esc, Delete inside a field, modes, rename, a slider), Delete in the list and
-# the view. Saves a PNG per step to $DEV/input-gtk and checks that each step changed the picture.
+# the view, the tutorial (lesson list, a lesson done by hand). Saves a PNG per step to $DEV/input-gtk and checks that each step changed the picture.
 DEV=${AXISMUNDI_DEV:-$HOME/.cache/axismundi-dev}
 BIN=$DEV/build/axismundi-gtk OUT=$DEV/input-gtk
 . "$(dirname "$0")/input-lib.sh"
@@ -70,6 +70,19 @@ key ctrl+s; sleep 0.5; cp "$OUT/run/gtkscene.txt" "$OUT/run/gtkscene2.txt"
 click 160 122; key Delete;     shot 35_list_delete
 click 874 296;                 shot 36_view_pick
 key Delete;                    shot 37_view_delete
+# The tutorial: the lesson list, a lesson's card, its task done with real clicks and typing, Finish (the Next button
+# moves up once a task is done: its hint goes away)
+click 322 27; sleep 0.5;       shot 38_lessons
+click 800 331; sleep 0.5;      shot 39_lesson_card
+click 1230 272; sleep 0.5; shot 40_lesson_add_step
+click 1100 800; click 28 27; click 54 142; sleep 0.5
+                               shot 41_lesson_vector_added
+click 1230 290; sleep 0.5; shot 42_lesson_edit_step
+click 84 527; key ctrl+a; type_ "0"; key Return
+click 195 527; key ctrl+a; type_ "0"; key Return
+click 310 527; key ctrl+a; type_ "2"; key Return; sleep 0.5
+                               shot 43_lesson_task_done
+click 1224 304; sleep 0.5; shot 44_lesson_finished
 input_stop
 python3 - "$OUT" <<'PY'
 import sys, hashlib, os
@@ -81,7 +94,8 @@ want = ["00_start", "01_orbit_drag", "02_pan_right_drag", "03_wheel_zoom_in", "0
         "20_type_component", "21_delete_key_in_field", "22_escape_reverts", "23_formula_mode", "24_formula_typed",
         "25_bad_formula", "26_undo_button", "27_rename", "28_saved", "29_parameter_added", "30_slider_drag",
         "31_animate_mode", "32_repeat_menu", "33_repeat_pingpong", "34_saved_again", "35_list_delete", "36_view_pick",
-        "37_view_delete"]
+        "37_view_delete", "38_lessons", "39_lesson_card", "40_lesson_add_step", "41_lesson_vector_added",
+        "42_lesson_edit_step", "43_lesson_task_done", "44_lesson_finished"]
 def digest(n):
     p = os.path.join(out, n + ".png")
     return hashlib.sha1(open(p, "rb").read()).hexdigest() if os.path.exists(p) else None
@@ -109,5 +123,11 @@ for line in ["object.1.prop.mode = animate", "object.1.prop.anim.repeat = 2"]:
     ok = line in text2
     problems += not ok
     print(("ok      " if ok else "PROBLEM ") + "the second save has " + line)
+# Finishing "Objects" (the second lesson) is remembered in the preferences
+prefs = os.path.join(out, "cfg", "axismundi", "gtk.txt")
+ptext = open(prefs).read() if os.path.exists(prefs) else ""
+ok = "tutorial.completed = 2" in ptext
+problems += not ok
+print(("ok      " if ok else "PROBLEM ") + "the preferences remember the finished lesson")
 print("%d problems" % problems)
 PY

@@ -14,6 +14,7 @@
 #include <gtkmm/scrolledwindow.h>
 #include <sigc++/connection.h>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,10 @@ public:
     Session& session() { return m_session; }
     // Show the last rows (the tour's screenshots of long inspectors)
     void scrollToEnd();
+    // A row the inspector function named with InspectorBuilder::anchor (lessons point at it); nullptr: not shown
+    GtkWidget* anchor(const std::string& id) const;
+    // Scroll so that `child` (a row inside the inspector) is in sight; false while it has no place yet
+    bool scrollTo(GtkWidget* child);
 
 private:
     friend class InspectorBuilder;
@@ -67,6 +72,7 @@ private:
     std::string m_key;                  // layoutKey() of the rows shown
     std::vector<EditBinding*> m_edits;  // owned by their widgets
     std::vector<Update> m_updates;
+    std::map<std::string, GtkWidget*> m_anchors;  // the rows named for lessons (rebuilt with the rows)
     bool m_updating = false;            // values are being set by update(), not by the user
     bool m_rebuildQueued = false;
     sigc::connection m_sliderRest;
@@ -138,6 +144,10 @@ public:
     void widget(GtkWidget* child);
     // Run `update` on every refresh (for rows built by hand)
     void live(std::function<void(const Object&)> update);
+    // Name the row added last ("matrix.grid"), so a lesson step can point at it; `button` names the button with
+    // that index of the last button grid instead
+    void anchor(const std::string& id, int button = -1);
+    void anchorGroup(const std::string& id);  // the current group of rows
 
 private:
     GtkWidget* currentGroup();
@@ -147,6 +157,8 @@ private:
     Inspector& m_inspector;
     Object& m_object;
     GtkWidget* m_group = nullptr;
+    GtkWidget* m_last = nullptr;                // the last row, for anchor()
+    std::vector<GtkWidget*> m_lastButtons;      // the last button grid's buttons
 };
 
 // The type's own part of the inspector: the function that describes its rows (gtk/Inspectors*.cpp), and the

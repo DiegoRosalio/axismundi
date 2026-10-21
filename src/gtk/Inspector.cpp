@@ -135,6 +135,22 @@ void Inspector::scrollToEnd() {
     adj->set_value(adj->get_upper() - adj->get_page_size());
 }
 
+GtkWidget* Inspector::anchor(const std::string& id) const {
+    if (id == "inspector") return m_scroll.get_visible() ? GTK_WIDGET(m_scroll.gobj()) : nullptr;
+    auto it = m_anchors.find(id);
+    return it == m_anchors.end() ? nullptr : it->second;
+}
+
+bool Inspector::scrollTo(GtkWidget* child) {
+    graphene_rect_t bounds;
+    if (!gtk_widget_compute_bounds(child, GTK_WIDGET(m_content.gobj()), &bounds) || bounds.size.height <= 0) return false;
+    auto adj = m_scroll.get_vadjustment();
+    double top = bounds.origin.y - 12, bottom = bounds.origin.y + bounds.size.height + 12;
+    if (top < adj->get_value()) adj->set_value(top);
+    else if (bottom > adj->get_value() + adj->get_page_size()) adj->set_value(bottom - adj->get_page_size());
+    return true;
+}
+
 SceneObject* Inspector::current() {
     if (m_id == scene::kNoObject) return nullptr;
     return m_session.scene().space(m_kind).find(m_id);
@@ -189,6 +205,7 @@ void Inspector::rebuild() {
     }
     m_edits.clear();
     m_updates.clear();
+    m_anchors.clear();
     while (Gtk::Widget* child = m_content.get_first_child()) m_content.remove(*child);
     m_key = layoutKey();
 
@@ -337,7 +354,17 @@ GtkWidget* InspectorBuilder::currentGroup() {
     return m_group;
 }
 
-void InspectorBuilder::add(GtkWidget* row) { adw_preferences_group_add(ADW_PREFERENCES_GROUP(currentGroup()), row); }
+void InspectorBuilder::add(GtkWidget* row) {
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(currentGroup()), row);
+    m_last = row;
+}
+
+void InspectorBuilder::anchor(const std::string& id, int button) {
+    GtkWidget* w = button < 0 ? m_last : button < static_cast<int>(m_lastButtons.size()) ? m_lastButtons[button] : nullptr;
+    if (w) m_inspector.m_anchors[id] = w;
+}
+
+void InspectorBuilder::anchorGroup(const std::string& id) { m_inspector.m_anchors[id] = currentGroup(); }
 
 void InspectorBuilder::group(const std::string& title, const std::string& description) {
     m_group = nullptr;
@@ -391,6 +418,7 @@ void InspectorBuilder::formula(const std::string& key, const std::string& label)
     GtkWidget* problem = plainRow(text);
     gtk_widget_set_visible(problem, FALSE);
     add(problem);
+    m_last = row;
     live([e, key, problem, text](const Object& o) {
         const scene::Field* field = o.field(key);
         setVisibleText(problem, text, field && !e->editing() ? field->error : std::string());
@@ -435,13 +463,15 @@ void InspectorBuilder::cells(const std::string& title, const std::vector<std::st
         gtk_box_append(GTK_BOX(box), cell);
         shownKeys.push_back(keys[i]);
     }
-    add(plainRow(box));
+    GtkWidget* fieldsRow = plainRow(box);
+    add(fieldsRow);
     // The fields' problems underneath, "x: unknown name 'q'"
     GtkWidget* text = wrappedLabel("error");
     gtk_widget_add_css_class(text, "caption");
     GtkWidget* problem = plainRow(text);
     gtk_widget_set_visible(problem, FALSE);
     add(problem);
+    m_last = fieldsRow;
     bool named = !captions.empty() || keys.size() <= 3;
     live([shownKeys, problem, text, named](const Object& o) {
         std::string all;
@@ -524,6 +554,7 @@ void InspectorBuilder::choice(const std::vector<std::string>& labels, std::funct
     });
     m_group = nullptr;  // rows after it start a new group
     gtk_box_append(m_inspector.m_content.gobj(), GTK_WIDGET(group));
+    m_last = GTK_WIDGET(group);
 }
 
 void InspectorBuilder::combo(const std::string& label, const std::vector<std::string>& items,
@@ -646,8 +677,10 @@ void InspectorBuilder::buttonGrid(const std::vector<GridButton>& buttons, int co
     gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
     gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
     Inspector* insp = &m_inspector;
+    m_lastButtons.clear();
     for (size_t i = 0; i < buttons.size(); i++) {
         GtkWidget* b = gtk_button_new_with_label(buttons[i].label.c_str());
+        m_lastButtons.push_back(b);
         if (!buttons[i].tip.empty()) gtk_widget_set_tooltip_text(b, buttons[i].tip.c_str());
         auto run = buttons[i].run;
         onSignal(b, "clicked", [insp, run] {
@@ -658,6 +691,7 @@ void InspectorBuilder::buttonGrid(const std::vector<GridButton>& buttons, int co
     }
     m_group = nullptr;
     gtk_box_append(m_inspector.m_content.gobj(), grid);
+    m_last = grid;
 }
 
 void InspectorBuilder::widget(GtkWidget* child) { add(plainRow(child)); }

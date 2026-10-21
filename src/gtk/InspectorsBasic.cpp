@@ -72,6 +72,7 @@ void matrix(InspectorBuilder& b) {
             }
             b.cells("", keys, "", tips);
         }
+        b.anchorGroup("matrix.grid");
         // Presets act on top of the current matrix; Identity starts over
         auto preset = [](Matrix3D value) {
             return [value](Object& o) { static_cast<scene::MatrixObject&>(o).applyPreset(value); };
@@ -84,6 +85,9 @@ void matrix(InspectorBuilder& b) {
                        preset(Matrix3D::shear(0.5f, 0))},
                       {"Reflect", "Then x' = −x: a mirror image (det changes sign).", preset(Matrix3D::scale(-1, 1))}},
                      2);
+        b.anchor("presets");
+        b.anchor("preset.rotate", 1);
+        b.anchor("preset.reflect", 4);
     } else {
         b.group("", "Try rotz(theta), rot([1,1,1], pi/3), scale(1, 2, 1), translate(1, 0, 0), inv(M), A*B, or "
                     "[u, v, w] to use vectors as columns.");
@@ -114,6 +118,7 @@ void plot(InspectorBuilder& b) {
         b.range("umin", "umax", "u");
     } else {
         b.formula("f");
+        b.anchor("plot.expr");
         b.range("xmin", "xmax", "x");
         if (type != "function") b.range("ymin", "ymax", "y");
     }
@@ -172,6 +177,7 @@ void parameter(InspectorBuilder& b) {
               "Follows the scene clock from min to max, with a repeat style and an easing curve.",
               "A formula of t, the scene time in seconds, e.g. 2pi*t/5 or sin(t)."},
              [param](Object& o, int m) { param(o).setMode(static_cast<PMode>(m)); });
+    b.anchor("parameter.mode");
     b.group("", "Use " + p.name() + " in any formula, e.g. rotz(" + p.name() + ") or lerp(eye(), M, " + p.name() + ").");
     if (p.mode() == PMode::Formula) b.formula("formula");
     if (p.mode() == PMode::Slider) {
@@ -182,6 +188,7 @@ void parameter(InspectorBuilder& b) {
                  },
                  [cparam](const Object& o) { return cparam(o).number(); },
                  [param](Object& o, double v) { param(o).setNumber(v); }, shortNumber);
+        b.anchor("parameter.slider");
     }
     if (p.mode() != PMode::Formula) {
         auto bound = [param, cparam](const char* key) {

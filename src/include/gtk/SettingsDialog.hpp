@@ -15,6 +15,7 @@ struct GtkSettings {
     std::string theme;          // "" follows the system, else "light" or "dark"
     bool dimUnselected = true;  // fade the other objects while something is selected
     UiSettings::Surfaces surfaces = UiSettings::Surfaces::StyleDefault;
+    unsigned int lessonsFinished = 0;  // a bit per finished lesson, by position (edu/Tutorial's lessons())
 
     void load();  // missing keys keep their defaults
     void save() const;

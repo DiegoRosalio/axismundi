@@ -19,11 +19,12 @@ struct Options {
     int width = 1280, height = 800;
     std::string theme;  // "", "dark", "light"
     std::string tour;   // screenshot directory
+    bool lessonWalk = false;  // the tour walks the tutorial's steps instead
     std::string file;   // a scene to open
 };
 
 void usage(const char* program) {
-    std::printf("usage: %s [--size WxH] [--theme dark|light] [--tour OUTPUT_DIR] [--version] [SCENE.txt]\n", program);
+    std::printf("usage: %s [--size WxH] [--theme dark|light] [--tour OUTPUT_DIR] [--lesson-walk OUTPUT_DIR] [--version] [SCENE.txt]\n", program);
 }
 
 // SIGUSR1 saves signal_NNN.png in the working folder (the input tests use it, as with the raylib app)
@@ -46,6 +47,9 @@ int main(int argc, char** argv) {
             options.theme = argv[++i];
         } else if (std::strcmp(argv[i], "--tour") == 0 && i + 1 < argc) {
             options.tour = argv[++i];
+        } else if (std::strcmp(argv[i], "--lesson-walk") == 0 && i + 1 < argc) {
+            options.tour = argv[++i];
+            options.lessonWalk = true;
         } else if (std::strcmp(argv[i], "--version") == 0) {
             std::printf("axismundi %s\n", kVersion);
             return 0;
@@ -85,7 +89,7 @@ int main(int argc, char** argv) {
         }
         if (!options.file.empty()) window->openFile(options.file);
         if (!options.tour.empty()) {
-            tour = std::make_unique<gtk::Tour>(*window, app, options.tour);
+            tour = std::make_unique<gtk::Tour>(*window, app, options.tour, options.lessonWalk);
             tour->start();
         }
     });

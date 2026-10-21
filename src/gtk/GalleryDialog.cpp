@@ -16,7 +16,7 @@ struct GalleryState {
 
 } // namespace
 
-void showGalleryDialog(GtkWidget* parent, AppApi& api, std::function<void(const char*)> opened) {
+GtkWidget* showGalleryDialog(GtkWidget* parent, AppApi& api, std::function<void(const char*)> opened) {
     AdwDialog* dialog = adw_dialog_new();
     auto* st = new GalleryState{&api, std::move(opened), dialog};
     g_object_set_data_full(G_OBJECT(dialog), "axismundi-state", st, [](gpointer p) { delete static_cast<GalleryState*>(p); });
@@ -58,6 +58,7 @@ void showGalleryDialog(GtkWidget* parent, AppApi& api, std::function<void(const 
     adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(toolbar), page);
     adw_dialog_set_child(dialog, toolbar);
     adw_dialog_present(dialog, parent);
+    return GTK_WIDGET(dialog);
 }
 
 } // namespace linalg::gtk

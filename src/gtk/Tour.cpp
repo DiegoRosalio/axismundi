@@ -3,20 +3,29 @@
 #include "gtk/Inspector.hpp"
 #include "gtk/FormulaDialog.hpp"
 #include "gtk/InfoPane.hpp"
+#include "gtk/LessonCard.hpp"
 #include "gtk/MainWindow.hpp"
 #include "gtk/SceneArea.hpp"
 #include "gtk/SceneRenderer.hpp"
 #include "edu/Examples.hpp"
+#include "edu/Tutorial.hpp"
 #include "scene/Templates.hpp"
 #include "scene/Types.hpp"
 #include <gtk/gtk.h>
+#include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <iostream>
 
 namespace linalg::gtk {
 
-Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string directory)
+Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string directory, bool lessonWalk)
     : m_window(window), m_app(std::move(app)), m_directory(std::move(directory)) {
+    if (lessonWalk) {
+        m_minTicks = 6;  // 186 steps: shorter waits (the screenshots don't need settled animations)
+        addLessonWalk();
+        return;
+    }
     SceneRenderer& r = m_window.sceneArea().renderer();
     Session& s = m_window.session();
     float h = 600.0f;
@@ -219,6 +228,60 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
                            s.scene().commit();
                            m_window.sceneChanged();
                        }});
+    // The tutorial (run 8)
+    m_steps.push_back({"57_gtk_lessons", [this] { m_window.lessons().showList(); }});
+    m_steps.push_back({"58_gtk_lesson_add", [this] {
+                           m_window.closeDialogs();
+                           m_window.lessons().start(1, 1);  // Objects: Add a vector (points at the + button)
+                       }});
+    // Lessons start at their first step, whose setup builds the scene the next steps use
+    m_steps.push_back({"59_gtk_lesson_matrix", [this] {
+                           m_window.lessons().start(3, 0);
+                           m_window.lessons().start(3, 1);  // the matrix cells
+                       }});
+    m_steps.push_back({"60_gtk_lesson_done", [this] {
+                           solveTutorialStep(m_window.api(), 3, 1);
+                           m_window.sceneChanged();
+                           m_window.lessons().tick();
+                       }});
+    m_steps.push_back({"61_gtk_lesson_parameter", [this] {
+                           m_window.lessons().start(6, 0);
+                           m_window.lessons().start(6, 1);  // the mode switch
+                       }});
+    m_steps.push_back({"62_gtk_lesson_breakdown", [this] { m_window.lessons().start(7, 0); }});  // the pane button
+    m_steps.push_back({"63_gtk_lesson_closed", [this] { m_window.lessons().leave(); }});
+}
+
+void Tour::addLessonWalk() {
+    LessonCard& card = m_window.lessons();
+    const auto& all = lessons();
+    for (int L = 0; L < static_cast<int>(all.size()); L++) {
+        for (int K = 0; K < static_cast<int>(all[L].steps.size()); K++) {
+            char name[32];
+            std::snprintf(name, sizeof(name), "L%02d_%02d", L, K);
+            const TutorialStep& st = all[L].steps[K];
+            m_steps.push_back({name, [this, &card, L, K] {
+                                   m_window.closeDialogs();
+                                   card.start(L, K);
+                               }});
+            bool breakdown = std::string(st.title) == "Watch the steps";
+            m_steps.push_back({std::string(name) + "_chk", [this, &st, L, K] {
+                                   AppApi& api = m_window.api();
+                                   bool early = st.check && st.check(api, TutorialContext{});
+                                   bool scripted = solveTutorialStep(api, L, K);
+                                   m_window.sceneChanged();
+                                   std::fprintf(stderr, "WALK %d.%d task=%d early=%d scripted=%d %s\n", L, K, st.check ? 1 : 0,
+                                                early ? 1 : 0, scripted ? 1 : 0, st.title);
+                               }, breakdown ? 600 : 0});
+            // The card's own check (the runner, as a user would see it), a few frames after the solution
+            m_steps.push_back({std::string(name) + "_done", [&card, &st, L, K] {
+                                   card.tick();
+                                   bool done = card.runner().taskDone();
+                                   std::fprintf(stderr, "SOLVED %d.%d %d\n", L, K, st.check && done ? 1 : 0);
+                               }});
+        }
+    }
+    m_steps.push_back({"walk_end", [&card] { card.leave(); }});
 }
 
 void Tour::start() {
@@ -248,7 +311,7 @@ bool Tour::tick() {
     // can't draw, save the window
     m_ticks++;
     bool drawn = area.framesDrawn() >= m_framesAtAction + 2;
-    if ((drawn && m_ticks >= 20) || m_ticks > 300) {
+    if ((drawn && m_ticks >= std::max(m_minTicks, m_steps[m_next].wait)) || m_ticks > std::max(300, m_steps[m_next].wait + 60)) {
         std::string path = m_directory + "/" + m_steps[m_next].name + ".png";
         bool ok = saveWidgetPng(m_window.widget(), path);
         std::cerr << (ok ? "TOUR " : "TOUR FAILED ") << path

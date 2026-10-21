@@ -10,6 +10,11 @@ Session& WindowApi::session() { return m_window.session(); }
 void WindowApi::setMode(AppMode mode) { m_window.setSpace(mode == AppMode::Complex ? "complex" : "space3d"); }
 
 void WindowApi::showPanel(const std::string& id, bool visible) {
+    if (id == "gallery") {
+        if (visible) m_window.showGallery();
+        else if (m_window.galleryOpen()) m_window.closeDialogs();
+        return;
+    }
     bool pane = id == "analysis" || id == "steps" || id == "breakdown";
     if (!pane) return;  // the clock is always shown; other panels don't exist here (yet)
     if (visible) m_window.showPane(id);
@@ -18,6 +23,7 @@ void WindowApi::showPanel(const std::string& id, bool visible) {
 
 bool WindowApi::panelVisible(const std::string& id) const {
     if (id == "animation") return true;
+    if (id == "gallery") return m_window.galleryOpen();
     InfoPane& pane = m_window.infoPane();
     return pane.isOpen() && pane.page() == id;
 }

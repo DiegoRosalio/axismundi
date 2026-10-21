@@ -46,7 +46,7 @@ InfoPane::InfoPane(Session& session) : Gtk::Box(Gtk::Orientation::VERTICAL), m_s
     g_signal_connect_swapped(m_stack, "notify::visible-child-name", G_CALLBACK(+[](InfoPane* self) { self->refresh(); }),
                              this);
 
-    GtkWidget* switcher = adw_view_switcher_new();
+    GtkWidget* switcher = m_switcher = adw_view_switcher_new();
     adw_view_switcher_set_stack(ADW_VIEW_SWITCHER(switcher), m_stack);
     adw_view_switcher_set_policy(ADW_VIEW_SWITCHER(switcher), ADW_VIEW_SWITCHER_POLICY_NARROW);
     GtkWidget* header = adw_header_bar_new();

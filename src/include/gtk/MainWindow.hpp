@@ -30,6 +30,7 @@ class InfoPane;
 class TimeBar;
 class ViewMenu;
 class WindowApi;
+class LessonCard;
 
 class MainWindow {
 public:
@@ -59,7 +60,13 @@ public:
     void showGallery();
     void showExport();
     void showShortcuts();
+    bool galleryOpen() const { return m_gallery != nullptr; }
     void closeDialogs();  // every dialog open over the window
+    // The tutorial: the lesson list and the card of the current step
+    LessonCard& lessons() { return *m_lessons; }
+    // The control a lesson step points at, by the anchor names of edu/Tutorial ("objects.add", "matrix.grid"...);
+    // nullptr when it isn't on screen now
+    GtkWidget* anchorWidget(const std::string& id);
     // What gallery examples and lessons use to drive the window
     AppApi& api();
     void openViewMenu(bool open);
@@ -101,6 +108,12 @@ private:
     ViewMenu* m_viewMenu = nullptr;
     std::unique_ptr<WindowApi> m_api;
     AddButton* m_add = nullptr;
+    LessonCard* m_lessons = nullptr;
+    GtkWidget* m_galleryButton = nullptr;
+    GtkWidget* m_lessonsButton = nullptr;
+    GtkWidget* m_paneButton = nullptr;
+    GtkWidget* m_gallery = nullptr;     // the gallery dialog while it is open (a weak pointer)
+    bool m_settingsLoaded = false;      // loadSettings ran (the tour keeps defaults and saves nothing)
     Glib::RefPtr<Gio::SimpleActionGroup> m_actions;
     std::string m_theme;                // the last setTheme ("" = the system's)
     GtkSettings m_settings;

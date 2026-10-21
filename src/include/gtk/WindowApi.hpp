@@ -1,6 +1,6 @@
 #pragma once
 
-// The GTK app's AppApi: what gallery examples (and later the tutorial) may do to the window. Scene work goes to
+// The GTK app's AppApi: what gallery examples and the tutorial lessons may do to the window. Scene work goes to
 // the Session; panels map to the window's parts ("analysis", "steps", "breakdown" are pages of the pane on the
 // right; the clock, "animation", is always shown under the view).
 
