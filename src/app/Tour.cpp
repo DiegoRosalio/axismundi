@@ -149,7 +149,7 @@ void Tour::buildSteps() {
         app.addObject(AppMode::Space3D, "matrix", "M", {{"value", "[[1, 1, 0], [0, 1, 0], [0, 0, 2]]"}},
                       {{"mode", "formula"}});
         app.select("M");
-        for (const auto& [label, choice] : AddMenu::templates(app.scene(), scene::SpaceKind::Euclidean3D))
+        for (const auto& [label, choice] : addTemplates(app.scene(), scene::SpaceKind::Euclidean3D))
             if (label.rfind("Morph from identity", 0) == 0) applyAddChoice(app.scene(), scene::SpaceKind::Euclidean3D, choice);
         app.select("s");
     }, 30);

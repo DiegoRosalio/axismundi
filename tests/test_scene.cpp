@@ -852,3 +852,41 @@ void testUsability() {
     sc.evaluate();
     CHECK_NEAR(v->value().vector.magnitude(), 1.0f, 1e-6f);
 }
+
+void testTemplates() {
+    using scene::SpaceKind;
+    scene::Scene sc;
+    sc.clearAll();
+    // Two selected vectors offer their sum, which applyAddChoice creates as a formula and selects
+    scene::SceneObject* a = sc.add(SpaceKind::Euclidean3D, "vector", "a");
+    scene::SceneObject* b = sc.add(SpaceKind::Euclidean3D, "vector", "b");
+    a->setField("x", "1");
+    b->setField("y", "2");
+    sc.selection(SpaceKind::Euclidean3D).set(a->id());
+    sc.selection(SpaceKind::Euclidean3D).toggle(b->id());
+    auto tmpl = addTemplates(sc, SpaceKind::Euclidean3D);
+    const AddChoice* sum = nullptr;
+    const AddChoice* blend = nullptr;
+    for (const auto& [label, choice] : tmpl) {
+        if (label == "Sum a + b") sum = &choice;
+        if (label.rfind("Blend a", 0) == 0) blend = &choice;
+    }
+    CHECK(sum != nullptr);
+    CHECK(blend != nullptr);
+    if (!sum || !blend) return;
+    scene::SceneObject* s = applyAddChoice(sc, SpaceKind::Euclidean3D, *sum);
+    CHECK(s != nullptr);
+    sc.evaluate();
+    CHECK(s && s->value().type == expr::Type::Vector);
+    if (s) CHECK_NEAR(s->value().vector.y, 2.0f, 1e-6f);
+    CHECK(s && sc.selection(SpaceKind::Euclidean3D).primary() == s->id());
+    // A slider template makes its helper parameter first and puts its name in the formula
+    AddChoice blendCopy = *blend;
+    scene::SceneObject* m = applyAddChoice(sc, SpaceKind::Euclidean3D, blendCopy);
+    CHECK(m != nullptr);
+    CHECK(sc.space(SpaceKind::Euclidean3D).find("s") != nullptr);
+    if (m) CHECK(m->field("value")->text.find("$s") == std::string::npos);
+    // Nothing selected: no templates
+    sc.selection(SpaceKind::Euclidean3D).clear();
+    CHECK(addTemplates(sc, SpaceKind::Euclidean3D).empty());
+}
