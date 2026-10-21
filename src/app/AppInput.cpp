@@ -114,19 +114,11 @@ void App::handleInput(float deltaTime) {
 }
 
 void App::applyModeChange() {
-    if (m_mode == m_lastMode) return;
+    if (m_mode == m_session.mode()) return;
     // A field in the hidden space would otherwise stay "active"
     m_scenePanel.finishEditing(m_scene);
     closePopovers();
-    // Remember the camera of the space we leave, restore the one of the space we enter
-    int from = static_cast<int>(m_lastMode), to = static_cast<int>(m_mode);
-    m_camera.setSpace(m_mode);
-    m_savedPosition[from] = m_camera.position();
-    m_savedTarget[from] = m_camera.target();
-    m_hasSavedView[from] = true;
-    if (m_hasSavedView[to]) m_camera.setView(m_savedPosition[to], m_savedTarget[to]);
-    else m_camera.reset(m_mode);
-    m_lastMode = m_mode;
+    m_session.setMode(m_mode);  // remembers the camera of the space we leave, restores the other's
 }
 
 void App::handleShortcuts(bool uiMode) {
@@ -302,24 +294,16 @@ void App::handleViewMouse() {
 }
 
 void App::orbitBy(float dxPixels, float dyPixels) {
-    OrbitInput in;
-    in.orbitDrag = {dxPixels, dyPixels};
-    in.viewportHeight = static_cast<float>(GetScreenHeight()) - TopBar::height();
-    m_camera.applyOrbit(in);
+    m_session.orbitBy(dxPixels, dyPixels, static_cast<float>(GetScreenHeight()) - TopBar::height());
 }
 
 void App::focusSelection() {
     SpaceKind kind = spaceKind();
     scene::ObjectId id = m_scene.selection(kind).primary();
     const SceneObject* o = id == scene::kNoObject ? nullptr : m_scene.space(kind).find(id);
-    Vector3 p{0, 0, 0};
-    if (o && view::SceneView::anchorPoint(*o, drawOptions(), p)) {
-        m_camera.focus(p);
-    } else {
-        m_camera.focus(p);
+    if (!m_session.focusSelection(drawOptions()))
         toast(o ? "This object has no single point to center on: centered on the origin"
                 : "Nothing selected: centered on the origin");
-    }
 }
 
 void App::pickAt(Vector2 mouse) {

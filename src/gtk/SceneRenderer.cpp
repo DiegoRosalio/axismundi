@@ -1,10 +1,8 @@
 #include "gtk/SceneRenderer.hpp"
-#include "math/GridMath.hpp"
 #include "gfx/GpuContext.hpp"
 #include "ui/core/Overlay.hpp"
 #include "ui/core/Theme.hpp"
 #include "ui/core/Ui.hpp"
-#include "view/AxisNumbers.hpp"
 #include "view/ViewStyle.hpp"
 #include <raylib.h>
 #include <raymath.h>
@@ -85,12 +83,6 @@ void end3D() {
 
 } // namespace
 
-SceneRenderer::SceneRenderer(scene::Scene& scene) : m_scene(scene) {
-    m_camera.reset(m_mode);
-}
-
-SceneRenderer::~SceneRenderer() = default;
-
 bool SceneRenderer::start(int pixelWidth, int pixelHeight, std::string& error) {
     if (m_started) return true;
     if (!findLoader()) {
@@ -111,150 +103,64 @@ bool SceneRenderer::start(int pixelWidth, int pixelHeight, std::string& error) {
     setExternalGpuContext(true);
     ui::setScreenSize(static_cast<float>(pixelWidth), static_cast<float>(pixelHeight));
     ui::init();  // the font atlases for labels (GPU textures, so after rlgl)
-    m_sceneView = std::make_unique<view::SceneView>();
-    m_gridShader = std::make_unique<GridShader>();
     m_started = true;
     return true;
 }
 
 void SceneRenderer::stop() {
     if (!m_started) return;
-    m_sceneView.reset();
-    m_gridShader.reset();
+    m_session.releaseGpu();
+    ui::shutdown();
     rlglClose();
     setExternalGpuContext(false);
     m_started = false;
 }
 
-scene::SpaceKind SceneRenderer::spaceKind() const {
-    return m_mode == AppMode::Complex ? scene::SpaceKind::Complex : scene::SpaceKind::Euclidean3D;
-}
-
-void SceneRenderer::setMode(AppMode mode) {
-    if (mode == m_mode) return;
-    m_mode = mode;
-    m_camera.setSpace(mode);
-    m_camera.reset(mode);
-}
-
-bool SceneRenderer::animating() const { return m_scene.timeline().playing; }
-
 void SceneRenderer::orbit(float dx, float dy, float viewHeight) {
     OrbitInput in;
     in.orbitDrag = {dx, dy};
     in.viewportHeight = viewHeight;
-    m_camera.applyOrbit(in);
+    m_session.camera().applyOrbit(in);
 }
 
 void SceneRenderer::pan(float dx, float dy, float viewHeight) {
     OrbitInput in;
     in.panDrag = {dx, dy};
     in.viewportHeight = viewHeight;
-    m_camera.applyOrbit(in);
+    m_session.camera().applyOrbit(in);
 }
 
 void SceneRenderer::zoom(float wheelSteps, float viewHeight) {
     OrbitInput in;
     in.wheel = wheelSteps;
     in.viewportHeight = viewHeight;
-    m_camera.applyOrbit(in);
-}
-
-double SceneRenderer::pixelsPerUnit(int pixelHeight) const {
-    return grid::pixelsPerUnit(m_camera.viewDistance(), m_camera.camera().fovy, pixelHeight);
-}
-
-double SceneRenderer::tickStep(int pixelHeight) const {
-    return grid::tickStep(pixelsPerUnit(pixelHeight), 70.0);
-}
-
-view::DrawOptions SceneRenderer::drawOptions(int pixelHeight) {
-    view::DrawOptions o;
-    o.view = &m_view;
-    o.selection = &m_scene.selection(spaceKind());
-    o.print = view::activeStyle().print;
-    o.solo = m_view.soloSelection;
-    o.tickStep = tickStep(pixelHeight);
-    o.cameraPosition = m_camera.position();
-    o.worldPerPixel = 2.0f * std::tan(m_camera.camera().fovy * DEG2RAD / 2.0f) / static_cast<float>(pixelHeight);
-    return o;
-}
-
-// The same grid as App::drawGrid (to be shared once both front ends use one Session, run 3)
-void SceneRenderer::drawGrid(int pixelHeight) {
-    if (!m_view.showGrid) return;
-    const view::ViewStyle& style = view::activeStyle();
-    Color color = style.grid.a ? style.grid : ui::theme().grid;
-    float reach = std::max(12.0f, m_camera.viewDistance() * 6.0f);
-    if (!m_gridShader->valid()) {
-        m_grid.setSize(std::clamp(static_cast<int>(reach), 10, 100));
-        if (m_mode == AppMode::Space3D) m_grid.draw();
-        else m_grid.drawPlaneXY();
-        return;
-    }
-    GridSpec spec;
-    spec.color = color;
-    spec.radius = reach;
-    spec.level = m_view.gridAuto ? grid::autoLevel(pixelsPerUnit(pixelHeight), 14.0)
-                                 : grid::fixedLevel(1.0, 5.0);
-    Vector3 c = m_camera.viewCenter();
-    if (m_mode == AppMode::Space3D) {
-        if (m_view.gridFloor) {
-            spec.center = {c.x, 0.0f, c.z};
-            m_gridShader->draw(GridPlane::WorldXZ, spec);
-        }
-        if (m_view.gridWallXZ) {
-            spec.center = {c.x, c.y, 0.0f};
-            m_gridShader->draw(GridPlane::WorldXY, spec);
-        }
-        if (m_view.gridWallYZ) {
-            spec.center = {0.0f, c.y, c.z};
-            m_gridShader->draw(GridPlane::WorldYZ, spec);
-        }
-    } else {
-        spec.center = {c.x, c.y, 0.0f};
-        spec.polar = m_view.gridPolar;
-        m_gridShader->draw(GridPlane::WorldXY, spec);
-    }
-}
-
-void SceneRenderer::drawLabels(int pixelHeight) {
-    ui::OverlayMeasure measure;
-    gfx::Overlay overlay;
-    if (m_view.showNumbers && m_view.showAxes) {
-        view::AxisNumbersSpec numbers;
-        numbers.space = spaceKind();
-        numbers.step = tickStep(pixelHeight);
-        numbers.axisLength = m_view.axisLength;
-        numbers.viewCenter = m_camera.viewCenter();
-        numbers.reach = std::max(12.0f, m_camera.viewDistance() * 6.0f);
-        const view::ViewStyle& style = view::activeStyle();
-        numbers.color = style.print ? Color{90, 90, 90, 255} : style.muted;
-        view::axisNumbers(m_camera.camera(), numbers, measure, overlay);
-    }
-    m_sceneView->labels(m_scene.space(spaceKind()), drawOptions(pixelHeight), m_camera.camera(), measure, overlay);
-    ui::paintOverlay(overlay);  // with raylib's text inside the GL area, for now
+    m_session.camera().applyOrbit(in);
 }
 
 void SceneRenderer::render(int pixelWidth, int pixelHeight, double dt) {
     if (!m_started || pixelWidth <= 0 || pixelHeight <= 0) return;
     ui::setScreenSize(static_cast<float>(pixelWidth), static_cast<float>(pixelHeight));
     ui::beginFrame();
-    m_scene.advance(dt);
-    m_scene.evaluate();
-    view::setActiveStyle(view::styleFor(m_view.style, ui::theme()));
-    m_camera.update(static_cast<float>(dt), FlyInput{});  // no fly mode in the GTK app yet
+    scene::Scene& scene = m_session.scene();
+    scene.advance(dt);
+    scene.evaluate();
+    m_session.applyViewStyle();
+    m_session.camera().update(static_cast<float>(dt), FlyInput{});  // no fly mode in the GTK app yet
 
     begin2D(pixelWidth, pixelHeight);
     Color bg = view::activeStyle().background;
     rlClearColor(bg.r, bg.g, bg.b, 255);
     rlClearScreenBuffers();
 
-    begin3D(m_camera.camera(), pixelWidth, pixelHeight);
-    drawGrid(pixelHeight);
-    m_sceneView->draw3D(m_scene.space(spaceKind()), drawOptions(pixelHeight));
+    view::DrawOptions options = m_session.drawOptions(pixelHeight);
+    begin3D(m_session.camera().camera(), pixelWidth, pixelHeight);
+    m_session.drawGrid(pixelHeight);
+    m_session.draw3D(options);
     end3D();
-    drawLabels(pixelHeight);
+    ui::OverlayMeasure measure;
+    gfx::Overlay overlay;
+    m_session.labels(options, pixelHeight, measure, overlay);
+    ui::paintOverlay(overlay);  // with raylib's text inside the GL area, for now
     rlDrawRenderBatchActive();
 }
 

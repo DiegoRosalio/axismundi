@@ -4,7 +4,7 @@
 // and the 3D view. libadwaita has no C++ wrapper, so its widgets are made through its C API and our own
 // widgets (gtkmm) are put inside them.
 
-#include "scene/Scene.hpp"
+#include "app/Session.hpp"
 #include <gtkmm/application.h>
 #include <string>
 
@@ -22,7 +22,7 @@ public:
     void present();
     GtkWidget* widget() const { return m_window; }
     SceneArea& sceneArea() { return *m_area; }
-    scene::Scene& scene() { return m_scene; }
+    Session& session() { return m_session; }
 
     // Space switch: "space3d" or "complex"
     void setSpace(const std::string& name);
@@ -34,7 +34,7 @@ private:
     static void onDarkChanged(void* manager, void* pspec, MainWindow* self);
     void applyDark();
 
-    scene::Scene m_scene;
+    Session m_session;
     GtkWidget* m_window = nullptr;      // owned by GTK (the application's window list)
     AdwToggleGroup* m_spaces = nullptr;
     SceneArea* m_area = nullptr;        // a managed gtkmm widget inside the window

@@ -25,7 +25,7 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
     g_signal_connect(m_spaces, "notify::active-name", G_CALLBACK(onSpaceChanged), this);
     adw_header_bar_set_title_widget(ADW_HEADER_BAR(header), GTK_WIDGET(m_spaces));
 
-    m_area = Gtk::make_managed<SceneArea>(m_scene);
+    m_area = Gtk::make_managed<SceneArea>(m_session);
 
     GtkWidget* toolbar = adw_toolbar_view_new();
     adw_toolbar_view_add_top_bar(ADW_TOOLBAR_VIEW(toolbar), header);
@@ -45,7 +45,7 @@ void MainWindow::setSpace(const std::string& name) {
 void MainWindow::onSpaceChanged(AdwToggleGroup* group, void*, MainWindow* self) {
     const char* name = adw_toggle_group_get_active_name(group);
     bool complex = name && std::string(name) == "complex";
-    self->m_area->renderer().setMode(complex ? AppMode::Complex : AppMode::Space3D);
+    self->m_session.setMode(complex ? AppMode::Complex : AppMode::Space3D);
     self->m_area->changed();
 }
 

@@ -13,7 +13,7 @@ constexpr double kDragThreshold = 4.0;  // pixels before a press becomes a drag,
 constexpr int kSamples = 4;
 }
 
-SceneArea::SceneArea(scene::Scene& scene) : m_renderer(std::make_unique<SceneRenderer>(scene)) {
+SceneArea::SceneArea(Session& session) : m_renderer(std::make_unique<SceneRenderer>(session)) {
     set_required_version(3, 3);
     set_allowed_apis(Gdk::GLApi::GL);  // rlgl is built for desktop OpenGL 3.3, not GLES
     set_has_depth_buffer(true);

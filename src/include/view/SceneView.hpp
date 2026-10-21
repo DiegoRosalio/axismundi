@@ -63,6 +63,12 @@ public:
     // World position of an object's handle (arrow tip, point), for labels and picking
     static bool anchorPoint(const scene::SceneObject& object, const DrawOptions& options, Vector3& out);
 
+    // Drop the GPU caches (plot and field meshes) while the GL context still exists
+    void releaseGpu() {
+        m_plots.clear();
+        m_fields.clear();
+    }
+
     // Plot status (error text and value range) for the inspector
     const PlotRenderer* plot(scene::ObjectId id) const;
     // Vector field status (arrow count, |F| range) for the inspector

@@ -176,7 +176,7 @@ void App::readScene(const std::string& path) {
     int m = static_cast<int>(m_mode);
     if (getInt(data, "mode", m) && m >= 0 && m < kAppModeCount) {
         m_mode = static_cast<AppMode>(m);
-        m_lastMode = m_mode;  // keep the saved camera instead of the mode default
+        m_session.adoptMode(m_mode);  // keep the saved camera instead of the mode default
     }
     Vector3 p = m_camera.position(), t = m_camera.target();
     getFloat(data, "camera.px", p.x);

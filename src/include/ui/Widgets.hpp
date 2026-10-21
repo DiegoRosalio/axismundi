@@ -1,5 +1,6 @@
 #pragma once
 
+#include "text/Numbers.hpp"
 #include "animation/Playback.hpp"
 #include "ui/core/Icons.hpp"
 #include "ui/core/Ui.hpp"
@@ -13,8 +14,6 @@ namespace linalg {
 // ("sqrt(2)/2", "cos(pi/4)", "-1.5e2"). Returns false if invalid or not finite.
 bool parseNumber(const char* text, float& out);
 
-// Format with up to 4 decimals, trimming trailing zeros ("1.0", "0.7071", "-2.5").
-void formatNumber(char* buf, size_t size, float value);
 
 namespace ui {
 

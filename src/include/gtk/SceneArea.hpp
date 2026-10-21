@@ -10,7 +10,7 @@
 #include <memory>
 #include <string>
 
-namespace linalg::scene { class Scene; }
+namespace linalg { class Session; }
 
 namespace linalg::gtk {
 
@@ -18,7 +18,7 @@ class SceneRenderer;
 
 class SceneArea : public Gtk::GLArea {
 public:
-    explicit SceneArea(scene::Scene& scene);
+    explicit SceneArea(Session& session);
     ~SceneArea() override;
 
     SceneRenderer& renderer() { return *m_renderer; }

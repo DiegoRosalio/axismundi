@@ -30,6 +30,8 @@ class GridShader {
 public:
     GridShader() = default;
     ~GridShader();
+    // Free the shader now (the GL context is about to go); the next valid() loads it again
+    void release();
     GridShader(const GridShader&) = delete;             // owns a GPU resource: not copyable
     GridShader& operator=(const GridShader&) = delete;
 

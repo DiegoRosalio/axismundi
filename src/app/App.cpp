@@ -28,12 +28,10 @@ namespace linalg {
 using scene::SceneObject;
 using scene::SpaceKind;
 
-SpaceKind App::kindOf(AppMode mode) {
-    return mode == AppMode::Space3D ? SpaceKind::Euclidean3D : SpaceKind::Complex;
-}
+SpaceKind App::kindOf(AppMode mode) { return Session::kindOf(mode); }
 
 App::App(const AppOptions& options)
-    : m_options(options), m_grid(10, 1.0f),
+    : m_options(options), m_viewPanel(m_session.view()),
       m_analysisWindow("analysis", "Analysis", 356.0f, {1.0f, 0.0f}),
       m_animationWindow("animation", "Time", 640.0f, {0.5f, 1.0f}),
       m_stepsWindow("steps", "Calculation steps", 430.0f, {0.0f, 0.0f}, false),
@@ -108,99 +106,30 @@ void App::setMode(AppMode mode) {
     applyModeChange();
 }
 
-SceneObject* App::object(const std::string& name, AppMode mode) {
-    return space(mode).find(name);
-}
+SceneObject* App::object(const std::string& name, AppMode mode) { return m_session.object(name, mode); }
 
 SceneObject* App::addObject(AppMode mode, const std::string& typeId, const std::string& name,
                             const std::map<std::string, std::string>& fields,
                             const std::map<std::string, std::string>& props) {
-    AddChoice c;
-    c.typeId = typeId;
-    c.name = name;
-    c.fields = fields;
-    c.props = props;
-    return applyAddChoice(m_scene, kindOf(mode), c);
+    return m_session.addObject(mode, typeId, name, fields, props);
 }
 
-void App::select(const std::string& name, AppMode mode, bool add) {
-    SceneObject* o = object(name, mode);
-    if (!o) return;
-    if (add) m_scene.selection(kindOf(mode)).toggle(o->id());
-    else m_scene.selection(kindOf(mode)).set(o->id());
-}
+void App::select(const std::string& name, AppMode mode, bool add) { m_session.select(name, mode, add); }
 
 void App::clearSpace(AppMode mode) {
     m_scenePanel.cancelEditing();
-    m_scene.space(kindOf(mode)).clear();
-    m_scene.selection(kindOf(mode)).clear();
-    m_scene.commit();
+    m_session.clearSpace(mode);
 }
 
 void App::resetScene() {
     m_scenePanel.cancelEditing();
-    m_scene.loadDefaultScene();
+    m_session.resetScene();
 }
 
-void App::setMatrix3(const Matrix3D& m) {
-    auto* obj = dynamic_cast<scene::MatrixObject*>(object("M"));
-    if (!obj) obj = static_cast<scene::MatrixObject*>(addObject(AppMode::Space3D, "matrix", "M"));
-    obj->setByFormula(false);
-    obj->setSize(3);
-    obj->visible = true;
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++) {
-            char buf[32];
-            formatNumber(buf, sizeof(buf), m.m[i][j]);
-            obj->setField(scene::MatrixObject::cellKey(i, j), buf);
-        }
-    m_scene.commit();
-}
-
-void App::setMatrix4(const Matrix4D& m) {
-    auto* obj = dynamic_cast<scene::MatrixObject*>(object("M"));
-    if (!obj) obj = static_cast<scene::MatrixObject*>(addObject(AppMode::Space3D, "matrix", "M"));
-    obj->setByFormula(false);
-    obj->setSize(4);
-    obj->visible = true;
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++) {
-            char buf[32];
-            formatNumber(buf, sizeof(buf), m.m[i][j]);
-            obj->setField(scene::MatrixObject::cellKey(i, j), buf);
-        }
-    m_scene.commit();
-}
-
-void App::setVectors(const Vector3D& a, const Vector3D& b) {
-    const char* names[2] = {"a", "b"};
-    const Vector3D values[2] = {a, b};
-    for (int k = 0; k < 2; k++) {
-        auto* v = dynamic_cast<scene::VectorObject*>(object(names[k]));
-        if (!v) v = static_cast<scene::VectorObject*>(addObject(AppMode::Space3D, "vector", names[k]));
-        v->setByFormula(false);
-        char buf[32];
-        formatNumber(buf, sizeof(buf), values[k].x);
-        v->setField("x", buf);
-        formatNumber(buf, sizeof(buf), values[k].y);
-        v->setField("y", buf);
-        formatNumber(buf, sizeof(buf), values[k].z);
-        v->setField("z", buf);
-    }
-    m_scene.commit();
-}
-
-void App::applyMatrixPreset(const Matrix3D& m) {
-    auto* obj = dynamic_cast<scene::MatrixObject*>(const_cast<SceneObject*>(targetMatrix()));
-    if (!obj) {
-        setMatrix3(m);
-        return;
-    }
-    m_scene.evaluate();  // presets compose with the matrix's current value
-    obj->applyPreset(m);
-    m_scene.evaluate();
-    m_scene.commit();
-}
+void App::setMatrix3(const Matrix3D& m) { m_session.setMatrix3(m); }
+void App::setMatrix4(const Matrix4D& m) { m_session.setMatrix4(m); }
+void App::setVectors(const Vector3D& a, const Vector3D& b) { m_session.setVectors(a, b); }
+void App::applyMatrixPreset(const Matrix3D& m) { m_session.applyMatrixPreset(m); }
 
 void App::resetCamera() {
     m_camera.reset(m_mode);
@@ -278,50 +207,13 @@ void App::requestScreenshot(bool sceneOnly) {
 
 // --- Read-only state -----------------------------------------------------------
 
-const SceneObject* App::targetMatrix() const {
-    const scene::Space& sp = m_scene.space(SpaceKind::Euclidean3D);
-    const auto& sel = const_cast<scene::Scene&>(m_scene).selection(SpaceKind::Euclidean3D);
-    for (auto it = sel.ids.rbegin(); it != sel.ids.rend(); ++it) {
-        const SceneObject* o = sp.find(*it);
-        if (o && o->typeId() == "matrix" && o->value().type == expr::Type::Matrix) return o;
-    }
-    for (const auto& o : sp.objects())
-        if (o->typeId() == "matrix" && o->visible && o->value().type == expr::Type::Matrix) return o.get();
-    return nullptr;
-}
-
-Matrix4D App::matrix() const {
-    const SceneObject* m = targetMatrix();
-    return m ? m->value().matrix4() : Matrix4D::identity();
-}
-
-bool App::using4x4() const {
-    const SceneObject* m = targetMatrix();
-    return m && m->value().size == 4;
-}
-
-Vector3D App::vectorValue(const std::string& name) const {
-    const SceneObject* o = m_scene.space(SpaceKind::Euclidean3D).find(name);
-    if (o && o->value().type == expr::Type::Vector) return o->value().vector;
-    return Vector3D::zero();
-}
-
-Complex App::complexValue(const std::string& name) const {
-    const SceneObject* o = m_scene.space(SpaceKind::Complex).find(name);
-    if (o && o->value().isNumber()) return Complex(static_cast<float>(o->value().re), static_cast<float>(o->value().im));
-    return Complex(0, 0);
-}
-
-double App::parameterValue(const std::string& name, AppMode mode) const {
-    const SceneObject* o = m_scene.space(kindOf(mode)).find(name);
-    if (o && o->value().isRealNumber()) return o->value().re;
-    return 0.0;
-}
-
-EigenResult App::eigen() const {
-    const SceneObject* m = targetMatrix();
-    return m ? eigen3(m->value().matrix3()) : EigenResult{};
-}
+const SceneObject* App::targetMatrix() const { return m_session.targetMatrix(); }
+Matrix4D App::matrix() const { return m_session.matrix(); }
+bool App::using4x4() const { return m_session.using4x4(); }
+Vector3D App::vectorValue(const std::string& name) const { return m_session.vectorValue(name); }
+Complex App::complexValue(const std::string& name) const { return m_session.complexValue(name); }
+double App::parameterValue(const std::string& name, AppMode mode) const { return m_session.parameterValue(name, mode); }
+EigenResult App::eigen() const { return m_session.eigen(); }
 
 // --- Scenes ----------------------------------------------------------------------
 
@@ -429,8 +321,6 @@ void App::update(float deltaTime) {
     if (m_tutorialWindow.visible()) m_tutorialPanel.update(*this);
 
     ViewSettings& view = m_viewPanel.settings();
-    m_grid.setShowGrid(view.showGrid);
-    m_grid.setShowAxes(view.showAxes);
     // A PDF compile finished in the background
     latex::PdfResult pdf;
     std::string pdfPath;
@@ -455,8 +345,7 @@ void App::update(float deltaTime) {
     m_exportPanel.setPreview(m_previewShown);
 
     // The view style for this frame (colors follow the theme, so recomputed every frame)
-    view::setActiveStyle(view::styleFor(view.style, ui::theme()));
-    m_grid.setGridColor(view::activeStyle().grid);
+    m_session.applyViewStyle();
     bool smooth = m_uiSettings.surfaces == UiSettings::Surfaces::StyleDefault ? view::activeStyle().smoothDefault
                                                                                 : m_uiSettings.surfaces == UiSettings::Surfaces::Smooth;
     m_sceneView.setSmoothSurfaces(smooth);

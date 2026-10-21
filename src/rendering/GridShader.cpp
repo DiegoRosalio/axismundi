@@ -87,6 +87,13 @@ GridShader::~GridShader() {
     if (m_ok) gfx::canvas().unloadShader(m_shader);  // frees the GPU copy only while the GL context exists
 }
 
+void GridShader::release() {
+    if (m_ok) gfx::canvas().unloadShader(m_shader);
+    m_shader = 0;
+    m_ok = false;
+    m_tried = false;
+}
+
 bool GridShader::valid() {
     if (m_tried) return m_ok;
     m_tried = true;

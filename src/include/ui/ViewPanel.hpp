@@ -31,6 +31,9 @@ struct ViewSettings {
 // camera reset and scene save/load buttons.
 class ViewPanel {
 public:
+    // Edits the given settings (the session's)
+    explicit ViewPanel(ViewSettings& settings) : m_settings(settings) {}
+
     // Draws at (x, y) with the given width; returns the bottom y.
     float draw(float x, float y, float width, AppMode mode);
 
@@ -55,7 +58,7 @@ private:
     static bool styleCard(Rectangle r, view::StyleId id, bool selected);
     static bool take(bool& flag) { bool v = flag; flag = false; return v; }
 
-    ViewSettings m_settings;
+    ViewSettings& m_settings;
     bool m_resetCamera = false;
     int m_cameraView = 0;
     bool m_save = false;

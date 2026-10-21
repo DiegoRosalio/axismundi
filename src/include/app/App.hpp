@@ -6,6 +6,7 @@
 // AppFiles.cpp (scene files, LaTeX files, preferences). Lower layers (math, scene, view) never include this.
 
 #include "animation/Playback.hpp"
+#include "app/Session.hpp"
 #include "math/Complex.hpp"
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
@@ -197,16 +198,14 @@ private:
     // Zoom: pixels one unit covers at the view center; the grid spacing and the tick step follow it
     double pixelsPerUnit() const;
     double tickStep() const;
-    void drawGrid();
     float viewportRight() const;
 
     AppOptions m_options;
-
-    scene::Scene m_scene;
-    view::SceneView m_sceneView;
-    CameraController m_camera;
-    Grid m_grid;              // the line grid: used when the shader grid can't run
-    GridShader m_gridShader;  // the endless, adaptive grid
+    // The shared state (scene, camera, 3D view, grid); the references are shortcuts into it
+    Session m_session;
+    scene::Scene& m_scene = m_session.scene();
+    view::SceneView& m_sceneView = m_session.sceneView();
+    CameraController& m_camera = m_session.camera();
     TimePanel m_timePanel;
     InfoPanel m_infoPanel;
     ViewPanel m_viewPanel;
@@ -257,12 +256,8 @@ private:
     float m_tutorialHeight = 0.0f;
     bool m_breakdownWasVisible = false;
 
+    // The space asked for (tabs, keys 1/2); applyModeChange makes the session show it
     AppMode m_mode = AppMode::Space3D;
-    AppMode m_lastMode = AppMode::Space3D;
-    // Camera per space, so switching tabs keeps each viewpoint
-    Vector3 m_savedPosition[kAppModeCount] = {};
-    Vector3 m_savedTarget[kAppModeCount] = {};
-    bool m_hasSavedView[kAppModeCount] = {};
 
     // A mouse button pressed on the 3D view: a click if it is released before moving a few pixels
     int m_dragButton = -1;
