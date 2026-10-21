@@ -910,4 +910,16 @@ void testTemplates() {
     }
     for (const char* z : epicycleExamples()) CHECK(works(SpaceKind::Complex, "epicycles", {{"z", z}}));
     for (const char* f : fourierExamples()) CHECK(works(SpaceKind::Euclidean3D, "fourierseries", {{"f", f}}));
+    for (const char* q : quaternionExamples()) CHECK(works(SpaceKind::Euclidean3D, "quaternion", {{"value", q}}));
+    for (const FieldExample& e : fieldExamples()) CHECK(works(SpaceKind::Euclidean3D, "field", {{"F", e.f}}));
+
+    // The Taylor polynomial's text: the first terms, then "…"
+    taylor::Series sine;
+    sine.coeffs = {0.0, 1.0, 0.0, -1.0 / 6.0, 0.0, 1.0 / 120.0, 0.0, -1.0 / 5040.0};
+    CHECK(scene::polynomialText(sine, 2) == "x − 0.1667x³ + …");
+    taylor::Series shifted;
+    shifted.center = 1.0;
+    shifted.coeffs = {2.0, -1.0};
+    CHECK(scene::polynomialText(shifted, 4) == "2 − (x − 1)");
+    CHECK(scene::polynomialText(taylor::Series{}, 4) == "0");
 }

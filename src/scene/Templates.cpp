@@ -269,4 +269,29 @@ const std::vector<const char*>& fourierExamples() {
     return fns;
 }
 
+const std::vector<const char*>& quaternionExamples() {
+    static const std::vector<const char*> quats = {
+        "qaxis([0, 0, 1], pi/2)",   // a quarter turn about z
+        "qaxis([1, 0, 0], pi)",     // a half turn about x
+        "qaxis([1, 1, 1], 2pi/3)",  // 120° about the diagonal: x -> y -> z
+        "quat(1, 0, 0, 0)",         // no rotation
+        "quat(1, 1, 0, 0)",         // not unit: still a rotation (90° about x)
+        "qaxis([0, 0, 1], t)",      // turning with the clock
+    };
+    return quats;
+}
+
+const std::vector<FieldExample>& fieldExamples() {
+    static const std::vector<FieldExample> fields = {
+        {"[-y, x, 0]", false},                       // rotation
+        {"[x, y, 0]", false},                        // source
+        {"[x, -y, 0]", false},                       // saddle
+        {"[-y - x/4, x - y/4, 0]", false},           // vortex sink
+        {"[sin(y), sin(x), 0]", false},              // cells
+        {"[-y, x, 0.4]", true},                      // helix
+        {"[-y, x, -z]/2 + [0, 0, sin(x)]/3", true},  // swirl
+    };
+    return fields;
+}
+
 } // namespace linalg

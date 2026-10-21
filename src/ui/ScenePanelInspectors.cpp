@@ -1,5 +1,6 @@
 // The inspector content of each object type (ScenePanel::drawInspector dispatches here).
 #include "ui/ScenePanel.hpp"
+#include "scene/Summaries.hpp"
 #include "scene/Templates.hpp"
 #include "math/Decompositions.hpp"
 #include "math/VectorField.hpp"
@@ -557,17 +558,9 @@ void ScenePanel::inspectQuaternion(InspectorContext& c) {
     if (acts) col.setY(fieldRow(col.x(), col.y(), col.width(), qo, "v", sc, 64.0f));
     if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
         m_activeId = -1;
-        static const char* kQuats[] = {
-            "qaxis([0, 0, 1], pi/2)",      // a quarter turn about z
-            "qaxis([1, 0, 0], pi)",        // a half turn about x
-            "qaxis([1, 1, 1], 2pi/3)",     // 120° about the diagonal: x -> y -> z
-            "quat(1, 0, 0, 0)",            // no rotation
-            "quat(1, 1, 0, 0)",            // not unit: still a rotation (90° about x)
-            "qaxis([0, 0, 1], t)",         // turning with the clock
-        };
-        int n = static_cast<int>(sizeof(kQuats) / sizeof(kQuats[0]));
-        m_exampleIndex = (m_exampleIndex + 1) % n;
-        qo.setField("value", kQuats[m_exampleIndex]);
+        const auto& quats = quaternionExamples();
+        m_exampleIndex = (m_exampleIndex + 1) % static_cast<int>(quats.size());
+        qo.setField("value", quats[m_exampleIndex]);
         commit();
     }
     note(col, "qaxis(axis, angle) makes a rotation; q1*q2 does q2 first, then q1. The formula reference (F2) has "
@@ -669,23 +662,10 @@ void ScenePanel::inspectField(InspectorContext& c) {
 
     if (ui::button(col.row(30), "Next example", ui::ButtonKind::Secondary, true, ui::Icon::Gallery)) {
         m_activeId = -1;
-        struct FieldExample {
-            const char* f;
-            bool volume;
-        };
-        static const FieldExample kFields[] = {
-            {"[-y, x, 0]", false},                        // rotation
-            {"[x, y, 0]", false},                         // source
-            {"[x, -y, 0]", false},                        // saddle
-            {"[-y - x/4, x - y/4, 0]", false},            // vortex sink
-            {"[sin(y), sin(x), 0]", false},               // cells
-            {"[-y, x, 0.4]", true},                       // helix
-            {"[-y, x, -z]/2 + [0, 0, sin(x)]/3", true},   // swirl
-        };
-        int n = static_cast<int>(sizeof(kFields) / sizeof(kFields[0]));
-        m_exampleIndex = (m_exampleIndex + 1) % n;
-        fo.setField("F", kFields[m_exampleIndex].f);
-        fo.setProp("domain", kFields[m_exampleIndex].volume ? "volume" : "plane");
+        const auto& fields = fieldExamples();
+        m_exampleIndex = (m_exampleIndex + 1) % static_cast<int>(fields.size());
+        fo.setField("F", fields[m_exampleIndex].f);
+        fo.setProp("domain", fields[m_exampleIndex].volume ? "volume" : "plane");
         commit();
     }
     const FieldRenderer* fr = view.fieldRenderer(fo.id());
@@ -1017,33 +997,6 @@ void ScenePanel::inspectVelocity(InspectorContext& c) {
          t.textFaint);
 }
 
-namespace {
-// "0.841 + 0.54(x − 1) − 0.421(x − 1)² …": the first terms of a Taylor polynomial
-std::string polynomialText(const taylor::Series& s, int maxTerms) {
-    static const char* kPowers[] = {"", "", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"};
-    std::string base = std::fabs(s.center) < 1e-12 ? std::string("x")
-                                                   : "(x " + std::string(s.center < 0 ? "+ " : "− ") +
-                                                         panel::fmt(std::fabs(s.center)) + ")";
-    std::string out;
-    int shown = 0;
-    for (size_t k = 0; k < s.coeffs.size(); k++) {
-        double c = s.coeffs[k];
-        if (std::fabs(c) < 1e-10) continue;
-        if (shown == maxTerms) {
-            out += " + …";
-            break;
-        }
-        std::string mag = panel::fmt(std::fabs(c));
-        if (k > 0 && mag == "1") mag = "";
-        out += shown == 0 ? (c < 0 ? "−" : "") : (c < 0 ? " − " : " + ");
-        out += mag;
-        if (k > 0) out += base + (k < 10 ? kPowers[k] : ("^" + std::to_string(k)).c_str());
-        shown++;
-    }
-    return out.empty() ? "0" : out;
-}
-}  // namespace
-
 void ScenePanel::inspectTaylor(InspectorContext& c) {
     ui::Column& col = c.col;
     scene::Scene& sc = c.sc;
@@ -1064,7 +1017,7 @@ void ScenePanel::inspectTaylor(InspectorContext& c) {
     if (!tp.error().empty()) return;
     const taylor::Series& se = tp.series();
     char buf[160];
-    snprintf(buf, sizeof(buf), "T%d(x) = %s", static_cast<int>(se.coeffs.size()) - 1, polynomialText(se, 4).c_str());
+    snprintf(buf, sizeof(buf), "T%d(x) = %s", static_cast<int>(se.coeffs.size()) - 1, scene::polynomialText(se, 4).c_str());
     note(c.col, buf, t.text);
     if (std::isfinite(tp.maxError())) {
         snprintf(buf, sizeof(buf), "largest gap to f on the range: %.3g", tp.maxError());

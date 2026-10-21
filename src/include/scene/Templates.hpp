@@ -38,5 +38,11 @@ struct PlotExample {
 const std::vector<PlotExample>& plotExamples(const std::string& type);  // function, surface, implicit, curve
 const std::vector<const char*>& epicycleExamples();  // closed curves z(u) (heart, square, flower...)
 const std::vector<const char*>& fourierExamples();   // f(x) for Fourier series (square wave, sawtooth...)
+const std::vector<const char*>& quaternionExamples();  // rotations (qaxis(...), quat(...))
+struct FieldExample {
+    const char* f;
+    bool volume;  // a box of arrows in space, else the plane z = 0
+};
+const std::vector<FieldExample>& fieldExamples();  // vector fields F (rotation, source, saddle...)
 
 } // namespace linalg

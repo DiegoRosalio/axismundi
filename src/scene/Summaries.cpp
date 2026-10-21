@@ -109,4 +109,37 @@ std::string summaryOf(const SceneObject& o) {
     return it != summaries().end() ? it->second(o) : o.value().summary();
 }
 
+namespace {
+std::string shortNumber(double v) {
+    char buf[32];
+    if (std::fabs(v) < 5e-5) v = 0;
+    snprintf(buf, sizeof(buf), "%.4g", v);
+    return buf;
+}
+} // namespace
+
+std::string polynomialText(const taylor::Series& s, int maxTerms) {
+    static const char* kPowers[] = {"", "", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"};
+    std::string base = std::fabs(s.center) < 1e-12 ? std::string("x")
+                                                   : "(x " + std::string(s.center < 0 ? "+ " : "− ") +
+                                                         shortNumber(std::fabs(s.center)) + ")";
+    std::string out;
+    int shown = 0;
+    for (size_t k = 0; k < s.coeffs.size(); k++) {
+        double c = s.coeffs[k];
+        if (std::fabs(c) < 1e-10) continue;
+        if (shown == maxTerms) {
+            out += " + …";
+            break;
+        }
+        std::string mag = shortNumber(std::fabs(c));
+        if (k > 0 && mag == "1") mag = "";
+        out += shown == 0 ? (c < 0 ? "−" : "") : (c < 0 ? " − " : " + ");
+        out += mag;
+        if (k > 0) out += base + (k < 10 ? kPowers[k] : ("^" + std::to_string(k)).c_str());
+        shown++;
+    }
+    return out.empty() ? "0" : out;
+}
+
 } // namespace linalg::scene

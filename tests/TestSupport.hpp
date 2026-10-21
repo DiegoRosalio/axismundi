@@ -23,6 +23,7 @@
 #include "math/expr/Expr.hpp"
 #include "scene/Scene.hpp"
 #include "scene/Templates.hpp"
+#include "scene/Summaries.hpp"
 #include <map>
 #include <memory>
 #include "math/Breakdown.hpp"
