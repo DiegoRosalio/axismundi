@@ -7,40 +7,7 @@
 
 namespace linalg {
 
-void TutorialPanel::startLesson(int lesson) {
-    m_lesson = lesson;
-    m_step = 0;
-    m_needsSetup = true;
-}
-
-void TutorialPanel::enterStep(App& app) {
-    const TutorialStep& s = lessons()[m_lesson].steps[m_step];
-    m_context = TutorialContext{};
-    m_done = false;
-    if (s.setup) s.setup(app);
-    m_needsSetup = false;
-}
-
-bool TutorialPanel::stepDone() const {
-    if (m_lesson < 0) return false;
-    const TutorialStep& s = lessons()[m_lesson].steps[m_step];
-    return !s.task || m_done;
-}
-
-void TutorialPanel::update(App& app) {
-    if (m_lesson < 0) return;
-    if (m_needsSetup) enterStep(app);
-    const TutorialStep& s = lessons()[m_lesson].steps[m_step];
-    if (!app.uiMode() || app.cameraMovedThisFrame()) m_context.cameraModeUsed = true;
-    // Once done, a task stays done even if the user keeps experimenting
-    if (s.check && !m_done && s.check(app, m_context)) m_done = true;
-}
-
-std::string TutorialPanel::currentAnchor() const {
-    if (m_lesson < 0) return "";
-    const TutorialStep& s = lessons()[m_lesson].steps[m_step];
-    return s.anchor ? s.anchor : "";
-}
+void TutorialPanel::update(App& app) { m_run.update(app); }
 
 float TutorialPanel::drawContent(Rectangle area, App& app) {
     const ui::Theme& t = ui::theme();
@@ -49,7 +16,7 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
     const auto& all = lessons();
 
     // --- Lesson list -------------------------------------------------------
-    if (m_lesson < 0) {
+    if (!m_run.inLesson()) {
         if (!m_finishedMessage.empty()) {
             Rectangle note = col.row(34);
             Color soft = t.success;
@@ -69,11 +36,11 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
             Rectangle row = col.row(50.0f);
             bool hover = ui::hovered(row);
             if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
-                startLesson(i);
+                m_run.startLesson(i);
                 m_finishedMessage.clear();
             }
             ui::fillRounded(row, ui::px(ui::kRadius), hover ? t.hover : t.panelAlt);
-            bool done = (m_completed >> i) & 1u;
+            bool done = m_run.lessonCompleted(i);
             float r = ui::px(13.0f);
             Vector2 c = {row.x + ui::px(10) + r, row.y + row.height / 2};
             DrawCircleV(c, r, done ? t.success : t.panel);
@@ -100,18 +67,19 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
     }
 
     // --- Step view ---------------------------------------------------------
-    const Lesson& lesson = all[m_lesson];
-    const TutorialStep& step = lesson.steps[m_step];
+    const Lesson& lesson = *m_run.lesson();
+    const TutorialStep& step = *m_run.step();
+    int stepIndex = m_run.stepIndex();
     int count = static_cast<int>(lesson.steps.size());
 
     Rectangle head = col.row(28);
     Rectangle back = ui::takeLeft(head, 110.0f, 8.0f);
     if (ui::button(back, "Lessons", ui::ButtonKind::Ghost, true, ui::Icon::ChevronLeft)) {
-        m_lesson = -1;
+        m_run.leave();
         return col.y() - area.y;
     }
     char progress[32];
-    snprintf(progress, sizeof(progress), "Step %d of %d", m_step + 1, count);
+    snprintf(progress, sizeof(progress), "Step %d of %d", stepIndex + 1, count);
     ui::textIn(head, progress, ui::FontRole::Small, t.textMuted, ui::Align::Right);
 
     // Progress dots
@@ -119,7 +87,7 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
     float dotW = std::min(ui::px(28.0f), (dots.width - ui::px(4) * (count - 1)) / count);
     for (int i = 0; i < count; i++) {
         Rectangle d = {dots.x + i * (dotW + ui::px(4)), dots.y + ui::px(3), dotW, ui::px(4)};
-        ui::fillRounded(d, ui::px(2), i < m_step ? t.success : i == m_step ? t.accent : t.border);
+        ui::fillRounded(d, ui::px(2), i < stepIndex ? t.success : i == stepIndex ? t.accent : t.border);
     }
 
     ui::textIn(col.row(18), ui::upper(lesson.title).c_str(), ui::FontRole::Caption, t.accent);
@@ -130,7 +98,7 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
 
     // Task box
     if (step.task) {
-        bool done = m_done;
+        bool done = m_run.taskDone();
         float innerW = col.width() - ui::px(46);
         float taskH = ui::textWrapped({0, 0, innerW, 0}, step.task, ui::FontRole::BodyStrong, t.text, false);
         float hintH = (!done && step.hint)
@@ -159,35 +127,28 @@ float TutorialPanel::drawContent(Rectangle area, App& app) {
 
     // Navigation
     auto buttons = ui::splitRow(col.row(ui::kRowHeight), {1, 1, 1.3f}, 8.0f);
-    if (ui::button(buttons[0], "Back", ui::ButtonKind::Secondary, m_step > 0, ui::Icon::ChevronLeft)) {
-        m_step--;
-        m_needsSetup = true;
-    }
-    bool last = (m_step == count - 1);
+    if (ui::button(buttons[0], "Back", ui::ButtonKind::Secondary, stepIndex > 0, ui::Icon::ChevronLeft)) m_run.back();
+    bool last = (stepIndex == count - 1);
     // Skip marks the step done, which enables Next
-    if (step.task && !stepDone() && ui::button(buttons[1], "Skip", ui::ButtonKind::Ghost)) m_done = true;
-    if (ui::button(buttons[2], last ? "Finish" : "Next", ui::ButtonKind::Primary, stepDone(),
+    if (step.task && !m_run.stepDone() && ui::button(buttons[1], "Skip", ui::ButtonKind::Ghost)) m_run.skip();
+    if (ui::button(buttons[2], last ? "Finish" : "Next", ui::ButtonKind::Primary, m_run.stepDone(),
                    last ? ui::Icon::Check : ui::Icon::ChevronRight)) {
-        if (last) {
-            m_completed |= 1u << m_lesson;
-            m_finishedMessage = std::string("Finished: ") + lesson.title;
+        const char* title = lesson.title;
+        if (m_run.next()) {
+            m_finishedMessage = std::string("Finished: ") + title;
             app.toast(m_finishedMessage);
-            m_lesson = -1;
-        } else {
-            m_step++;
-            m_needsSetup = true;
         }
     }
     return col.y() - area.y + ui::px(4.0f);
 }
 
 void TutorialPanel::saveState(SceneData& prefs) const {
-    putInt(prefs, "tutorial.completed", static_cast<int>(m_completed));
+    putInt(prefs, "tutorial.completed", static_cast<int>(m_run.completed()));
 }
 
 void TutorialPanel::loadState(const SceneData& prefs) {
     int v = 0;
-    if (getInt(prefs, "tutorial.completed", v)) m_completed = static_cast<unsigned int>(v);
+    if (getInt(prefs, "tutorial.completed", v)) m_run.setCompleted(static_cast<unsigned int>(v));
 }
 
 } // namespace linalg

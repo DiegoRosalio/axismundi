@@ -734,4 +734,65 @@ const std::vector<Lesson>& lessons() {
     return list;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// TutorialRunner
+// ---------------------------------------------------------------------------------------------------------------
+
+void TutorialRunner::startLesson(int lesson) {
+    m_lesson = lesson;
+    m_step = 0;
+    m_needsSetup = true;
+}
+
+void TutorialRunner::goToStep(int step) {
+    m_step = step;
+    m_needsSetup = true;
+}
+
+const Lesson* TutorialRunner::lesson() const { return m_lesson >= 0 ? &lessons()[m_lesson] : nullptr; }
+
+const TutorialStep* TutorialRunner::step() const { return m_lesson >= 0 ? &lessons()[m_lesson].steps[m_step] : nullptr; }
+
+void TutorialRunner::update(AppApi& app) {
+    if (m_lesson < 0) return;
+    const TutorialStep& s = lessons()[m_lesson].steps[m_step];
+    if (m_needsSetup) {
+        m_context = TutorialContext{};
+        m_done = false;
+        if (s.setup) s.setup(app);
+        m_needsSetup = false;
+        return;  // check from the next update on, once the scene was evaluated with what the setup changed
+    }
+    if (!app.uiMode() || app.cameraMovedThisFrame()) m_context.cameraModeUsed = true;
+    if (s.check && !m_done && s.check(app, m_context)) m_done = true;
+}
+
+bool TutorialRunner::stepDone() const {
+    const TutorialStep* s = step();
+    return s && (!s->task || m_done);
+}
+
+std::string TutorialRunner::anchor() const {
+    const TutorialStep* s = step();
+    return s && s->anchor ? s->anchor : "";
+}
+
+void TutorialRunner::back() {
+    if (m_lesson < 0 || m_step == 0) return;
+    m_step--;
+    m_needsSetup = true;
+}
+
+bool TutorialRunner::next() {
+    if (m_lesson < 0) return false;
+    if (m_step + 1 < static_cast<int>(lessons()[m_lesson].steps.size())) {
+        m_step++;
+        m_needsSetup = true;
+        return false;
+    }
+    m_completed |= 1u << m_lesson;
+    m_lesson = -1;
+    return true;
+}
+
 } // namespace linalg
