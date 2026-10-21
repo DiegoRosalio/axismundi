@@ -1,4 +1,4 @@
-#include "rendering/GpuContext.hpp"
+#include "gfx/GpuContext.hpp"
 #include <raylib.h>
 
 namespace linalg {

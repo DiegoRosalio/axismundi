@@ -1,6 +1,7 @@
 #include "gtk/SceneRenderer.hpp"
 #include "math/GridMath.hpp"
-#include "rendering/GpuContext.hpp"
+#include "gfx/GpuContext.hpp"
+#include "ui/core/Overlay.hpp"
 #include "ui/core/Theme.hpp"
 #include "ui/core/Ui.hpp"
 #include "view/AxisNumbers.hpp"
@@ -218,6 +219,8 @@ void SceneRenderer::drawGrid(int pixelHeight) {
 }
 
 void SceneRenderer::drawLabels(int pixelHeight) {
+    ui::OverlayMeasure measure;
+    gfx::Overlay overlay;
     if (m_view.showNumbers && m_view.showAxes) {
         view::AxisNumbersSpec numbers;
         numbers.space = spaceKind();
@@ -227,9 +230,10 @@ void SceneRenderer::drawLabels(int pixelHeight) {
         numbers.reach = std::max(12.0f, m_camera.viewDistance() * 6.0f);
         const view::ViewStyle& style = view::activeStyle();
         numbers.color = style.print ? Color{90, 90, 90, 255} : style.muted;
-        view::drawAxisNumbers(m_camera.camera(), numbers);
+        view::axisNumbers(m_camera.camera(), numbers, measure, overlay);
     }
-    m_sceneView->drawLabels(m_scene.space(spaceKind()), drawOptions(pixelHeight), m_camera.camera());
+    m_sceneView->labels(m_scene.space(spaceKind()), drawOptions(pixelHeight), m_camera.camera(), measure, overlay);
+    ui::paintOverlay(overlay);  // with raylib's text inside the GL area, for now
 }
 
 void SceneRenderer::render(int pixelWidth, int pixelHeight, double dt) {
@@ -239,7 +243,7 @@ void SceneRenderer::render(int pixelWidth, int pixelHeight, double dt) {
     m_scene.advance(dt);
     m_scene.evaluate();
     view::setActiveStyle(view::styleFor(m_view.style, ui::theme()));
-    m_camera.update(static_cast<float>(dt));
+    m_camera.update(static_cast<float>(dt), FlyInput{});  // no fly mode in the GTK app yet
 
     begin2D(pixelWidth, pixelHeight);
     Color bg = view::activeStyle().background;

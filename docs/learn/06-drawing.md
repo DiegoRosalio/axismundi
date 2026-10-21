@@ -1,19 +1,28 @@
 # 6. Drawing
 
-Drawing uses **raylib**, a small C library for windows, input and graphics. This chapter covers how the scene
-becomes a picture: coordinates, the 3D view, the per-type drawing table, caches, styles, labels, picking, and the
-grid shader.
+Drawing uses **raylib**, a small C library for windows, input and graphics, through a thin layer of our own
+(`gfx`). This chapter covers how the scene becomes a picture: coordinates, the 3D view, the per-type drawing table,
+caches, styles, labels, picking, and the grid shader.
 
-## raylib in five calls
+## The drawing calls
 
 ```cpp
     BeginMode3D(m_camera.camera());
 ```
 
-Between `BeginMode3D(camera)` and `EndMode3D()`, you give 3D world coordinates and raylib projects them through the
-camera. The drawing calls are functions like `DrawLine3D(a, b, color)`, `DrawSphere(center, radius, color)` and
-`DrawCylinderEx(a, b, r1, r2, sides, color)` (an arrow's shaft is a cylinder, its head a cone: a cylinder whose end
-radius is 0). After `EndMode3D` you draw 2D: text, panels.
+Between `BeginMode3D(camera)` and `EndMode3D()`, you give 3D world coordinates and they are projected through the
+camera. The drawing code never calls raylib itself: it calls `gfx::line(a, b, color)`,
+`gfx::sphere(center, radius, color)` and `gfx::cylinder(a, b, r1, r2, sides, color)` (an arrow's shaft is a
+cylinder, its head a cone: a cylinder whose end radius is 0). They are declared in `src/include/gfx/Canvas3D.hpp`:
+
+```cpp
+inline void line(Vector3 a, Vector3 b, Color c) { canvas().line(a, b, c); }
+```
+
+`canvas()` is an object with one virtual function per kind of shape (chapter 1's virtual functions).
+`RaylibCanvas` (`src/gfx/RaylibCanvas.cpp`) implements them with raylib's `DrawLine3D`, `DrawSphereEx`,
+`DrawCylinderEx`. This one door makes it possible to draw with something other than raylib later (the GTK front end
+plans to, see `docs/gtk-port.md`) without changing any drawing code.
 
 raylib batches these calls and sends them to the GPU together; that's why drawing a thousand lines per frame is
 fine.
@@ -89,9 +98,13 @@ function handles both looks through `ctx.print`.
 
 ## Labels
 
-Labels are 2D text placed next to 3D points. `SceneView::drawLabels` collects them all (each type's `label` text at
+Labels are 2D text placed next to 3D points. `SceneView::labels` collects them all (each type's `label` text at
 its `anchor`), projects them to the screen, and lays them out so they don't overlap (`src/text/LabelLayout.cpp`,
 which has its own unit tests). A label pushed away from its point gets a thin leader line back to it.
+
+The result is not drawn right away: it is a list (`gfx::Overlay`, in `src/include/gfx/Overlay.hpp`) of pills, texts
+and lines in screen pixels. The front end paints the list with its own fonts (`ui::paintOverlay` in the raylib app),
+so the 3D code doesn't need to know how text is drawn.
 
 ## Picking
 
@@ -121,7 +134,7 @@ false and the older line grid (`rendering/Grid`) is drawn instead.
 
 ## Try it
 
-1. In `src/view/objects/Basics.cpp`, find `drawVector`. Change `arrow(...)` to draw only a `DrawLine3D` between the
+1. In `src/view/objects/Basics.cpp`, find `drawVector`. Change `arrow(...)` to draw only a `gfx::line` between the
    same two points, build, and see vectors become thin lines. Undo it.
 2. Change a palette color of the Colorful style in `src/view/ViewStyle.cpp` and watch every vector change.
 3. In the grid shader's `main`, the line `a *= 1.0 - smoothstep(0.55 * radius, radius, length(p - c));` fades the

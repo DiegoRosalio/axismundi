@@ -26,17 +26,6 @@ void VectorRenderer::draw() const {
     }
 }
 
-void VectorRenderer::drawLabels(const Camera3D& camera) const {
-    for (const auto& vec : m_vectors) {
-        if (!vec.showLabel || vec.label.empty()) continue;
-
-        Vector3D end = vec.position + vec.direction;
-        char text[96];
-        snprintf(text, sizeof(text), "%s  %.2f", vec.label.c_str(), vec.direction.magnitude());
-        drawWorldLabel(camera, {end.x, end.y, end.z}, text, vec.color);
-    }
-}
-
 namespace {
 Vector3 g_camera{0, 0, 0};
 float g_worldPerPixel = 0.0f;  // 0: not set (fixed sizes)

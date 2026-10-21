@@ -11,7 +11,8 @@
 
 namespace linalg::view {
 
-void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec) {
+void axisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec, const gfx::TextMeasure& measure,
+                 gfx::Overlay& out) {
     const bool complex = spec.space == scene::SpaceKind::Complex;
     const int axes = complex ? 2 : 3;
     const Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
@@ -41,7 +42,7 @@ void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec) {
             if (Vector3DotProduct(forward, Vector3Subtract(p, camera.position)) <= 0.0f) continue;  // behind
             Vector2 s = gfx::worldToScreen(p, camera, static_cast<int>(w), static_cast<int>(h));
             std::string text = grid::formatTick(k * spec.step, spec.step);
-            float tw = ui::textWidth(text.c_str(), ui::FontRole::Small);
+            float tw = measure.width(text.c_str(), gfx::TextStyle::Small);
             // Beside the axis: below it for horizontal axes, to the right for the vertical one
             bool vertical = complex ? axis == 1 : axis == 2;
             Rectangle r = vertical ? Rectangle{s.x + ui::px(6), s.y - ui::px(8), tw, ui::px(16)}
@@ -52,7 +53,13 @@ void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec) {
             for (const Rectangle& q : placed) overlaps = overlaps || gfx::overlaps(padded, q);
             if (overlaps) continue;
             placed.push_back(padded);
-            ui::textIn(r, text.c_str(), ui::FontRole::Small, spec.color);
+            gfx::OverlayItem number;
+            number.kind = gfx::OverlayItem::Kind::Text;
+            number.rect = r;
+            number.text = text;
+            number.style = gfx::TextStyle::Small;
+            number.color = spec.color;
+            out.push_back(std::move(number));
         }
     }
 }

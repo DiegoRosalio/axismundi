@@ -1,5 +1,5 @@
 #include "gfx/RaylibCanvas.hpp"
-#include "rendering/GpuContext.hpp"
+#include "gfx/GpuContext.hpp"
 #include <raymath.h>
 #include <rlgl.h>
 #include <cstring>

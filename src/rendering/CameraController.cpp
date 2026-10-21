@@ -143,14 +143,14 @@ void CameraController::topView() {
     applyOrbitView();
 }
 
-void CameraController::update(float deltaTime) {
-    if (m_mode != CameraMode::Fly || !IsCursorHidden()) return;
+void CameraController::update(float deltaTime, const FlyInput& input) {
+    if (m_mode != CameraMode::Fly || !input.captured) return;
 
     Vector3 forward = Vector3Normalize(Vector3Subtract(m_camera.target, m_camera.position));
     Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, m_camera.up));
 
     // Mouse look
-    Vector2 mouseDelta = GetMouseDelta();
+    Vector2 mouseDelta = input.mouseDelta;
 
     float yaw = -mouseDelta.x * m_mouseSensitivity;
     forward = Vector3RotateByAxisAngle(forward, m_camera.up, yaw);
@@ -167,15 +167,15 @@ void CameraController::update(float deltaTime) {
 
     // WASD movement, Shift to sprint, Space/Ctrl for up/down
     float speed = m_moveSpeed * deltaTime;
-    if (IsKeyDown(KEY_LEFT_SHIFT)) speed *= 2.0f;
+    if (input.fast) speed *= 2.0f;
 
     Vector3& pos = m_camera.position;
-    if (IsKeyDown(KEY_W)) pos = Vector3Add(pos, Vector3Scale(forward, speed));
-    if (IsKeyDown(KEY_S)) pos = Vector3Subtract(pos, Vector3Scale(forward, speed));
-    if (IsKeyDown(KEY_A)) pos = Vector3Subtract(pos, Vector3Scale(right, speed));
-    if (IsKeyDown(KEY_D)) pos = Vector3Add(pos, Vector3Scale(right, speed));
-    if (IsKeyDown(KEY_SPACE)) pos.y += speed;
-    if (IsKeyDown(KEY_LEFT_CONTROL)) pos.y -= speed;
+    if (input.forward) pos = Vector3Add(pos, Vector3Scale(forward, speed));
+    if (input.back) pos = Vector3Subtract(pos, Vector3Scale(forward, speed));
+    if (input.left) pos = Vector3Subtract(pos, Vector3Scale(right, speed));
+    if (input.right) pos = Vector3Add(pos, Vector3Scale(right, speed));
+    if (input.up) pos.y += speed;
+    if (input.down) pos.y -= speed;
 
     m_camera.target = Vector3Add(pos, forward);
 }

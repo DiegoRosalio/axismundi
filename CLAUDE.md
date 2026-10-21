@@ -137,9 +137,15 @@ src/
                       ~16 px, outline when selected; drawArrow clamps given sizes in pixels; pixelsAt(point, px) from
                       setScreenScale, set each frame from DrawOptions.cameraPosition/worldPerPixel), PlotRenderer (GPU meshes from expressions + resolver),
                       FieldRenderer (vector field arrows/lines/particles), MeshBuilder (MeshData, tubes, cones,
-                      MeshSet: shared by plots and fields), CameraController, Labels, WorldMapping (math z-up ↔ raylib y-up),
-                      GpuContext (`gpuContextReady()`: raylib's window or the GTK GL area is alive, so GPU memory
-                      can be freed)
+                      MeshSet: shared by plots and fields), CameraController (fly keys/mouse come in as `FlyInput` from the
+                      front end), Labels (screen point + pill size), WorldMapping (math z-up ↔ raylib y-up)
+  gfx/                the one door from view/ and rendering/ to the graphics library: Canvas3D (lines, tubes,
+                      spheres, triangles, boxes, immediate vertices, state, GPU meshes, shaders; `gfx::line`... draw
+                      on the current canvas), RaylibCanvas (the raylib implementation), Pure.hpp (raylib's fade,
+                      colorToInt, overlaps, worldToScreen written out, bit-identical), Overlay.hpp (labels, axis
+                      numbers, leader lines as a list in screen pixels + TextMeasure; painted by `ui::paintOverlay`),
+                      GpuContext (`gpuContextReady()`: raylib's window or the GTK GL area is alive). view/ and
+                      rendering/ call no raylib function (types and raymath only): keep it that way
   gtk/                the GTK4 + libadwaita front end in progress (docs/gtk-port.md; gtkmm, libadwaita's C API):
                       main.cpp (options, Gtk::Application + adw_init), MainWindow (AdwApplicationWindow, header bar
                       with the space switch), SceneArea (Gtk::GLArea: GL context, gestures → camera), SceneRenderer
@@ -147,7 +153,8 @@ src/
                       labels like App), Tour (--tour), Capture (widget → PNG, also on SIGUSR1)
   ui/core/            Ui (scale, fonts, text, primitives, interaction, clip, anchors, tooltips, click
                       latch; `setScreenSize` for a host that isn't raylib's window; the fonts upload their atlas
-                      themselves, since raylib skips it without its own window), TextEditor (wrapping multi-line editor), Theme, Layout, Icons,
+                      themselves, since raylib skips it without its own window), Overlay (paints a gfx::Overlay,
+                      measures text for its layout), TextEditor (wrapping multi-line editor), Theme, Layout, Icons,
                       FloatingPanel + PanelManager
   ui/                 ScenePanel (objects list + inspector; ScenePanelInspectors.cpp has one inspect<Type>
                       method per object type, with rangeRow/toggleProp helpers), AddMenu (types + templates from the
@@ -290,6 +297,7 @@ section order.
 3. Drawing: one `ObjectView` entry in `view/objects/<Family>.cpp` (its `register…Views` function): `palette`,
    `draw` (normal and Paper via `ctx.print`), `anchor` (label + picking handle), `label` text, `pick`
    segments. SceneView and App's picking loop over the objects and call these; no if-chains to extend.
+   Draw with `gfx::line/cylinder/sphere/...` (gfx/Canvas3D.hpp) and the helpers in SceneViewDraw, never raylib calls.
 4. Inspector: an `inspect<Type>` method in `ScenePanelInspectors.cpp` plus its row in `ScenePanel::typeUi`
    (inspector + list summary; reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
    optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.

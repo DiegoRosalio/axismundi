@@ -76,7 +76,6 @@ public:
     // `fade` < 1 draws the plot translucent (other objects while something is selected)
     void draw(float fade = 1.0f) const;
     void drawAxes(float length) const;
-    void drawLabels(const Camera3D& camera, float axisLength, bool showAxes) const;
 
     // Map an RGB heat ramp (blue -> cyan -> green -> yellow -> red), t in [0, 1]
     static Color heatColor(float t);

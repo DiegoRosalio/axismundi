@@ -458,17 +458,4 @@ void PlotRenderer::drawAxes(float length) const {
     }
 }
 
-void PlotRenderer::drawLabels(const Camera3D& camera, float axisLength, bool showAxes) const {
-    if (!showAxes) return;
-    const ui::Theme& t = ui::theme();
-    if (is3D()) {
-        drawWorldLabel(camera, mathToWorld(axisLength, 0, 0), "x", t.axisX);
-        drawWorldLabel(camera, mathToWorld(0, axisLength, 0), "y", t.axisY);
-        drawWorldLabel(camera, mathToWorld(0, 0, axisLength), "z", t.axisZ);
-    } else {
-        drawWorldLabel(camera, {axisLength, 0, 0}, "x", t.axisX);
-        drawWorldLabel(camera, {0, axisLength, 0}, "y", t.axisY);
-    }
-}
-
 } // namespace linalg

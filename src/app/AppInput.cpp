@@ -98,7 +98,19 @@ void App::handleInput(float deltaTime) {
 
     applyModeChange();  // tabs and keys 1/2 change m_mode directly
 
-    m_camera.update(deltaTime);
+    FlyInput fly;
+    fly.captured = IsCursorHidden();
+    if (fly.captured) {
+        fly.mouseDelta = GetMouseDelta();
+        fly.forward = IsKeyDown(KEY_W);
+        fly.back = IsKeyDown(KEY_S);
+        fly.left = IsKeyDown(KEY_A);
+        fly.right = IsKeyDown(KEY_D);
+        fly.up = IsKeyDown(KEY_SPACE);
+        fly.down = IsKeyDown(KEY_LEFT_CONTROL);
+        fly.fast = IsKeyDown(KEY_LEFT_SHIFT);
+    }
+    m_camera.update(deltaTime, fly);
 }
 
 void App::applyModeChange() {

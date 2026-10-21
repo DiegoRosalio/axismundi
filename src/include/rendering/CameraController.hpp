@@ -21,6 +21,14 @@ struct OrbitInput {
     float viewportHeight = 0.0f;
 };
 
+// Keyboard and mouse for the fly camera, read by the front end while the mouse is captured
+struct FlyInput {
+    bool captured = false;     // the mouse is captured (fly mode is moving)
+    Vector2 mouseDelta{0, 0};  // pixels since the last frame
+    bool forward = false, back = false, left = false, right = false, up = false, down = false;
+    bool fast = false;         // Shift: twice the speed
+};
+
 // The 3D view's camera. Orbit mode keeps the eye on a sphere around a pivot (math/OrbitCamera);
 // fly mode walks a first-person camera, applied only while the cursor is hidden, so the keyboard
 // stays free for shortcuts and text boxes in UI mode.
@@ -28,8 +36,8 @@ class CameraController {
 public:
     CameraController();
 
-    // Fly movement (only while the cursor is captured)
-    void update(float deltaTime);
+    // Fly movement (only in fly mode while the mouse is captured)
+    void update(float deltaTime, const FlyInput& input);
     // Orbit mode: turn, pan and zoom from the filtered mouse input
     void applyOrbit(const OrbitInput& input);
 

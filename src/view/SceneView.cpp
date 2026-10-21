@@ -28,10 +28,10 @@ namespace {
 constexpr Vector2 kOffset = {8.0f, -8.0f};  // default label offset (design units)
 
 // Labels of one frame: collected, laid out so they don't overlap (selected first, axes last),
-// then drawn
+// then put in the overlay the front end paints
 class LabelBatch {
 public:
-    explicit LabelBatch(const Camera3D& camera) : m_camera(camera) {}
+    LabelBatch(const Camera3D& camera, const gfx::TextMeasure& measure) : m_camera(camera), m_measure(measure) {}
 
     // priority: -1 = automatic (2 when ringed, i.e. selected; 1 otherwise); axes pass 0
     void add(Vector3 position, const char* text, Color color, Vector2 offset, Color background, bool large = false,
@@ -42,11 +42,11 @@ public:
         m_items.push_back(std::move(item));
     }
 
-    void draw() const {
+    void emit(gfx::Overlay& out) const {
         std::vector<text::LabelRequest> requests;
         std::vector<Rectangle> pills;
         for (const Item& it : m_items) {
-            Rectangle pill = labelPill(it.screen, it.text.c_str(), it.offset, it.large);
+            Rectangle pill = labelPill(it.screen, it.text.c_str(), it.offset, styleOf(it), m_measure);
             pills.push_back(pill);
             requests.push_back({it.screen.x, it.screen.y, pill.width, pill.height, pill.x - it.screen.x,
                                 pill.y - it.screen.y, it.priority});
@@ -59,13 +59,29 @@ public:
             if (std::fabs(pill.x - pills[i].x) > 0.5f || std::fabs(pill.y - pills[i].y) > 0.5f) {
                 Vector2 near = {std::clamp(it.screen.x, pill.x, pill.x + pill.width),
                                 std::clamp(it.screen.y, pill.y, pill.y + pill.height)};
-                DrawLineEx(it.screen, near, ui::px(1.0f), gfx::fade(it.color, 0.6f));
+                gfx::OverlayItem line;
+                line.kind = gfx::OverlayItem::Kind::Line;
+                line.from = it.screen;
+                line.to = near;
+                line.width = ui::px(1.0f);
+                line.color = gfx::fade(it.color, 0.6f);
+                out.push_back(line);
             }
-            drawLabelPill(pill, it.text.c_str(), it.color, it.background, it.large, it.ring);
+            gfx::OverlayItem label;
+            label.kind = gfx::OverlayItem::Kind::Pill;
+            label.rect = pill;
+            label.text = it.text;
+            label.style = styleOf(it);
+            label.color = it.color;
+            label.background = it.background;
+            label.ring = it.ring;
+            out.push_back(std::move(label));
         }
     }
 
 private:
+    struct Item;
+    static gfx::TextStyle styleOf(const Item& it) { return it.large ? gfx::TextStyle::LabelLarge : gfx::TextStyle::Label; }
     struct Item {
         Vector2 screen;
         std::string text;
@@ -75,6 +91,7 @@ private:
         int priority;
     };
     const Camera3D& m_camera;
+    const gfx::TextMeasure& m_measure;
     std::vector<Item> m_items;
 };
 
@@ -371,12 +388,13 @@ void SceneView::drawObjects(const scene::Space& space, const DrawOptions& option
     }
 }
 
-void SceneView::drawLabelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera) {
+void SceneView::labelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera,
+                            const gfx::TextMeasure& measure, gfx::Overlay& out) {
     // Paper labels: names only (as in the export), dark text on a white pill
     const ViewSettings& view = *options.view;
     float len = view.axisLength;
     const Color ink = {20, 20, 20, 255}, paper = {255, 255, 255, 220};
-    LabelBatch labels(camera);
+    LabelBatch labels(camera, measure);
     if (view.showAxes) {
         if (space.kind() == scene::SpaceKind::Euclidean3D) {
             labels.add(mathToWorld(len, 0, 0), "x", ink, {8.0f, -8.0f}, paper, false, {0, 0, 0, 0}, 0);
@@ -403,19 +421,20 @@ void SceneView::drawLabelsPrint(scene::Space& space, const DrawOptions& options,
         if (!anchorPoint(o, options, at)) continue;
         labels.add(at, o.name().c_str(), c, {8.0f, -8.0f}, paper);
     }
-    labels.draw();
+    labels.emit(out);
 }
 
-void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, const Camera3D& camera) {
+void SceneView::labels(scene::Space& space, const DrawOptions& options, const Camera3D& camera,
+                       const gfx::TextMeasure& measure, gfx::Overlay& out) {
     const ViewSettings& view = *options.view;
     const ViewStyle& t = activeStyle();
     if (!view.showLabels) return;
     float len = view.axisLength;
     if (options.print) {
-        drawLabelsPrint(space, options, camera);
+        labelsPrint(space, options, camera, measure, out);
         return;
     }
-    LabelBatch labels(camera);
+    LabelBatch labels(camera, measure);
 
     if (space.kind() == scene::SpaceKind::Euclidean3D) {
         if (view.showAxes) {
@@ -448,7 +467,7 @@ void SceneView::drawLabels(scene::Space& space, const DrawOptions& options, cons
         Color c = ov && ov->plainLabel ? t.text : colorOf(o);
         labels.add(at, text.c_str(), shade(c), kOffset, t.labelBg, t.labelLarge, ring);
     }
-    labels.draw();
+    labels.emit(out);
 }
 
 } // namespace linalg::view

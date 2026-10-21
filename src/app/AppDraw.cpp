@@ -10,6 +10,7 @@
 #include "ui/SceneIO.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
+#include "ui/core/Overlay.hpp"
 #include "ui/core/Theme.hpp"
 #include "ui/core/Ui.hpp"
 #include <raylib.h>
@@ -113,6 +114,8 @@ void App::drawGrid() {
 
 void App::drawSceneLabels() {
     const ViewSettings& v = m_viewPanel.settings();
+    ui::OverlayMeasure measure;
+    gfx::Overlay overlay;
     if (v.showNumbers && v.showAxes) {
         view::AxisNumbersSpec numbers;
         numbers.space = spaceKind();
@@ -122,9 +125,10 @@ void App::drawSceneLabels() {
         numbers.reach = std::max(12.0f, m_camera.viewDistance() * 6.0f);
         const view::ViewStyle& style = view::activeStyle();
         numbers.color = style.print ? Color{90, 90, 90, 255} : style.muted;
-        view::drawAxisNumbers(m_camera.camera(), numbers);
+        view::axisNumbers(m_camera.camera(), numbers, measure, overlay);
     }
-    m_sceneView.drawLabels(m_scene.space(spaceKind()), drawOptions(), m_camera.camera());
+    m_sceneView.labels(m_scene.space(spaceKind()), drawOptions(), m_camera.camera(), measure, overlay);
+    ui::paintOverlay(overlay);
 }
 
 float App::viewportLeft() const {

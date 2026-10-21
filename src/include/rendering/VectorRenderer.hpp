@@ -29,8 +29,6 @@ public:
     void clearVectors();
     void draw() const;
 
-    // Name and magnitude at each arrow tip (call after EndMode3D())
-    void drawLabels(const Camera3D& camera) const;
 
     // Arrow from start to end: a shaft plus a cone head. radius and headSize are world sizes, but the shaft stays
     // between about 1 and 3.5 pixels wide on screen and the head is at most 35% of the length (and ~18 px), so

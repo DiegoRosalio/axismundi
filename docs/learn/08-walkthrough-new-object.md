@@ -129,7 +129,7 @@ evaluates, saves and loads your type. Start the app: it's in the Add menu, and o
         if (o.value().type != expr::Type::Vector) return;
         Vector3D a = o.field("a")->value.vector, b = o.field("b")->value.vector;
         dashed(mathToWorld(a), mathToWorld(b), c.color);
-        DrawSphere(mathToWorld(o.value().vector), c.selected ? 0.1f : 0.07f, c.color);
+        gfx::sphere(mathToWorld(o.value().vector), c.selected ? 0.1f : 0.07f, c.color);
     };
     midpoint.anchor = [](const SceneObject& o, const DrawOptions&, Vector3& out) {
         if (o.value().type != expr::Type::Vector) return false;

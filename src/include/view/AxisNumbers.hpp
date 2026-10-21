@@ -1,10 +1,11 @@
 #pragma once
 
+#include "gfx/Overlay.hpp"
 #include "scene/SceneObject.hpp"
 #include <raylib.h>
 
 // Numbers along the axes (…, −2, −1, 1, 2, …) at a step that follows the zoom (math/GridMath tickStep).
-// Drawn after the 3D scene and before the object labels, so labels stay on top.
+// Put in the overlay before the object labels, so labels stay on top.
 namespace linalg::view {
 
 struct AxisNumbersSpec {
@@ -16,6 +17,7 @@ struct AxisNumbersSpec {
     Color color{128, 128, 128, 255};
 };
 
-void drawAxisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec);
+void axisNumbers(const Camera3D& camera, const AxisNumbersSpec& spec, const gfx::TextMeasure& measure,
+                 gfx::Overlay& out);
 
 } // namespace linalg::view

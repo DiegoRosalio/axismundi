@@ -32,8 +32,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 |-----|---------|-------|
 | 0 | dependencies installed | done |
 | 1 | skeleton (`make gtk`, Adw window, screenshot mode) + spike: the scene drawn by rlgl in a GLArea, orbit/pan/zoom (⛔ if rlgl can't run in GTK) | done |
-| 2 | `gfx::Canvas3D` + RaylibCanvas; labels as a list; the raylib tour pixel-identical | next |
-| 3 | `Session` + `AppApi` shared by both front ends; edu/ and the tour on AppApi | |
+| 2 | `gfx::Canvas3D` + RaylibCanvas; labels as a list; the raylib tour pixel-identical | done |
+| 3 | `Session` + `AppApi` shared by both front ends; edu/ and the tour on AppApi | next |
 | 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | |
 | 5 | GTK inspectors I: framework + basic types | |
 | 6 | GTK inspectors II: the remaining types (parallel agents) | |
@@ -79,11 +79,38 @@ text differs):
 - `input-test-gtk.sh`: drag, right-drag, wheel and the space switch with real X11 events, 0 problems.
 
 **Open problems (for later runs):**
-- No antialiasing yet: GtkGLArea has no MSAA, so edges are jagged compared with the raylib app (4× MSAA).
-  Plan: draw into a multisampled framebuffer and blit it into the GLArea's (run 2, with Canvas3D).
+- ~~No antialiasing yet~~ (done in run 2).
 - The demo scene is fixed. No objects list, inspector or files yet (runs 4–5).
 - A click on the view doesn't pick yet (run 4).
 - The grid and label code is duplicated from App (`SceneRenderer::drawGrid/drawLabels`); it moves into the
   shared Session in run 3.
 - Not tried on a real desktop: Wayland, HiDPI (the view renders at device pixels, so labels follow the scale
   automatically), touchpad gestures.
+
+### Run 2: Canvas3D, labels as a list (2026-10-21), done
+
+**Result: `view/` and `rendering/` call no raylib function any more** (only its value types and the header-only
+raymath). A plain-OpenGL `Canvas3D` can now replace raylib by changing `src/gfx` alone, plus the label painting.
+
+**Commits:**
+- **Antialiasing in the GTK view:** a 4× multisampled framebuffer, blitted into the GLArea's (libepoxy for the
+  GL calls).
+- **`gfx::Canvas3D` + `RaylibCanvas`:** lines, tubes, spheres, triangles, boxes, immediate vertices, state, GPU
+  meshes, shaders. `gfx::Pure.hpp` holds raylib's fade/colorToInt/overlaps/worldToScreen, bit-identical.
+  MeshSet and GridShader keep canvas ids.
+- **Labels as a list:**
+  - `SceneView::labels` and `view::axisNumbers` fill a `gfx::Overlay` (pills, texts, leader lines) using a
+    `gfx::TextMeasure`;
+  - `ui::paintOverlay` paints it (both apps for now);
+  - the dead `PlotRenderer/VectorRenderer::drawLabels` are removed.
+- **The fly camera's keys and mouse** come in as `FlyInput` from the front end; `GpuContext` moved into `gfx/`.
+
+**Checks:**
+- The raylib tour is pixel-identical to the baseline after each step (111 shots; only the HUD frame-rate text
+  differs).
+- `make test`, `check.sh`, the raylib input test (fly mode included), the GTK tour and the GTK input test.
+
+**Next (run 3):**
+- `Session`: the state both front ends share (scene, view settings, camera, clock, files), plus the drawing
+  sequence that `App::drawScene/drawGrid/drawSceneLabels` and `gtk::SceneRenderer` now duplicate.
+- `AppApi` for edu/ and the tour.

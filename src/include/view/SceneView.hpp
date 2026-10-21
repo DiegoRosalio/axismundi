@@ -5,6 +5,7 @@
 // DrawOptions says how: selection, Paper (print preview), fading, solo.
 
 #include "export/LatexExport.hpp"
+#include "gfx/Overlay.hpp"
 #include "math/Matrix4D.hpp"
 #include "rendering/FieldRenderer.hpp"
 #include "rendering/PlotRenderer.hpp"
@@ -48,8 +49,9 @@ public:
 
     // Call inside BeginMode3D
     void draw3D(scene::Space& space, const DrawOptions& options);
-    // Call after EndMode3D
-    void drawLabels(scene::Space& space, const DrawOptions& options, const Camera3D& camera);
+    // The labels (pills, leader lines) in screen pixels, appended to `out` for the front end to paint
+    void labels(scene::Space& space, const DrawOptions& options, const Camera3D& camera,
+                const gfx::TextMeasure& measure, gfx::Overlay& out);
 
     // Theme palette color for an object (or its custom color)
     static Color colorOf(const scene::SceneObject& object);
@@ -69,7 +71,8 @@ public:
 private:
     void drawEuclidean(scene::Space& space, const DrawOptions& options);
     void drawComplex(scene::Space& space, const DrawOptions& options);
-    void drawLabelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera);
+    void labelsPrint(scene::Space& space, const DrawOptions& options, const Camera3D& camera,
+                     const gfx::TextMeasure& measure, gfx::Overlay& out);
     // The objects themselves, each through its type's ObjectView (view/objects/*.cpp)
     void drawObjects(const scene::Space& space, const DrawOptions& options, bool numbersOnly) const;
     void updatePlots(scene::Space& space);

@@ -27,7 +27,7 @@ TARGET   := $(BIN_DIR)/linalg_viz
 GTK_TARGET := $(BIN_DIR)/axismundi-gtk
 GTK_SRCS != find $(SRC_DIR)/gtk -type f -name '*.cpp' 2>/dev/null
 GTK_CORE := $(filter-out $(SRC_DIR)/main.cpp $(SRC_DIR)/app/% $(SRC_DIR)/edu/% $(SRC_DIR)/ui/%,$(SRCS)) \
-            $(addprefix $(SRC_DIR)/ui/, SceneIO.cpp RayguiImpl.cpp core/Ui.cpp core/Theme.cpp core/Icons.cpp)
+            $(addprefix $(SRC_DIR)/ui/, SceneIO.cpp RayguiImpl.cpp core/Ui.cpp core/Theme.cpp core/Icons.cpp core/Overlay.cpp)
 GTK_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BIN_DIR)/%.o, $(GTK_CORE) $(GTK_SRCS))
 GTK_PKGS := gtkmm-4.0 libadwaita-1 epoxy
 # Lazy (=): pkg-config runs only when the GTK app is built; -isystem keeps the library headers' warnings out
