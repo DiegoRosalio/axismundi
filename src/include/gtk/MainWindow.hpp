@@ -5,11 +5,14 @@
 // the main menu (scene files, About). Toasts report what happened. libadwaita has no C++ wrapper, so its
 // widgets are made through its C API and our own widgets (gtkmm) are put inside them.
 
+#include "app/AppApi.hpp"
 #include "app/Session.hpp"
+#include "gtk/ExportDialog.hpp"
 #include "gtk/SettingsDialog.hpp"
 #include "scene/Templates.hpp"
 #include <giomm/simpleactiongroup.h>
 #include <gtkmm/application.h>
+#include <memory>
 #include <string>
 
 typedef struct _GtkWidget GtkWidget;
@@ -26,10 +29,12 @@ class Inspector;
 class InfoPane;
 class TimeBar;
 class ViewMenu;
+class WindowApi;
 
 class MainWindow {
 public:
     MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int height);
+    ~MainWindow();
 
     void present();
     GtkWidget* widget() const { return m_window; }
@@ -51,6 +56,12 @@ public:
     void applySettings();
     void showPreferences();
     void showReference();
+    void showGallery();
+    void showExport();
+    void showShortcuts();
+    void closeDialogs();  // every dialog open over the window
+    // What gallery examples and lessons use to drive the window
+    AppApi& api();
     void openViewMenu(bool open);
     void toast(const std::string& message);
 
@@ -88,10 +99,12 @@ private:
     InfoPane* m_info = nullptr;
     TimeBar* m_time = nullptr;
     ViewMenu* m_viewMenu = nullptr;
+    std::unique_ptr<WindowApi> m_api;
     AddButton* m_add = nullptr;
     Glib::RefPtr<Gio::SimpleActionGroup> m_actions;
     std::string m_theme;                // the last setTheme ("" = the system's)
     GtkSettings m_settings;
+    ExportSettings m_export;
     std::string m_currentFile;          // the last file opened or saved ("" = none yet)
     bool m_syncingSpace = false;
 };

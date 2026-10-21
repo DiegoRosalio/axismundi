@@ -37,6 +37,7 @@ public:
 
     // The breakdown plays while its page is shown (and the pane is open, which the window tells)
     void setOpen(bool open) { m_open = open; }
+    bool isOpen() const { return m_open; }
     bool breakdownActive() const;
     BreakdownPlayer& breakdown() { return m_player; }
 

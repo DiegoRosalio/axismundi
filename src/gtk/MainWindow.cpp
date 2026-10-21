@@ -4,7 +4,9 @@
 #include "gtk/Inspector.hpp"
 #include "gtk/InfoPane.hpp"
 #include "gtk/SceneRenderer.hpp"
+#include "gtk/GalleryDialog.hpp"
 #include "gtk/ReferenceDialog.hpp"
+#include "gtk/WindowApi.hpp"
 #include "gtk/TimeBar.hpp"
 #include "gtk/ViewMenu.hpp"
 #include "gtk/ObjectsList.hpp"
@@ -87,6 +89,8 @@ MainWindow::MainWindow(const Glib::RefPtr<Gtk::Application>& app, int width, int
         },
         [this](view::DrawOptions& o) {
             o.dimUnselected = m_settings.dimUnselected;
+            o.printScope = m_export.options.scope;  // the Paper preview shows what the export would
+            o.printGrayShading = m_export.options.grayShading;
             if (!m_info->breakdownActive()) return;
             o.dimUnselected = false;
             m_session.applyBreakdown(o, m_info->breakdown());
@@ -137,6 +141,12 @@ GtkWidget* MainWindow::buildSidebar() {
     m_add = Gtk::make_managed<AddButton>(m_session);
     m_add->onChoice([this](const AddChoice& choice) { addObject(choice); });
     adw_header_bar_pack_start(ADW_HEADER_BAR(header), GTK_WIDGET(m_add->gobj()));
+
+    auto* gallery = Gtk::make_managed<Gtk::Button>();
+    gallery->set_icon_name("view-app-grid-symbolic");
+    gallery->set_tooltip_text("Examples: ready-made scenes to explore");
+    gallery->set_action_name("win.gallery");
+    adw_header_bar_pack_end(ADW_HEADER_BAR(header), GTK_WIDGET(gallery->gobj()));
 
     m_list = Gtk::make_managed<ObjectsList>(m_session);
     m_inspector = Gtk::make_managed<Inspector>(m_session);
@@ -206,8 +216,11 @@ GtkWidget* MainWindow::buildContent() {
     files->append("_Open…", "win.open");
     files->append("_Save", "win.save");
     files->append("Save _As…", "win.save-as");
+    files->append("_Examples…", "win.gallery");
+    files->append("Export to _LaTeX…", "win.export");
     menu->append_section(files);
     auto help = Gio::Menu::create();
+    help->append("_Keyboard Shortcuts", "win.shortcuts");
     help->append("_Formula Reference", "win.reference");
     help->append("_Preferences", "win.preferences");
     help->append("_About axismundi", "win.about");
@@ -319,6 +332,9 @@ void MainWindow::buildActions(const Glib::RefPtr<Gtk::Application>& app) {
     add("about", [this] { about(); }, {});
     add("preferences", [this] { showPreferences(); }, {"<Control>comma"});
     add("reference", [this] { showReference(); }, {"F1"});
+    add("gallery", [this] { showGallery(); }, {});
+    add("export", [this] { showExport(); }, {"<Control>e"});
+    add("shortcuts", [this] { showShortcuts(); }, {"<Control>question"});
     gtk_widget_insert_action_group(m_window, "win", G_ACTION_GROUP(m_actions->gobj()));
 }
 
@@ -338,6 +354,72 @@ void MainWindow::toast(const std::string& message) {
 }
 
 void MainWindow::showSidebar(bool show) { adw_overlay_split_view_set_show_sidebar(m_split, show); }
+
+MainWindow::~MainWindow() = default;
+
+AppApi& MainWindow::api() {
+    if (!m_api) m_api = std::make_unique<WindowApi>(*this);
+    return *m_api;
+}
+
+void MainWindow::closeDialogs() {
+    for (int i = 0; i < 8; i++) {  // dialogs can stack; a few at most
+        AdwDialog* d = adw_application_window_get_visible_dialog(ADW_APPLICATION_WINDOW(m_window));
+        if (!d) break;
+        adw_dialog_force_close(d);
+    }
+}
+
+void MainWindow::showShortcuts() {
+    struct Item {
+        const char* title;
+        const char* keys;
+    };
+    struct Section {
+        const char* title;
+        std::vector<Item> items;
+    };
+    const Section sections[] = {
+        {"Scene", {{"New scene", "<Control>n"}, {"Open a scene", "<Control>o"}, {"Save", "<Control>s"},
+                   {"Save as", "<Control><Shift>s"}, {"Export to LaTeX", "<Control>e"}, {"Undo", "<Control>z"},
+                   {"Redo", "<Control><Shift>z"}}},
+        {"Objects", {{"Add an object", "<Control><Shift>a"}, {"Duplicate the selection", "<Control>d"},
+                     {"Delete the selection (in the list or the view)", "Delete"}}},
+        {"View", {{"3D space", "<Alt>1"}, {"Complex plane", "<Alt>2"}, {"Show or hide the objects", "<Control>b"},
+                  {"Analysis, steps and breakdown", "F9"}, {"Play or pause the clock (in the view)", "space"}}},
+        {"Help", {{"Formula reference", "F1"}, {"Preferences", "<Control>comma"}, {"Keyboard shortcuts", "<Control>question"},
+                  {"Main menu", "F10"}}},
+    };
+    AdwDialog* dialog = adw_shortcuts_dialog_new();
+    for (const Section& section : sections) {
+        AdwShortcutsSection* sec = adw_shortcuts_section_new(section.title);
+        for (const Item& item : section.items) adw_shortcuts_section_add(sec, adw_shortcuts_item_new(item.title, item.keys));
+        adw_shortcuts_dialog_add(ADW_SHORTCUTS_DIALOG(dialog), sec);
+    }
+    // In the view: the mouse
+    AdwShortcutsSection* mouse = adw_shortcuts_section_new("Mouse in the View");
+    adw_shortcuts_section_add(mouse, adw_shortcuts_item_new("Turn the camera: drag", ""));
+    adw_shortcuts_section_add(mouse, adw_shortcuts_item_new("Move the camera: right-drag or Shift+drag", ""));
+    adw_shortcuts_section_add(mouse, adw_shortcuts_item_new("Zoom: the wheel", ""));
+    adw_shortcuts_section_add(mouse, adw_shortcuts_item_new("Select: click an object (Ctrl+click adds)", ""));
+    adw_shortcuts_dialog_add(ADW_SHORTCUTS_DIALOG(dialog), mouse);
+    adw_dialog_present(dialog, m_window);
+}
+
+void MainWindow::showExport() {
+    showExportDialog(m_window, m_session, m_export,
+                     {[this](const std::string& message) { toast(message); }, [this] {
+                          m_area->changed();
+                          m_list->refresh();
+                      }});
+}
+
+void MainWindow::showGallery() {
+    showGalleryDialog(m_window, api(), [this](const char* title) {
+        sceneChanged();
+        toast(std::string("Example: ") + title);
+    });
+}
 
 void MainWindow::showReference() { showReferenceDialog(m_window, m_session); }
 

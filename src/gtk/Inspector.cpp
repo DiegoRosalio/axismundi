@@ -1,6 +1,7 @@
 #include "gtk/Inspector.hpp"
 #include "app/Session.hpp"
 #include "gtk/EditBinding.hpp"
+#include "gtk/FormulaDialog.hpp"
 #include "gtk/Inspectors.hpp"
 #include "math/Expression.hpp"
 #include "scene/Types.hpp"
@@ -254,7 +255,23 @@ void Inspector::buildHeader(SceneObject& o) {
             Gdk::RGBA want(c.r / 255.0, c.g / 255.0, c.b / 255.0, 1.0);
             if (!(color->get_rgba() == want)) color->set_rgba(want);
         });
-        adw_preferences_group_set_header_suffix(ADW_PREFERENCES_GROUP(group), GTK_WIDGET(color->gobj()));
+        // Back to the theme's color (only for a color picked by hand)
+        auto* reset = Gtk::make_managed<Gtk::Button>();
+        reset->set_icon_name("edit-clear-symbolic");
+        reset->add_css_class("flat");
+        reset->set_valign(Gtk::Align::CENTER);
+        reset->set_tooltip_text("Back to the color of the view style");
+        reset->signal_clicked().connect([this] {
+            edit([](SceneObject& ob) {
+                ob.customColor = false;
+                ob.touch();
+            });
+        });
+        m_updates.push_back([reset](const SceneObject& ob) { reset->set_visible(ob.customColor); });
+        auto* colorBox = Gtk::make_managed<Gtk::Box>(Gtk::Orientation::HORIZONTAL, 4);
+        colorBox->append(*reset);
+        colorBox->append(*color);
+        adw_preferences_group_set_header_suffix(ADW_PREFERENCES_GROUP(group), GTK_WIDGET(colorBox->gobj()));
     }
 
     GtkWidget* name = adw_entry_row_new();
@@ -352,6 +369,21 @@ void InspectorBuilder::formula(const std::string& key, const std::string& label)
     GtkWidget* row = adw_entry_row_new();
     setTitle(row, label.empty() ? f->label : label);
     EditBinding* e = bindField(row, key);
+    // ⤢: the big editor, with the live result (it starts from what was typed)
+    GtkWidget* expand = gtk_button_new_from_icon_name("view-fullscreen-symbolic");
+    gtk_widget_set_valign(expand, GTK_ALIGN_CENTER);
+    gtk_widget_add_css_class(expand, "flat");
+    gtk_widget_set_tooltip_text(expand, "Edit in a big editor with the live result");
+    Inspector* insp = &m_inspector;
+    onSignal(expand, "clicked", [insp, e, row, expand, key] {
+        std::string text = gtk_editable_get_text(GTK_EDITABLE(row));
+        e->discard();
+        showFormulaDialog(GTK_WIDGET(gtk_widget_get_root(expand)), insp->m_session, insp->m_kind, insp->m_id, key, text,
+                          [insp, key](const std::string& t) {
+                              insp->edit([&](Object& o) { o.setField(key, t); });
+                          });
+    });
+    adw_entry_row_add_suffix(ADW_ENTRY_ROW(row), expand);
     add(row);
     // The problem in words underneath (while not typing)
     GtkWidget* text = wrappedLabel("error");

@@ -157,6 +157,7 @@ void SceneArea::onDragUpdate(double offsetX, double offsetY) {
     float h = static_cast<float>(get_height());
     if (m_panning) m_renderer->pan(dx, dy, h);
     else m_renderer->orbit(dx, dy, h);
+    m_cameraMovedAt = g_get_monotonic_time();
     changed();
 }
 
@@ -185,8 +186,14 @@ void SceneArea::pickAt(double x, double y, bool add) {
 
 bool SceneArea::onScroll(double, double dy) {
     m_renderer->zoom(static_cast<float>(-dy), static_cast<float>(get_height()));
+    m_cameraMovedAt = g_get_monotonic_time();
     changed();
     return true;
 }
 
+bool SceneArea::cameraMovedRecently() const {
+    return m_cameraMovedAt > 0 && g_get_monotonic_time() - m_cameraMovedAt < 300000;
+}
+
 } // namespace linalg::gtk
+

@@ -31,6 +31,8 @@ public:
     // Fixed time per frame (screenshots that repeat exactly); 0 = real time
     void setFixedStep(double seconds) { m_fixedStep = seconds; }
     int framesDrawn() const { return m_frames; }
+    // The user moved the camera (drag, pan, wheel) in the last moments (the tutorial checks it)
+    bool cameraMovedRecently() const;
     // Why the view can't draw ("" when it can)
     const std::string& problem() const { return m_problem; }
 
@@ -63,6 +65,7 @@ private:
     bool m_ctrl = false;
     std::function<void()> m_sceneChanged;
     bool m_dragging = false;  // moved far enough to be a drag (not a click)
+    long long m_cameraMovedAt = 0;  // g_get_monotonic_time() of the last camera move (µs)
     bool m_panning = false;
     bool m_dirty = true;
     double m_fixedStep = 0.0;

@@ -24,6 +24,8 @@ public:
     void show(const std::string& text, const std::string& error);
     // Commit what was typed, if anything (before the inspector is rebuilt)
     void flush();
+    // Forget what was typed (the big editor took it over): the saved text comes back
+    void discard() { revert(); }
     bool editing() const { return m_dirty; }
     // The tooltip shown when there's no problem
     void setTip(const std::string& tip);

@@ -1,10 +1,12 @@
 #include "gtk/Tour.hpp"
 #include "gtk/Capture.hpp"
 #include "gtk/Inspector.hpp"
+#include "gtk/FormulaDialog.hpp"
 #include "gtk/InfoPane.hpp"
 #include "gtk/MainWindow.hpp"
 #include "gtk/SceneArea.hpp"
 #include "gtk/SceneRenderer.hpp"
+#include "edu/Examples.hpp"
 #include "scene/Templates.hpp"
 #include "scene/Types.hpp"
 #include <gtk/gtk.h>
@@ -178,7 +180,44 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
                            m_window.showPreferences();
                        }});
     m_steps.push_back({"50_gtk_reference", [this] {
+                           m_window.closeDialogs();
                            m_window.showReference();
+                       }});
+    m_steps.push_back({"51_gtk_gallery", [this] {
+                           m_window.closeDialogs();
+                           m_window.showGallery();
+                       }});
+    m_steps.push_back({"52_gtk_example", [this] {
+                           m_window.closeDialogs();
+                           const Example& e = examples()[1];
+                           e.apply(m_window.api());
+                           m_window.sceneChanged();
+                       }});
+    m_steps.push_back({"53_gtk_export", [this] { m_window.showExport(); }});
+    m_steps.push_back({"54_gtk_shortcuts", [this] {
+                           m_window.closeDialogs();
+                           m_window.showShortcuts();
+                       }});
+    m_steps.push_back({"55_gtk_formula_editor", [this, &s] {
+                           m_window.closeDialogs();
+                           m_window.setSpace("space3d");
+                           s.resetScene();
+                           s.select("c");
+                           m_window.sceneChanged();
+                           const scene::SceneObject* c = s.object("c");
+                           if (c)
+                               showFormulaDialog(m_window.widget(), s, scene::SpaceKind::Euclidean3D, c->id(), "value",
+                                                 "cross(a, b) + 2*normalize(a)", [](const std::string&) {});
+                       }});
+    m_steps.push_back({"56_gtk_custom_color", [this, &s] {
+                           m_window.closeDialogs();
+                           if (scene::SceneObject* c = s.object("c")) {
+                               c->customColor = true;
+                               c->color = {230, 97, 0, 255};
+                               c->touch();
+                           }
+                           s.scene().commit();
+                           m_window.sceneChanged();
                        }});
 }
 
