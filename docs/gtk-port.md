@@ -354,3 +354,42 @@ at four sizes, more input tests, the lesson walk on GTK, and a docs/learn chapte
 
 **Next (run 9, ⛔):** a side-by-side parity checklist against the raylib app, then the user tries the GTK app on
 Arch + GNOME (Wayland, HiDPI, touchpad) and decides on the switch.
+
+## Parity checklist (run 9)
+
+The raylib app's features (UI_GUIDE.md) next to the GTK app. ✅ there, ≈ there in a GNOME way, ❌ missing.
+
+| Feature | raylib app | GTK app |
+|---|---|---|
+| Objects list, select, Ctrl+click, visibility | side bar | ✅ sidebar list |
+| Add menu: types + templates from the selection | N, Add | ✅ + button, Ctrl+Shift+A |
+| Inspector for every type, ⤢ formula editor | ✅ | ✅ |
+| Ctrl+Enter in a field opens the big editor | ✅ | ❌ only the ⤢ button |
+| Delete / duplicate / undo / redo | Del, Ctrl+D, Ctrl+Z/Y | ✅ |
+| Object colors | swatch: presets, hex, theme color | ≈ GTK color dialog + "back to the style's color" |
+| Show only the selection (O, Show all) | ✅ | ❌ |
+| Orbit camera: drag, right/Shift-drag, wheel | ✅ | ✅ |
+| Camera views Front/Right/Top/Focus, reset | keypad 1/3/7, ., C, View section | ≈ View menu only, no keys |
+| Fly camera (Tab, WASD) | ✅ | ❌ |
+| Status overlay (HUD) | ✅ | ❌ |
+| View: grid, axes, labels, numbers, spacing, planes, polar, axis length, styles | ✅ (G, L keys) | ✅ View menu (no keys) |
+| Scene clock: play, scrub, loop, speed, length | Time panel, P | ✅ bar under the view, Space in the view |
+| Analysis / Steps / Breakdown | floating panels, M / K / B | ✅ pane on the right, F9 (no per-page keys) |
+| Example gallery | E, topic filter | ≈ dialog grouped by topic, no key |
+| Tutorial | F1, panel, pulsing outline | ✅ lesson list, card, outline + popover, no key |
+| Formula reference | F2 | ✅ F1 |
+| Export to LaTeX / PDF, B/W preview | Ctrl+E | ✅ |
+| Files: New, Open, Save, Save as | ✅ own dialog | ✅ GTK file dialog (asks before replacing) |
+| Recent files | ✅ | ❌ |
+| Preferences: theme, surfaces, fade unselected | ✅ | ✅ |
+| Interface size, tooltips on/off, reset panel layout | ✅ | ≈ not needed: GNOME's text scaling, GTK tooltips, no floating panels |
+| Keyboard help | H | ✅ Ctrl+? shortcuts dialog |
+| Screenshot (F12), fullscreen (F11) | ✅ | ❌ (GNOME's own screenshot tool works) |
+| Collapsed side bar strip | Ctrl+B | ≈ Ctrl+B hides the sidebar |
+| Command line: --size, --theme, a scene file | ✅ | ✅ (+ --tour, --lesson-walk) |
+| Desktop file, icons, `make install`, PKGBUILD | ✅ | ❌ until the switch (run 10) |
+
+**To do before the switch (proposed):** solo selection, recent files, single-key shortcuts that don't fight text fields
+(local to the view, like Space and Delete), Ctrl+Enter in formula fields, F11 fullscreen. The fly camera and the HUD
+could also stay out: the orbit camera covers the lessons and examples.
+
