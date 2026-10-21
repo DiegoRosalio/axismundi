@@ -244,4 +244,85 @@ TransformBreakdown breakdown(const Matrix4D& m4) {
     return b;
 }
 
+// --- BreakdownPlayer ----------------------------------------------------------
+
+namespace {
+
+constexpr float kStepsPerSecond = 0.6f;
+constexpr float kHoldSeconds = 0.6f;
+
+bool sameMatrix(const Matrix4D& a, const Matrix4D& b) {
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (std::fabs(a.m[i][j] - b.m[i][j]) > 1e-6f) return false;
+    return true;
+}
+
+float smooth(float f) { return f * f * (3.0f - 2.0f * f); }
+
+} // namespace
+
+void BreakdownPlayer::setMatrix(const Matrix4D& m) {
+    if (m_hasMatrix && sameMatrix(m, m_matrix)) return;
+    m_matrix = m;
+    m_hasMatrix = true;
+    m_breakdown = linalg::breakdown(m);
+    m_t = std::min(m_t, static_cast<float>(m_breakdown.steps.size()));
+}
+
+void BreakdownPlayer::restart() {
+    m_t = 0.0f;
+    m_hold = 0.0f;
+    m_playing = true;
+}
+
+int BreakdownPlayer::completedSteps() const { return static_cast<int>(std::floor(m_t + 1e-4f)); }
+
+Matrix4D BreakdownPlayer::current() const {
+    float k = std::floor(m_t);
+    return m_breakdown.at(k + smooth(m_t - k));
+}
+
+void BreakdownPlayer::update(float dt) {
+    float n = static_cast<float>(m_breakdown.steps.size());
+    if (!m_playing) return;
+    if (m_t >= n) {
+        m_playing = false;
+        return;
+    }
+    if (m_hold > 0.0f) {
+        m_hold -= dt;
+        return;
+    }
+    float before = m_t;
+    m_t = std::min(n, m_t + dt * kStepsPerSecond);
+    // Pause briefly whenever a step finishes
+    if (std::floor(m_t) > std::floor(before) && m_t < n) {
+        m_t = std::floor(m_t);
+        m_hold = kHoldSeconds;
+    }
+}
+
+void BreakdownPlayer::togglePlay() {
+    if (m_playing) m_playing = false;
+    else if (m_t >= static_cast<float>(stepCount())) restart();
+    else m_playing = true;
+}
+
+void BreakdownPlayer::seek(float t) {
+    m_t = std::clamp(t, 0.0f, static_cast<float>(stepCount()));
+    m_playing = false;
+}
+
+void BreakdownPlayer::previous() {
+    m_t = std::max(0.0f, std::ceil(m_t - 1.0f - 1e-4f));
+    m_playing = false;
+}
+
+void BreakdownPlayer::next() {
+    m_t = std::min(static_cast<float>(stepCount()), std::floor(m_t + 1e-4f) + 1.0f);
+    m_playing = false;
+}
+
 } // namespace linalg
+

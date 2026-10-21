@@ -4,7 +4,7 @@
 
 namespace linalg {
 
-std::string Preferences::path() {
+std::string Preferences::path(const std::string& file) {
     std::filesystem::path base;
     if (const char* xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg) {
         base = xdg;
@@ -13,16 +13,16 @@ std::string Preferences::path() {
     } else {
         base = ".";
     }
-    return (base / "axismundi" / "settings.txt").string();
+    return (base / "axismundi" / file).string();
 }
 
-bool Preferences::load(SceneData& data) {
+bool Preferences::load(SceneData& data, const std::string& file) {
     std::string error;
-    return loadSceneFile(path(), data, error);
+    return loadSceneFile(path(file), data, error);
 }
 
-bool Preferences::save(const SceneData& data, std::string& error) {
-    std::filesystem::path p = path();
+bool Preferences::save(const SceneData& data, std::string& error, const std::string& file) {
+    std::filesystem::path p = path(file);
     std::error_code ec;
     std::filesystem::create_directories(p.parent_path(), ec);
     if (ec) {

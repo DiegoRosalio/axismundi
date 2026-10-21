@@ -297,6 +297,13 @@ void testQuaternions() {
 }
 
 void testReference() {
+    {
+        std::string error;
+        CHECK(expr::compactValue(expr::evaluateExample("1 + 2", nullptr, 0.0, 0, error)) == "3");
+        CHECK(expr::compactValue(expr::evaluateExample("[1, 0, 0]", nullptr, 0.0, 0, error)) == "(1, 0, 0)");
+        CHECK(expr::compactValue(expr::evaluateExample("x + t", nullptr, 4.0, 0, error)) == "5");  // x = 1
+        CHECK(!expr::evaluateExample("q + 1", nullptr, 0.0, 0, error).ok() && !error.empty());
+    }
     using namespace expr;
     // Every example compiles; those that need no objects evaluate without errors
     Slots slots;

@@ -48,6 +48,7 @@ public:
     double timelineLength() const;
     double autoLength() const;
     void advance(double deltaSeconds);  // moves the clock while playing
+    void togglePlay();                  // play or pause; at the end without loop, play starts from 0
     void setTime(double seconds);
     // Add an object of a registered type, named after the type (or `name`)
     SceneObject* add(SpaceKind kind, const std::string& typeId, const std::string& name = "");

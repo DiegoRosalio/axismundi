@@ -1,4 +1,6 @@
 #include "math/expr/Reference.hpp"
+#include <cstdio>
+#include <cmath>
 
 namespace linalg::expr {
 
@@ -157,6 +159,65 @@ std::vector<ReferenceSection> build() {
 const std::vector<ReferenceSection>& reference() {
     static const std::vector<ReferenceSection> sections = build();
     return sections;
+}
+
+namespace {
+
+std::string num(double v) {
+    if (std::fabs(v) < 1e-6) v = 0.0;  // float noise such as cos(pi/2)
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.4g", v);
+    return buf;
+}
+
+} // namespace
+
+std::string compactValue(const Value& v) {
+    switch (v.type) {
+        case Type::Scalar: return num(v.re);
+        case Type::Complex: {
+            if (std::fabs(v.im) < 1e-6) return num(v.re);
+            std::string im = num(std::fabs(v.im)) + "i";
+            if (std::fabs(v.re) < 1e-6) return (v.im < 0 ? "−" : "") + im;
+            return num(v.re) + (v.im < 0 ? " − " : " + ") + im;
+        }
+        case Type::Vector:
+            return "(" + num(v.vector.x) + ", " + num(v.vector.y) + ", " + num(v.vector.z) + ")";
+        case Type::Matrix: {
+            std::string s = "[";
+            for (int i = 0; i < v.size; i++) {
+                if (i) s += "; ";
+                for (int j = 0; j < v.size; j++) s += (j ? " " : "") + num(v.matrix.m[i][j]);
+            }
+            return s + "]";
+        }
+        case Type::Quaternion: return v.summary();
+        case Type::Error: return v.error;
+    }
+    return "";
+}
+
+Value evaluateExample(const std::string& text, const Resolver* resolver, double time, unsigned variables,
+                      std::string& error) {
+    Program p;
+    if (!p.compile(text, variables)) {
+        error = p.error();
+        return Value::fail(error);
+    }
+    Slots slots;
+    slots.x = 1.0;
+    slots.y = 2.0;
+    slots.t = time;
+    slots.u = 0.5;
+    slots.z = 3.0;
+    slots.hasX = slots.hasY = slots.hasT = slots.hasU = slots.hasZ = true;
+    Value v = p.eval(resolver, &slots);
+    if (!v.ok()) error = v.error;
+    return v;
+}
+
+unsigned exampleVariables(const ReferenceSection& section) {
+    return section.title.find("Time") == 0 ? (kVarU | kVarZ) : 0u;  // curves and fields: u and z are variables
 }
 
 } // namespace linalg::expr

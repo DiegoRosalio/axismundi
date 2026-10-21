@@ -35,16 +35,7 @@ view::DrawOptions App::drawOptions() const {
     o.printGrayShading = m_exportPanel.options().grayShading;
     // Not while a lesson or the breakdown highlights things itself
     o.dimUnselected = m_uiSettings.dimUnselected && !m_tutorialWindow.visible() && !breakdownActive();
-    const SceneObject* target = targetMatrix();
-    if (target && m_mode == AppMode::Space3D) {
-        if (breakdownActive()) {
-            o.overrideMatrix = target->id();
-            o.overrideValue = m_breakdownPanel.current();
-            int steps = static_cast<int>(m_breakdownPanel.breakdown().steps.size());
-            int done = std::min(m_breakdownPanel.completedSteps(), steps);
-            for (int k = 1; k <= done && k < steps; k++) o.ghosts.push_back(m_breakdownPanel.breakdown().after(k));
-        }
-    }
+    if (breakdownActive()) m_session.applyBreakdown(o, m_breakdownPanel.player());
     return o;
 }
 
@@ -231,33 +222,7 @@ void App::drawUi(float deltaTime) {
     ui::drawTooltip(m_uiSettings.tooltips && !m_help.visible());
 }
 
-StepsInput App::stepsInput() const {
-    StepsInput in;
-    in.mode = m_mode;
-    in.matrix = matrix();
-    in.is4x4 = using4x4();
-    // Vectors: the selected ones, else a and b
-    std::vector<Vector3D> vectors;
-    const scene::Space& sp = m_scene.space(SpaceKind::Euclidean3D);
-    for (auto id : const_cast<scene::Scene&>(m_scene).selection(SpaceKind::Euclidean3D).ids) {
-        const SceneObject* o = sp.find(id);
-        if (o && o->value().type == expr::Type::Vector) vectors.push_back(o->value().vector);
-    }
-    in.a = vectors.size() > 0 ? vectors[0] : vectorA();
-    in.b = vectors.size() > 1 ? vectors[1] : vectorB();
-    // Complex numbers: the selected ones, else z1 and z2
-    std::vector<Complex> numbers;
-    const scene::Space& cp = m_scene.space(SpaceKind::Complex);
-    for (auto id : const_cast<scene::Scene&>(m_scene).selection(SpaceKind::Complex).ids) {
-        const SceneObject* o = cp.find(id);
-        if (o && o->value().isNumber() && o->typeId() != "parameter")
-            numbers.push_back(Complex(static_cast<float>(o->value().re), static_cast<float>(o->value().im)));
-    }
-    in.z1 = numbers.size() > 0 ? numbers[0] : complexValue("z1");
-    in.z2 = numbers.size() > 1 ? numbers[1] : complexValue("z2");
-    in.theta = static_cast<float>(parameterValue("theta", AppMode::Complex));
-    return in;
-}
+StepsInput App::stepsInput() const { return m_session.stepsInput(); }
 
 void App::drawFloatingPanels() {
     bool space3d = (m_mode == AppMode::Space3D);

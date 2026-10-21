@@ -7,11 +7,11 @@ namespace linalg {
 
 // User preferences, kept separate from scenes: theme, interface size,
 // tooltips, panel layout, window size... Stored as key = value text in
-// $XDG_CONFIG_HOME/axismundi/settings.txt (default ~/.config/axismundi/).
+// $XDG_CONFIG_HOME/axismundi/settings.txt (default ~/.config/axismundi/); the GTK app uses gtk.txt there.
 struct Preferences {
-    static std::string path();
-    static bool load(SceneData& data);
-    static bool save(const SceneData& data, std::string& error);
+    static std::string path(const std::string& file = "settings.txt");
+    static bool load(SceneData& data, const std::string& file = "settings.txt");
+    static bool save(const SceneData& data, std::string& error, const std::string& file = "settings.txt");
 };
 
 // Settings that the settings popover edits

@@ -33,11 +33,7 @@ std::string describe(const scene::ParameterObject& p) {
 
 } // namespace
 
-void TimePanel::togglePlay(scene::Scene& sc) {
-    scene::Timeline& tl = sc.timeline();
-    if (!tl.playing && !tl.loop && tl.time >= sc.timelineLength() - 1e-6) tl.time = 0.0;
-    tl.playing = !tl.playing;
-}
+void TimePanel::togglePlay(scene::Scene& sc) { sc.togglePlay(); }
 
 float TimePanel::drawContent(Rectangle area, scene::Scene& sc, scene::SpaceKind kind) {
     const ui::Theme& t = ui::theme();

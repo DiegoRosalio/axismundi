@@ -273,3 +273,62 @@ void testExplain() {
     CHECK(contains(explainPolar(Complex(0, 2), "z"), "arg z = atan2(2, 0) = 90°"));
     CHECK(contains(explainEuler(3.14159265f), "e^(iθ) = −1 + 0i"));
 }
+
+void testBreakdownPlayer() {
+    BreakdownPlayer p;
+    Matrix4D m = Matrix4D::identity();
+    m.m[0][0] = 2.0f;  // a stretch
+    m.m[0][1] = 1.0f;  // and a shear: rotate, stretch, rotate
+    p.setMatrix(m);
+    int n = p.stepCount();
+    CHECK(n >= 2);
+    CHECK(!p.playing() && p.progress() == 0.0f);
+    p.restart();
+    CHECK(p.playing());
+    for (int i = 0; i < 2000 && !p.finished(); i++) p.update(1.0f / 60.0f);
+    CHECK(p.finished());
+    p.update(0.1f);  // reaches the end
+    p.update(0.1f);  // and stops there
+    CHECK(!p.playing());
+    // At the end the matrix is the input
+    Matrix4D end = p.current();
+    CHECK_NEAR(end.m[0][0], 2.0f, 1e-3f);
+    CHECK_NEAR(end.m[0][1], 1.0f, 1e-3f);
+    // Seek, previous, next pause and land on step boundaries
+    p.seek(1.5f);
+    CHECK(!p.playing() && p.completedSteps() == 1);
+    p.previous();
+    CHECK_NEAR(p.progress(), 1.0f, 1e-6f);
+    p.next();
+    CHECK_NEAR(p.progress(), 2.0f, 1e-6f);
+    p.seek(100.0f);
+    CHECK_NEAR(p.progress(), static_cast<float>(n), 1e-6f);
+    p.togglePlay();  // at the end: starts over
+    CHECK(p.playing() && p.progress() == 0.0f);
+    // The same matrix again keeps the progress
+    p.seek(1.0f);
+    p.setMatrix(m);
+    CHECK_NEAR(p.progress(), 1.0f, 1e-6f);
+}
+
+void testStepTopics() {
+    CHECK(stepTopics(false).size() == 6 && stepTopics(true).size() == 4);
+    StepsInput in;
+    in.matrix.m[0][0] = 3.0f;
+    in.a = Vector3D(1, 0, 0);
+    in.b = Vector3D(0, 1, 0);
+    auto hasResult = [](const Explanation& e) {
+        for (const auto& l : e)
+            if (l.kind == ExplainLine::Kind::Result) return true;
+        return false;
+    };
+    for (int t = 0; t < 6; t++) CHECK(hasResult(explainTopic(in, t)));
+    in.is4x4 = true;
+    Explanation eig = explainTopic(in, 5);
+    CHECK(!eig.empty() && eig.front().kind == ExplainLine::Kind::Note);
+    in.complexPlane = true;
+    in.z1 = Complex(1, 1);
+    in.z2 = Complex(0, 1);
+    for (int t = 0; t < 4; t++) CHECK(!explainTopic(in, t).empty());
+}
+

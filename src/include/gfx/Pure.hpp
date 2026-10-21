@@ -44,7 +44,7 @@ inline Vector2 worldToScreen(Vector3 position, const Camera3D& camera, int width
         proj = MatrixOrtho(-right, right, -top, top, kNearPlane, kFarPlane);
     }
     Matrix view = MatrixLookAt(camera.position, camera.target, camera.up);
-    Quaternion p = {position.x, position.y, position.z, 1.0f};
+    ::Quaternion p = {position.x, position.y, position.z, 1.0f};  // raylib's (a Vector4), not linalg::Quaternion
     p = QuaternionTransform(p, view);
     p = QuaternionTransform(p, proj);
     Vector3 ndc = {p.x / p.w, -p.y / p.w, p.z / p.w};

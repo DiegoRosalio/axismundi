@@ -34,36 +34,10 @@ float StepsPanel::drawContent(Rectangle area, const StepsInput& in) {
     float x = area.x + pad, w = area.width - 2 * pad;
     float y = area.y + ui::px(12.0f);
 
-    Explanation e;
-    if (in.mode == AppMode::Space3D) {
-        static const char* topics[] = {"A · B", "A × B", "M · A", "det M", "M⁻¹", "Eigenvalues"};
-        y += chips({x, y, w, 0}, topics, 6, m_matrixTopic) + ui::px(14.0f);
-        Matrix3D linear;
-        for (int i = 0; i < 3; i++)
-            for (int j = 0; j < 3; j++) linear.m[i][j] = in.matrix.m[i][j];
-        switch (m_matrixTopic) {
-            case 0: e = explainDot(in.a, in.b); break;
-            case 1: e = explainCross(in.a, in.b); break;
-            case 2: e = explainMatVec(in.matrix, in.is4x4, in.a); break;
-            case 3: e = explainDeterminant(in.matrix, in.is4x4); break;
-            case 4: e = explainInverse(in.matrix, in.is4x4); break;
-            default: e = explainEigen(linear); break;
-        }
-        if (in.is4x4 && m_matrixTopic == 5) e.insert(e.begin(), {ExplainLine::Kind::Note,
-                                                                 "Using the upper-left 3×3 (linear) part."});
-    } else if (in.mode == AppMode::Complex) {
-        static const char* topics[] = {"z₁ · z₂", "Polar z₁", "Polar z₂", "Euler"};
-        y += chips({x, y, w, 0}, topics, 4, m_complexTopic) + ui::px(14.0f);
-        switch (m_complexTopic) {
-            case 0: e = explainComplexProduct(in.z1, in.z2); break;
-            case 1: e = explainPolar(in.z1, "z₁"); break;
-            case 2: e = explainPolar(in.z2, "z₂"); break;
-            default: e = explainEuler(in.theta); break;
-        }
-    } else {
-        return y - area.y;
-    }
-
+    const auto& topics = stepTopics(in.complexPlane);
+    int& topic = in.complexPlane ? m_complexTopic : m_matrixTopic;
+    y += chips({x, y, w, 0}, topics.data(), static_cast<int>(topics.size()), topic) + ui::px(14.0f);
+    Explanation e = explainTopic(in, topic);
     bool first = true;
     for (const auto& line : e) {
         switch (line.kind) {

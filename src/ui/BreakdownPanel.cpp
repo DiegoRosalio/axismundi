@@ -8,69 +8,10 @@
 
 namespace linalg {
 
-namespace {
-
-constexpr float kStepsPerSecond = 0.6f;
-constexpr float kHoldSeconds = 0.6f;
-
-bool sameMatrix(const Matrix4D& a, const Matrix4D& b) {
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            if (std::fabs(a.m[i][j] - b.m[i][j]) > 1e-6f) return false;
-    return true;
-}
-
-float smooth(float f) { return f * f * (3.0f - 2.0f * f); }
-
-} // namespace
-
-void BreakdownPanel::setMatrix(const Matrix4D& m) {
-    if (m_hasMatrix && sameMatrix(m, m_matrix)) return;
-    m_matrix = m;
-    m_hasMatrix = true;
-    m_breakdown = linalg::breakdown(m);
-    m_t = std::min(m_t, static_cast<float>(m_breakdown.steps.size()));
-}
-
-void BreakdownPanel::restart() {
-    m_t = 0.0f;
-    m_hold = 0.0f;
-    m_playing = true;
-}
-
-int BreakdownPanel::completedSteps() const {
-    return static_cast<int>(std::floor(m_t + 1e-4f));
-}
-
-Matrix4D BreakdownPanel::current() const {
-    float k = std::floor(m_t);
-    return m_breakdown.at(k + smooth(m_t - k));
-}
-
-void BreakdownPanel::update(float dt) {
-    float n = static_cast<float>(m_breakdown.steps.size());
-    if (!m_playing) return;
-    if (m_t >= n) {
-        m_playing = false;
-        return;
-    }
-    if (m_hold > 0.0f) {
-        m_hold -= dt;
-        return;
-    }
-    float before = m_t;
-    m_t = std::min(n, m_t + dt * kStepsPerSecond);
-    // Pause briefly whenever a step finishes
-    if (std::floor(m_t) > std::floor(before) && m_t < n) {
-        m_t = std::floor(m_t);
-        m_hold = kHoldSeconds;
-    }
-}
-
 float BreakdownPanel::drawContent(Rectangle area) {
     const ui::Theme& t = ui::theme();
     ui::Column col(area.x + ui::px(ui::kPad), area.y + ui::px(12.0f), area.width - 2 * ui::px(ui::kPad));
-    const auto& steps = m_breakdown.steps;
+    const auto& steps = m_player.breakdown().steps;
     int n = static_cast<int>(steps.size());
 
     float h = ui::textWrapped({col.x(), col.y(), col.width(), 0},
@@ -87,17 +28,15 @@ float BreakdownPanel::drawContent(Rectangle area) {
     // Steps
     for (int i = 0; i < n; i++) {
         Rectangle row = col.row(46.0f);
-        bool done = m_t >= i + 1 - 1e-4f;
-        bool current = !done && m_t > i - 1e-4f && m_t < i + 1;
+        float at = m_player.progress();
+        bool done = at >= i + 1 - 1e-4f;
+        bool current = !done && at > i - 1e-4f && at < i + 1;
         bool hover = ui::hovered(row);
-        if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) {
-            m_t = static_cast<float>(i + 1);
-            m_playing = false;
-        }
+        if (hover && ui::mousePressed(MOUSE_BUTTON_LEFT)) m_player.seek(static_cast<float>(i + 1));
         if (current || hover) ui::fillRounded(row, ui::px(ui::kRadius), current ? t.accentSoft : t.hover);
         if (current) {
             // Progress of the running step as a bar along the bottom edge
-            float f = m_t - i;
+            float f = m_player.progress() - i;
             Rectangle bar = {row.x + ui::px(6), row.y + row.height - ui::px(4), (row.width - ui::px(12)) * f,
                              ui::px(3)};
             ui::fillRounded(bar, ui::px(1.5f), t.accent);
@@ -134,30 +73,18 @@ float BreakdownPanel::drawContent(Rectangle area) {
     Rectangle prevBtn = ui::takeLeft(row, 32.0f, 4.0f);
     Rectangle playBtn = ui::takeLeft(row, 32.0f, 4.0f);
     Rectangle nextBtn = ui::takeLeft(row, 32.0f, 12.0f);
-    if (ui::iconButton(restartBtn, ui::Icon::Reset)) restart();
-    if (ui::iconButton(prevBtn, ui::Icon::ChevronLeft, false, m_t > 0)) {
-        m_t = std::max(0.0f, std::ceil(m_t - 1.0f - 1e-4f));
-        m_playing = false;
-    }
-    if (ui::iconButton(playBtn, m_playing ? ui::Icon::Pause : ui::Icon::Play, m_playing)) {
-        if (m_playing) m_playing = false;
-        else if (m_t >= n) restart();
-        else m_playing = true;
-    }
-    if (ui::iconButton(nextBtn, ui::Icon::ChevronRight, false, m_t < n)) {
-        m_t = std::min(static_cast<float>(n), std::floor(m_t + 1e-4f) + 1.0f);
-        m_playing = false;
-    }
+    if (ui::iconButton(restartBtn, ui::Icon::Reset)) m_player.restart();
+    if (ui::iconButton(prevBtn, ui::Icon::ChevronLeft, false, m_player.progress() > 0)) m_player.previous();
+    bool playing = m_player.playing();
+    if (ui::iconButton(playBtn, playing ? ui::Icon::Pause : ui::Icon::Play, playing)) m_player.togglePlay();
+    if (ui::iconButton(nextBtn, ui::Icon::ChevronRight, false, m_player.progress() < n)) m_player.next();
     ui::tooltip(restartBtn, "Start again from the identity and play", "Restart");
     ui::tooltip(prevBtn, "Back one step", "Previous");
     ui::tooltip(playBtn, "Play or pause", "Play");
     ui::tooltip(nextBtn, "Jump to the end of the next step", "Next");
 
-    float tValue = m_t;
-    if (ui::slider(row, tValue, 0.0f, static_cast<float>(n))) {
-        m_t = tValue;
-        m_playing = false;
-    }
+    float tValue = m_player.progress();
+    if (ui::slider(row, tValue, 0.0f, static_cast<float>(n))) m_player.seek(tValue);
     // Step boundaries as ticks under the slider
     for (int i = 1; i < n; i++) {
         float knob = ui::px(7.0f);

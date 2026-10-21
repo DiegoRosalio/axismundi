@@ -7,7 +7,9 @@
 
 #include "gfx/Overlay.hpp"
 #include "math/Complex.hpp"
+#include "math/Breakdown.hpp"
 #include "math/Decompositions.hpp"
+#include "math/Explain.hpp"
 #include "math/Matrix3D.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
@@ -113,6 +115,11 @@ public:
     Complex complexValue(const std::string& name) const;
     double parameterValue(const std::string& name, AppMode mode) const;
     EigenResult eigen() const;
+    // What the Steps panel works on: the selected vectors / complex numbers, else a, b / z1, z2; M; theta
+    StepsInput stepsInput() const;
+    // While the breakdown is shown: the target matrix drawn at the player's progress, with the finished steps as
+    // ghosts (3D space only)
+    void applyBreakdown(view::DrawOptions& options, const BreakdownPlayer& player) const;
 
 private:
     std::string convertOldKeyframes(const SceneData& data);

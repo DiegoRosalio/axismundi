@@ -25,59 +25,6 @@ std::string lower(std::string s) {
     return s;
 }
 
-std::string num(double v) {
-    if (std::fabs(v) < 1e-6) v = 0.0;  // float noise such as cos(pi/2)
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%.4g", v);
-    return buf;
-}
-
-// Compact one-line result: 512, 1 + 2i, (1, 0, 0), [1 2 0; 0 1 0; 0 0 1]
-std::string compact(const expr::Value& v) {
-    using expr::Type;
-    switch (v.type) {
-        case Type::Scalar: return num(v.re);
-        case Type::Complex: {
-            if (std::fabs(v.im) < 1e-6) return num(v.re);
-            std::string im = num(std::fabs(v.im)) + "i";
-            if (std::fabs(v.re) < 1e-6) return (v.im < 0 ? "−" : "") + im;
-            return num(v.re) + (v.im < 0 ? " − " : " + ") + im;
-        }
-        case Type::Vector:
-            return "(" + num(v.vector.x) + ", " + num(v.vector.y) + ", " + num(v.vector.z) + ")";
-        case Type::Matrix: {
-            std::string s = "[";
-            for (int i = 0; i < v.size; i++) {
-                if (i) s += "; ";
-                for (int j = 0; j < v.size; j++) s += (j ? " " : "") + num(v.matrix.m[i][j]);
-            }
-            return s + "]";
-        }
-        case Type::Quaternion: return v.summary();
-        case Type::Error: return v.error;
-    }
-    return "";
-}
-
-expr::Value evaluate(const std::string& text, const expr::Resolver* resolver, double time, unsigned variables,
-                     std::string& error) {
-    expr::Program p;
-    if (!p.compile(text, variables)) {
-        error = p.error();
-        return expr::Value::fail(error);
-    }
-    expr::Slots slots;
-    slots.x = 1.0;
-    slots.y = 2.0;
-    slots.t = time;
-    slots.u = 0.5;
-    slots.z = 3.0;
-    slots.hasX = slots.hasY = slots.hasT = slots.hasU = slots.hasZ = true;
-    expr::Value v = p.eval(resolver, &slots);
-    if (!v.ok()) error = v.error;
-    return v;
-}
-
 } // namespace
 
 void ReferencePanel::setTryText(const std::string& text) {
@@ -99,7 +46,7 @@ float ReferencePanel::drawContent(Rectangle area, const expr::Resolver* resolver
     std::string tryError;
     expr::Value tried;
     bool hasTry = m_try[0] != '\0';
-    if (hasTry) tried = evaluate(m_try, resolver, time, 0, tryError);
+    if (hasTry) tried = expr::evaluateExample(m_try, resolver, time, 0, tryError);
     ui::textField(tryBox, m_try, sizeof(m_try), kTryId, m_activeId, hasTry && !tried.ok());
     ui::anchor("reference.try", tryBox);
     if (!hasTry && m_activeId != kTryId)
@@ -120,7 +67,7 @@ float ReferencePanel::drawContent(Rectangle area, const expr::Resolver* resolver
                 ui::textIn(col.row(18), (line + " ]").c_str(), ui::FontRole::Mono, t.text);
             }
         } else {
-            std::string line = tried.ok() ? "= " + compact(tried) + "   (" + tried.typeName() + ")" : tryError;
+            std::string line = tried.ok() ? "= " + expr::compactValue(tried) + "   (" + tried.typeName() + ")" : tryError;
             float h = ui::textWrapped({col.x(), col.y(), col.width(), 0}, line.c_str(),
                                       tried.ok() ? ui::FontRole::Mono : ui::FontRole::Small,
                                       tried.ok() ? t.text : t.danger);
@@ -189,16 +136,15 @@ float ReferencePanel::drawContent(Rectangle area, const expr::Resolver* resolver
                 if (hover) ui::fillRounded(r, ui::px(6.0f), t.hover);
                 if (ui::clicked(r)) setTryText(e->example);
                 std::string error;
-                expr::Value v = evaluate(e->example, resolver, time,
-                                         sec.title.find("Time") == 0 ? (expr::kVarU | expr::kVarZ) : 0u, error);
+                expr::Value v = expr::evaluateExample(e->example, resolver, time, expr::exampleVariables(sec), error);
                 Rectangle inner = {r.x + ui::px(12), r.y, r.width - ui::px(20), r.height};
                 Rectangle eg = ui::takeLeft(inner, 30.0f, 4.0f);
                 ui::textIn(eg, "e.g.", ui::FontRole::Small, t.textFaint);
                 std::string shown = e->example + "   →   " +
-                                    (v.ok() ? compact(v) : (e->usesObjects ? "needs your objects" : error));
+                                    (v.ok() ? expr::compactValue(v) : (e->usesObjects ? "needs your objects" : error));
                 ui::textIn(inner, ui::ellipsize(shown.c_str(), ui::FontRole::Mono, inner.width).c_str(),
                            ui::FontRole::Mono, v.ok() ? t.textMuted : t.textFaint);
-                ui::tooltip(r, (v.ok() ? "= " + compact(v) + ". Click to copy it into the box above."
+                ui::tooltip(r, (v.ok() ? "= " + expr::compactValue(v) + ". Click to copy it into the box above."
                                        : (e->usesObjects ? "Uses objects such as a, b or M; they must exist in this "
                                                            "space. Click to try it."
                                                          : error))

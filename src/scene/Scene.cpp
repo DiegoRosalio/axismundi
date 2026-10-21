@@ -365,6 +365,11 @@ void Scene::loadV1(const SceneData& data) {
 
 // --- Undo -------------------------------------------------------------------------
 
+void Scene::togglePlay() {
+    if (!m_timeline.playing && !m_timeline.loop && m_timeline.time >= timelineLength() - 1e-6) m_timeline.time = 0.0;
+    m_timeline.playing = !m_timeline.playing;
+}
+
 void Scene::commit() {
     SceneData now;
     save(now, false);

@@ -49,6 +49,8 @@ void testAnalysis();
 void testExplain();
 void testQuaternion();
 void testBreakdown();
+void testBreakdownPlayer();
+void testStepTopics();
 void testExprEngine();
 void testScene();
 
@@ -90,6 +92,8 @@ int main() {
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},
+        {"Breakdown player", testBreakdownPlayer},
+        {"Steps topics", testStepTopics},
         {"ExprEngine", testExprEngine},
         {"Scene", testScene},
     };

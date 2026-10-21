@@ -358,4 +358,37 @@ Explanation explainEuler(float theta) {
     return e;
 }
 
+const std::vector<const char*>& stepTopics(bool complexPlane) {
+    static const std::vector<const char*> space = {"A · B", "A × B", "M · A", "det M", "M⁻¹", "Eigenvalues"};
+    static const std::vector<const char*> plane = {"z₁ · z₂", "Polar z₁", "Polar z₂", "Euler"};
+    return complexPlane ? plane : space;
+}
+
+Explanation explainTopic(const StepsInput& in, int topic) {
+    Explanation e;
+    if (!in.complexPlane) {
+        Matrix3D linear;
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) linear.m[i][j] = in.matrix.m[i][j];
+        switch (topic) {
+            case 0: e = explainDot(in.a, in.b); break;
+            case 1: e = explainCross(in.a, in.b); break;
+            case 2: e = explainMatVec(in.matrix, in.is4x4, in.a); break;
+            case 3: e = explainDeterminant(in.matrix, in.is4x4); break;
+            case 4: e = explainInverse(in.matrix, in.is4x4); break;
+            default: e = explainEigen(linear); break;
+        }
+        if (in.is4x4 && topic == 5) e.insert(e.begin(), {ExplainLine::Kind::Note, "Using the upper-left 3×3 (linear) part."});
+    } else {
+        switch (topic) {
+            case 0: e = explainComplexProduct(in.z1, in.z2); break;
+            case 1: e = explainPolar(in.z1, "z₁"); break;
+            case 2: e = explainPolar(in.z2, "z₂"); break;
+            default: e = explainEuler(in.theta); break;
+        }
+    }
+    return e;
+}
+
 } // namespace linalg
+
