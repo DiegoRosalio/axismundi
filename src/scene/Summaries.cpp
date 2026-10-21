@@ -142,4 +142,29 @@ std::string polynomialText(const taylor::Series& s, int maxTerms) {
     return out.empty() ? "0" : out;
 }
 
+std::string fieldPreview(const Space& space, const SceneObject& object, const Field& field, const std::string& text,
+                         bool& ok) {
+    ok = false;
+    expr::Program probe;
+    if (!probe.compile(text, field.variables())) return probe.error();
+    expr::Slots slots;
+    slots.t = object.time();
+    slots.hasT = true;
+    if (field.expect == Expect::Plot || field.expect == Expect::Field) {
+        slots.x = 0.37;
+        slots.y = 0.29;
+        slots.u = 0.41;
+        slots.z = 0.23;
+        slots.hasX = slots.hasY = slots.hasU = slots.hasZ = true;
+    }
+    expr::Value v = probe.eval(&space, &slots);
+    std::string err = checkExpect(field.expect, v);
+    if (!err.empty()) return err;
+    if (field.expect == Expect::Plot) return "plot formula, e.g. " + v.summary() + " at the sample point";
+    ok = true;
+    if (field.expect == Expect::Field) return "field formula, e.g. F = " + v.summary() + " at (0.37, 0.29, 0.23)";
+    return "= " + v.summary() + "   (" + v.typeName() + ")";
+}
+
 } // namespace linalg::scene
+

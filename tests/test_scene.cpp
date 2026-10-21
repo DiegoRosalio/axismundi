@@ -966,5 +966,15 @@ void testAnalysis() {
     for (const auto& s : mat.sections)
         if (s.key == "lu") luClosed = !s.expanded;
     CHECK(luClosed);
+
+    // The formula editor's live result
+    bool ok = false;
+    const scene::Field* value = a->field("value");
+    std::string shown = scene::fieldPreview(sc.space(SpaceKind::Euclidean3D), *a, *value, "b + [1, 0, 0]", ok);
+    CHECK(ok && shown.rfind("= ", 0) == 0 && shown.find("vector") != std::string::npos);
+    scene::fieldPreview(sc.space(SpaceKind::Euclidean3D), *a, *value, "nothing + 1", ok);
+    CHECK(!ok);
+    scene::fieldPreview(sc.space(SpaceKind::Euclidean3D), *a, *value, "(1 +", ok);
+    CHECK(!ok);
 }
 

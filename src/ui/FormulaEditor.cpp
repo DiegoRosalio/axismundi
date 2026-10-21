@@ -1,4 +1,5 @@
 #include "ui/FormulaEditor.hpp"
+#include "scene/Summaries.hpp"
 #include "ui/Widgets.hpp"
 #include "ui/core/Layout.hpp"
 #include "ui/core/Theme.hpp"
@@ -68,35 +69,8 @@ bool FormulaEditor::draw(scene::Scene& sc) {
     if (ev == ui::EditorEvent::Commit && enter && !m_justOpened && syntaxOk) done = apply();
 
     // Live result, evaluated like the object does (t = scene time; sample x, y, u for plots)
-    std::string result;
     bool ok = false;
-    if (!syntaxOk) {
-        result = probe.error();
-    } else {
-        expr::Slots slots;
-        slots.t = obj->time();
-        slots.hasT = true;
-        if (field->expect == scene::Expect::Plot || field->expect == scene::Expect::Field) {
-            slots.x = 0.37;
-            slots.y = 0.29;
-            slots.u = 0.41;
-            slots.z = 0.23;
-            slots.hasX = slots.hasY = slots.hasU = slots.hasZ = true;
-        }
-        expr::Value v = probe.eval(&sc.space(m_kind), &slots);
-        std::string err = scene::checkExpect(field->expect, v);
-        if (!err.empty()) {
-            result = err;
-        } else if (field->expect == scene::Expect::Plot) {
-            result = "plot formula, e.g. " + v.summary() + " at the sample point";
-        } else if (field->expect == scene::Expect::Field) {
-            result = "field formula, e.g. F = " + v.summary() + " at (0.37, 0.29, 0.23)";
-            ok = true;
-        } else {
-            result = "= " + v.summary() + "   (" + v.typeName() + ")";
-            ok = true;
-        }
-    }
+    std::string result = scene::fieldPreview(sc.space(m_kind), *obj, *field, m_text, ok);
     float rh = ui::textWrapped({col.x(), col.y(), col.width(), 0}, result.c_str(),
                                ok ? ui::FontRole::Mono : ui::FontRole::Small, ok ? t.text : t.danger);
     col.space(rh / ui::scale() + 6.0f);
