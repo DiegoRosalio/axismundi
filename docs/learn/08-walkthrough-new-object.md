@@ -59,7 +59,7 @@ the slope triangle and the secant, in normal and Paper looks), an `anchor` (the 
 
 | What | Where |
 |------|-------|
-| Add-menu template (select a function → "Tangent line on f") | `AddMenu::templates`, `src/ui/AddMenu.cpp` |
+| Add-menu template (select a function → "Tangent line on f") | `addTemplates`, `src/scene/Templates.cpp` |
 | Analysis panel section | `InfoPanel::update`, `src/ui/InfoPanel.cpp` |
 | LaTeX export | `exportTangent` and its table row, `src/export/LatexObjects.cpp` |
 | Tests of the model | `tests/test_scene.cpp` (search "Derivative objects") |

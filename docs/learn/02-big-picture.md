@@ -36,7 +36,10 @@ or a graphics card (`make test`, chapter 9). If you ever see `#include <raylib.h
 | `src/rendering/` | Camera, grid (and its shader), arrows, plot and field meshes |
 | `src/view/` | `SceneView`, view styles, the per-type drawing table (`view/objects/`), axis numbers |
 | `src/ui/` | Every panel, the inspector, the add menu, file dialogs; `ui/core/` is the small UI toolkit |
-| `src/edu/` | Tutorial lessons and gallery examples, written against the App API |
+| `src/app/` | `App` (the raylib front end: window, panels, main loop), `Session` (what both front ends share), the tour |
+| `src/gfx/` | The one door from the 3D drawing code to the graphics library (`Canvas3D`) |
+| `src/gtk/` | The GTK4 front end in progress (`docs/gtk-port.md`) |
+| `src/edu/` | Tutorial lessons and gallery examples, written against `AppApi` |
 | `src/include/` | All headers, in the same folder structure |
 | `tests/` | Unit tests |
 | `tools/dev/` | Build, test, screenshot and input-test scripts |
@@ -57,12 +60,15 @@ or a graphics card (`make test`, chapter 9). If you ever see `#include <raylib.h
 
 ## Who owns what
 
-`App` (in `src/include/app/App.hpp`) holds almost everything as members, so their lifetime is the program's:
+`App` (in `src/include/app/App.hpp`) holds almost everything as members, so their lifetime is the program's. The
+part that doesn't depend on raylib's window or panels is grouped in a `Session` (`src/include/app/Session.hpp`),
+which the GTK front end uses too; App keeps references into it as shortcuts:
 
 ```cpp
-    scene::Scene m_scene;
-    view::SceneView m_sceneView;
-    CameraController m_camera;
+    Session m_session;
+    scene::Scene& m_scene = m_session.scene();
+    view::SceneView& m_sceneView = m_session.sceneView();
+    CameraController& m_camera = m_session.camera();
 ```
 
 - `m_scene` is the **model**: the two spaces (3D and the complex plane), their objects, the selection, the
@@ -77,9 +83,11 @@ tests.
 
 ## The App API
 
-Tutorial lessons, gallery examples and the screenshot tour drive the app through a small public API on `App`:
-`addObject`, `select`, `setCameraView`, `resetCamera`, `setMode`, ... A gallery example
-(`src/edu/Examples.cpp`) is just a function that calls these:
+Tutorial lessons and gallery examples drive the app through a small interface, `AppApi`
+(`src/include/app/AppApi.hpp`): `addObject`, `select`, `setCameraView`, `resetCamera`, `setMode`, ... Most of it
+forwards to the `Session`; the few functions that touch a front end's own panels are virtual (chapter 1), so each
+front end (the raylib `App`, later the GTK app) implements them. A gallery example (`src/edu/Examples.cpp`) is just
+a function that calls these:
 
 ```cpp
                         app.addObject(AppMode::Space3D, "frame", "P", {{"u0", "mod(t, 4pi)"}});

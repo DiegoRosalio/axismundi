@@ -106,15 +106,8 @@ void App::setMode(AppMode mode) {
     applyModeChange();
 }
 
-SceneObject* App::object(const std::string& name, AppMode mode) { return m_session.object(name, mode); }
 
-SceneObject* App::addObject(AppMode mode, const std::string& typeId, const std::string& name,
-                            const std::map<std::string, std::string>& fields,
-                            const std::map<std::string, std::string>& props) {
-    return m_session.addObject(mode, typeId, name, fields, props);
-}
 
-void App::select(const std::string& name, AppMode mode, bool add) { m_session.select(name, mode, add); }
 
 void App::clearSpace(AppMode mode) {
     m_scenePanel.cancelEditing();
@@ -126,10 +119,6 @@ void App::resetScene() {
     m_session.resetScene();
 }
 
-void App::setMatrix3(const Matrix3D& m) { m_session.setMatrix3(m); }
-void App::setMatrix4(const Matrix4D& m) { m_session.setMatrix4(m); }
-void App::setVectors(const Vector3D& a, const Vector3D& b) { m_session.setVectors(a, b); }
-void App::applyMatrixPreset(const Matrix3D& m) { m_session.applyMatrixPreset(m); }
 
 void App::resetCamera() {
     m_camera.reset(m_mode);
@@ -195,6 +184,21 @@ void App::toast(const std::string& message, bool error) {
     m_toast.timeLeft = 3.0f;
 }
 
+void App::showPanel(const std::string& id, bool visible) {
+    if (ui::FloatingPanel* p = panel(id)) p->setVisible(visible);
+}
+
+bool App::panelVisible(const std::string& id) const {
+    ui::FloatingPanel* p = const_cast<App*>(this)->panel(id);
+    return p && p->visible();
+}
+
+void App::restartBreakdown() { m_breakdownPanel.restart(); }
+
+bool App::breakdownFinished() const {
+    return m_breakdownPanel.progress() >= static_cast<float>(m_breakdownPanel.breakdown().steps.size()) - 1e-3f;
+}
+
 ui::FloatingPanel* App::panel(const std::string& id) {
     for (auto* p : m_panels.panels())
         if (p->id() == id) return p;
@@ -207,13 +211,6 @@ void App::requestScreenshot(bool sceneOnly) {
 
 // --- Read-only state -----------------------------------------------------------
 
-const SceneObject* App::targetMatrix() const { return m_session.targetMatrix(); }
-Matrix4D App::matrix() const { return m_session.matrix(); }
-bool App::using4x4() const { return m_session.using4x4(); }
-Vector3D App::vectorValue(const std::string& name) const { return m_session.vectorValue(name); }
-Complex App::complexValue(const std::string& name) const { return m_session.complexValue(name); }
-double App::parameterValue(const std::string& name, AppMode mode) const { return m_session.parameterValue(name, mode); }
-EigenResult App::eigen() const { return m_session.eigen(); }
 
 // --- Scenes ----------------------------------------------------------------------
 

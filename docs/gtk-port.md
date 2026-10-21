@@ -33,8 +33,8 @@ Each run ends with pushed commits that build without warnings and pass the tests
 | 0 | dependencies installed | done |
 | 1 | skeleton (`make gtk`, Adw window, screenshot mode) + spike: the scene drawn by rlgl in a GLArea, orbit/pan/zoom (⛔ if rlgl can't run in GTK) | done |
 | 2 | `gfx::Canvas3D` + RaylibCanvas; labels as a list; the raylib tour pixel-identical | done |
-| 3 | `Session` + `AppApi` shared by both front ends; edu/ and the tour on AppApi | next |
-| 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | |
+| 3 | `Session` + `AppApi` shared by both front ends; edu/ on AppApi | done |
+| 4 | GTK main window: split view, objects list, Add menu, selection, picking, undo, toasts, files | next |
 | 5 | GTK inspectors I: framework + basic types | |
 | 6 | GTK inspectors II: the remaining types (parallel agents) | |
 | 7 | GTK panels: Analysis, Time, Settings, Export/PDF, Gallery, Reference, Steps, Breakdown, Help | |
@@ -82,8 +82,7 @@ text differs):
 - ~~No antialiasing yet~~ (done in run 2).
 - The demo scene is fixed. No objects list, inspector or files yet (runs 4–5).
 - A click on the view doesn't pick yet (run 4).
-- The grid and label code is duplicated from App (`SceneRenderer::drawGrid/drawLabels`); it moves into the
-  shared Session in run 3.
+- ~~The grid and label code is duplicated from App~~ (shared through Session since run 3).
 - Not tried on a real desktop: Wayland, HiDPI (the view renders at device pixels, so labels follow the scale
   automatically), touchpad gestures.
 
@@ -114,3 +113,37 @@ raymath). A plain-OpenGL `Canvas3D` can now replace raylib by changing `src/gfx`
 - `Session`: the state both front ends share (scene, view settings, camera, clock, files), plus the drawing
   sequence that `App::drawScene/drawGrid/drawSceneLabels` and `gtk::SceneRenderer` now duplicate.
 - `AppApi` for edu/ and the tour.
+
+### Run 3: Session and AppApi (2026-10-21), done
+
+**Result:** the state and the drawing steps both front ends need live in `app/Session`; the lessons and the gallery
+(`edu/`) only know `app/AppApi`, so the GTK app can run them once it implements the UI hooks.
+
+**Commits:**
+- **`scene/Templates`:** AddChoice, `addTemplates` (was `AddMenu::templates`) and `applyAddChoice` leave
+  ui/AddMenu (scene logic, now unit-tested).
+- **`Session`:**
+  - it holds the scene, the mode (one saved camera per space), ViewSettings, the camera, SceneView, the grid,
+    the drawing steps and the scripting functions;
+  - App forwards to it, and ViewPanel edits its ViewSettings by reference;
+  - the GTK SceneRenderer keeps only the GL setup;
+  - `formatNumber` moves to `text/Numbers`.
+- **`AppApi`:** App implements it, and `edu/` uses it instead of `App`. The panel and breakdown access in the
+  lessons became `showPanel`, `panelVisible`, `restartBreakdown` and `breakdownFinished`.
+
+**Checks:**
+- The raylib tour is pixel-identical (111 shots).
+- The lesson walk has 0 problems in 62 steps.
+- `make test` (4,418) and `check.sh` pass, as do the raylib and GTK input tests and the GTK tour.
+
+**Notes:**
+- The raylib tour (`app/Tour`) still drives `App` directly. It's specific to that front end, and the GTK app has
+  its own tour.
+- Scene files (`App::writeScene/readScene`) still live in App, because they also save panel state. Run 4 moves
+  the scene part into Session for GTK's Open/Save.
+
+**Next (run 4):** the GTK main window:
+- the split view: an objects list in the sidebar next to the 3D view;
+- the Add menu (types + templates);
+- selection and picking in the view;
+- undo/redo, toasts, files (Gtk::FileDialog).

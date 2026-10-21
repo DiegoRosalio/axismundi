@@ -1,5 +1,5 @@
 #include "edu/Tutorial.hpp"
-#include "app/App.hpp"
+#include "app/AppApi.hpp"
 #include <cmath>
 #include <set>
 
@@ -12,17 +12,17 @@ constexpr float kPi = 3.14159265f;
 bool near(float a, float b, float tol = 0.02f) { return std::fabs(a - b) <= tol; }
 
 // The default picture in the 3D space, with M selected and the analysis open
-void fresh3D(App& app) {
+void fresh3D(AppApi& app) {
     app.setMode(AppMode::Space3D);
     app.restartTime(false);
     app.resetScene();
     app.select("M");
-    if (auto* p = app.panel("analysis")) p->setVisible(true);
+    app.showPanel("analysis", true);
 }
 
 Vector3D column(const Matrix4D& m, int c) { return {m.m[0][c], m.m[1][c], m.m[2][c]}; }
 
-float det(const App& app) {
+float det(const AppApi& app) {
     Matrix4D m = app.matrix();
     if (app.using4x4()) return m.determinant();
     Matrix3D l;
@@ -34,7 +34,7 @@ float det(const App& app) {
 // Names of the vectors the default scene starts with
 const std::set<std::string> kDefaultVectors = {"a", "b", "s", "c", "Ma", "Mb"};
 
-bool anyVector(App& app, bool (*test)(const scene::SceneObject&)) {
+bool anyVector(AppApi& app, bool (*test)(const scene::SceneObject&)) {
     for (const auto& o : app.space(AppMode::Space3D).objects())
         if (o->typeId() == "vector" && o->value().type == expr::Type::Vector && test(*o)) return true;
     return false;
@@ -53,7 +53,7 @@ std::vector<Lesson> build() {
          "wheel to zoom; a click without dragging still selects. The . key centers on the selected object. "
          "Settings also has a fly camera: Tab captures the mouse, then W A S D move you and Esc lets go.",
          nullptr, "Turn the view with a drag, or zoom with the wheel.",
-         [](App& app, const TutorialContext& ctx) { return ctx.cameraModeUsed && app.uiMode(); },
+         [](AppApi& app, const TutorialContext& ctx) { return ctx.cameraModeUsed && app.uiMode(); },
          "Press the left button on an empty part of the view and move the mouse. With the fly camera "
          "(Settings → Camera), press Tab and then Esc.",
          nullptr},
@@ -61,9 +61,8 @@ std::vector<Lesson> build() {
          "The tabs at the top switch between the 3D space (vectors, matrices, plots) and the complex plane. "
          "The gallery has a ready-made example for each idea.",
          nullptr, "Open the example gallery.",
-         [](App& app, const TutorialContext&) {
-             auto* p = app.panel("gallery");
-             return p && p->visible();
+         [](AppApi& app, const TutorialContext&) {
+             return app.panelVisible("gallery");
          },
          "Click the grid icon in the top bar, or press E.", "topbar.gallery"},
     }});
@@ -76,7 +75,7 @@ std::vector<Lesson> build() {
         {"Add a vector",
          "The Add button lists every kind of object, plus templates built from the selection.",
          nullptr, "Add a new vector.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              return anyVector(app, [](const scene::SceneObject& o) { return kDefaultVectors.count(o.name()) == 0; });
          },
          "Click Add (or press N) and choose Vector.", "objects.add"},
@@ -84,7 +83,7 @@ std::vector<Lesson> build() {
          "The new vector is selected, so the inspector shows its components. Every field accepts numbers or "
          "formulas such as sqrt(2).",
          nullptr, "Make a vector that points straight up: (0, 0, 2).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              return anyVector(app, [](const scene::SceneObject& o) {
                  Vector3D v = o.value().vector;
                  return near(v.x, 0) && near(v.y, 0) && near(v.z, 2);
@@ -97,12 +96,12 @@ std::vector<Lesson> build() {
         {"Formulas link objects",
          "s is defined by the formula a + b: change a or b and s follows. Any field can use other objects by "
          "name.",
-         [](App& app) {
+         [](AppApi& app) {
              fresh3D(app);
              app.select("s");
          },
          "Make a vector defined by the formula 2a - b.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              Vector3D target = app.vectorA() * 2.0f - app.vectorB();
              for (const auto& o : app.space(AppMode::Space3D).objects()) {
                  auto* v = dynamic_cast<const scene::VectorObject*>(o.get());
@@ -117,7 +116,7 @@ std::vector<Lesson> build() {
          "a · b multiplies matching components and adds them up; it is zero exactly when the vectors are "
          "perpendicular. Select a and b together (Ctrl+click) to see it in the Analysis panel.",
          nullptr, "Set b to (1, 1, 0).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              Vector3D b = app.vectorB();
              return near(b.x, 1) && near(b.y, 1) && near(b.z, 0);
          },
@@ -126,7 +125,7 @@ std::vector<Lesson> build() {
          "c = cross(a, b) follows the right-hand rule: curl your fingers from a to b and your thumb points "
          "along a × b.",
          nullptr, "Make c point straight down the z-axis.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              Vector3D c = app.vectorA().cross(app.vectorB());
              return c.magnitude() > 0.1f && c.normalized().z < -0.99f;
          },
@@ -141,7 +140,7 @@ std::vector<Lesson> build() {
         {"Send x to y",
          "Change the first column and watch the orange arrow (the image of the x-axis) follow.",
          nullptr, "Make the first column (0, 1, 0).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              Vector3D c = column(app.matrix(), 0);
              return near(c.x, 0) && near(c.y, 1) && near(c.z, 0);
          },
@@ -149,7 +148,7 @@ std::vector<Lesson> build() {
         {"A rotation",
          "Rotations keep lengths and angles. Their columns are unit vectors at right angles to each other.",
          nullptr, "Start over with Identity, then apply Rotate 45°.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              Matrix4D m = app.matrix();
              return near(m.m[0][0], 0.7071f, 0.01f) && near(m.m[1][0], 0.7071f, 0.01f) &&
                     near(m.m[0][1], -0.7071f, 0.01f);
@@ -159,7 +158,7 @@ std::vector<Lesson> build() {
          "Each preset is applied on top of the current matrix: rotate, then scale gives scale·rotate. Two 45° "
          "turns make a quarter turn.",
          nullptr, "Apply Rotate 45° once more, so the x-axis lands on the y-axis.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              Matrix4D m = app.matrix();
              return near(m.m[0][0], 0.0f, 0.01f) && near(m.m[1][0], 1.0f, 0.01f) && near(m.m[0][1], -1.0f, 0.01f);
          },
@@ -171,12 +170,12 @@ std::vector<Lesson> build() {
          "det M is the factor by which M scales volumes. When it is 0, space is squashed into a plane, a line or "
          "a point, and the matrix cannot be undone.",
          fresh3D, "Make det M = 0.",
-         [](App& app, const TutorialContext&) { return std::fabs(det(app)) < 1e-3f; },
+         [](AppApi& app, const TutorialContext&) { return std::fabs(det(app)) < 1e-3f; },
          "Set every cell of the third column to 0, or make two columns equal.", "matrix.grid"},
         {"Flip it",
          "A negative determinant means M also mirrors space: a right hand becomes a left hand.",
          fresh3D, "Make det M negative.",
-         [](App& app, const TutorialContext&) { return det(app) < -1e-3f; },
+         [](AppApi& app, const TutorialContext&) { return det(app) < -1e-3f; },
          "The Reflect preset (F) does it, or put −1 in one diagonal cell.", "preset.reflect"},
     }});
 
@@ -184,7 +183,7 @@ std::vector<Lesson> build() {
         {"Purple lines",
          "Along an eigenvector v the matrix only stretches: M v = λ v. The object E draws these directions as "
          "dashed lines with dots at λv. This symmetric matrix has three, at right angles.",
-         [](App& app) {
+         [](AppApi& app) {
              fresh3D(app);
              app.setMatrix3(Matrix3D({{{{2, 1, 0}}, {{1, 2, 0}}, {{0, 0, 3}}}}));
              app.select("M");
@@ -193,7 +192,7 @@ std::vector<Lesson> build() {
         {"Find λ = 5",
          "A diagonal matrix stretches each axis by its diagonal entry, so the axes are eigenvectors.",
          nullptr, "Make a matrix with an eigenvalue of 5.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& ev : app.eigen().values)
                  if (ev.isReal() && near(ev.re, 5.0f, 0.01f)) return true;
              return false;
@@ -205,7 +204,7 @@ std::vector<Lesson> build() {
         {"A slider in a formula",
          "theta is a parameter: a named number with a slider. Here M is defined by the formula rotz(theta), so "
          "M, and everything that uses it, turns when theta changes. A slider is static: it stays where you put it.",
-         [](App& app) {
+         [](AppApi& app) {
              fresh3D(app);
              app.addObject(AppMode::Space3D, "parameter", "theta", {}, {{"value", "0.5"}, {"min", "0"}, {"max", "6.2832"}});
              if (auto* m = dynamic_cast<scene::MatrixObject*>(app.object("M"))) {
@@ -216,7 +215,7 @@ std::vector<Lesson> build() {
              app.select("theta");
          },
          "Drag theta's slider and watch the scene turn.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
              return p && std::fabs(p->number() - 0.5) > 0.2;
          },
@@ -226,7 +225,7 @@ std::vector<Lesson> build() {
          "easing curve shapes the motion (Ease in-out starts and stops gently, Bounce bounces at the end). The Time "
          "panel plays, pauses and scrubs the clock for everything at once.",
          nullptr, "Switch theta to Animate, choose Ping-pong and an easing, then press Play in the Time panel (or P).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
              if (!p || p->mode() != scene::ParameterObject::Mode::Animate) return false;
              Playback pb = p->playback();
@@ -239,7 +238,7 @@ std::vector<Lesson> build() {
          "between ±45°; t/2 grows as long as the clock runs. t works in every formula too: rotz(t), "
          "[cos(t), sin(t), 1], sin(x - t). Drag the Time panel's scrubber to see any moment.",
          nullptr, "Switch theta to Formula and type a formula that uses t, e.g. pi/4*sin(2t).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("theta"));
              if (!p || p->mode() != scene::ParameterObject::Mode::Formula || !p->error().empty()) return false;
              const scene::Field* f = p->field("formula");
@@ -250,7 +249,7 @@ std::vector<Lesson> build() {
          "lerp(A, B, s) blends from A (s = 0) to B (s = 1). Here N = lerp(eye(3), S, s): the identity morphs into the "
          "shear S as the static slider s moves. The Add menu builds this for any selected matrix, vector or "
          "complex number.",
-         [](App& app) {
+         [](AppApi& app) {
              fresh3D(app);
              app.clearSpace(AppMode::Space3D);
              app.addObject(AppMode::Space3D, "matrix", "S", {{"value", "[[1, 1.5, 0], [0, 1, 0], [0, 0, 1]]"}},
@@ -261,7 +260,7 @@ std::vector<Lesson> build() {
              app.select("s");
          },
          "Drag s to 1 and watch the basis shear.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::ParameterObject*>(app.object("s"));
              return p && p->number() > 0.9;
          },
@@ -272,17 +271,14 @@ std::vector<Lesson> build() {
         {"Watch the steps",
          "Every matrix can be done in three simple moves: a rotation, a stretch along the axes, and another "
          "rotation (the singular value decomposition).",
-         [](App& app) {
+         [](AppApi& app) {
              fresh3D(app);
              app.setMatrix3(Matrix3D({{{{1, 0.8f, 0}}, {{0, 1, 0}}, {{0, 0, 1.4f}}}}));
              app.select("M");
          },
          "Open the transformation breakdown and let it play to the end.",
-         [](App& app, const TutorialContext&) {
-             auto* p = app.panel("breakdown");
-             if (!p || !p->visible()) return false;
-             auto& b = app.breakdownPanel();
-             return b.progress() >= static_cast<float>(b.breakdown().steps.size()) - 1e-3f;
+         [](AppApi& app, const TutorialContext&) {
+             return app.panelVisible("breakdown") && app.breakdownFinished();
          },
          "Click the layers icon in the top bar or press B.", "topbar.breakdown"},
     }});
@@ -291,7 +287,7 @@ std::vector<Lesson> build() {
         {"Multiply by i",
          "Complex numbers are points of the plane. w = z1·z2 turns z1 by the angle of z2 and stretches it by the "
          "length of z2.",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Complex);
              app.resetScene();
              if (auto* z = app.object("z2", AppMode::Complex)) z->setField("value", "1");
@@ -300,7 +296,7 @@ std::vector<Lesson> build() {
              app.resetCamera();
          },
          "Set z2 = i.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              Complex z = app.complexValue("z2");
              return near(z.re, 0) && near(z.im, 1);
          },
@@ -308,7 +304,7 @@ std::vector<Lesson> build() {
         {"Double it",
          "The length of the product is the product of the lengths: |z1·z2| = |z1| |z2|.",
          nullptr, "Give z2 length 2 (for example 2i or 2).",
-         [](App& app, const TutorialContext&) { return near(app.complexValue("z2").abs(), 2.0f); },
+         [](AppApi& app, const TutorialContext&) { return near(app.complexValue("z2").abs(), 2.0f); },
          "Try z2 = 2i: the product turns 90° and doubles.", "inspector"},
     }});
 
@@ -316,14 +312,14 @@ std::vector<Lesson> build() {
         {"Half a turn",
          "u = exp(i*theta) is the point at angle theta on the unit circle. Its shadows on the axes are cos θ "
          "and sin θ.",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Complex);
              app.resetScene();
              app.select("theta", AppMode::Complex);
              app.resetCamera();
          },
          "Drag theta to π (about 3.14).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              return near(static_cast<float>(app.parameterValue("theta", AppMode::Complex)), kPi, 0.03f);
          },
          "At θ = π the point reaches −1: e^(iπ) = −1.", "parameter.slider"},
@@ -333,7 +329,7 @@ std::vector<Lesson> build() {
         {"Add a surface",
          "Plots are objects too. A surface z = f(x, y) is a height above every point of the floor.",
          fresh3D, "Add a surface.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects())
                  if (o->typeId() == "surface" && o->error().empty()) return true;
              return false;
@@ -342,7 +338,7 @@ std::vector<Lesson> build() {
         {"Use a parameter",
          "Formulas in plots can use parameters, so a slider can reshape a surface.",
          nullptr, "Make a surface whose formula uses a parameter (add one, e.g. k, then use it).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects())
                  if (o->typeId() == "surface" && o->error().empty() && !o->dependencies().empty()) return true;
              return false;
@@ -355,20 +351,20 @@ std::vector<Lesson> build() {
          "Every rotation in 3D turns by some angle about some axis. A quaternion stores exactly that in four "
          "numbers w + xi + yj + zk: w = cos(angle/2) and (x, y, z) = the axis times sin(angle/2). q here is a "
          "quarter turn about z: 0.707 + 0.707k. The arc shows the angle, the colored axes where x, y, z go.",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Space3D);
              app.restartTime(false);
              app.clearSpace(AppMode::Space3D);
              app.addObject(AppMode::Space3D, "quaternion", "q", {{"value", "qaxis([0, 0, 1], pi/2)"}});
              app.select("q");
              app.setCameraView({4.2f, 3.4f, 4.8f}, {0, 0.6f, 0});
-             if (auto* p = app.panel("analysis")) p->setVisible(true);
+             app.showPanel("analysis", true);
          },
          nullptr, nullptr, nullptr, "quaternion.value"},
         {"Turn further",
          "qaxis(axis, angle) makes the rotation by angle (in radians) about the axis.",
          nullptr, "Make q a half turn (180°) about the z axis.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* q = app.object("q");
              expr::Rotation r;
              return q && expr::rotationOf(q->value(), r) && near(static_cast<float>(r.angle), kPi, 0.01f) &&
@@ -378,7 +374,7 @@ std::vector<Lesson> build() {
         {"Acting on a vector",
          "A quaternion turns vectors: rotate(q, v) = q v q⁻¹. The tip of v moves along a circle around the axis.",
          nullptr, "Switch on \"Acts on a vector\" for q.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* q = app.object("q");
              return q && q->propBool("act", false);
          },
@@ -386,7 +382,7 @@ std::vector<Lesson> build() {
         {"One after the other",
          "Multiplying quaternions combines rotations: q·p means first p, then q (like matrices).",
          nullptr, "Add a quaternion p (e.g. a quarter turn about x) and another one equal to q*p.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects())
                  if (o->typeId() == "quaternion" && o->error().empty() && o->dependencies().size() >= 2) return true;
              return false;
@@ -397,7 +393,7 @@ std::vector<Lesson> build() {
         {"Order matters",
          "Turning about z then x is not the same as x then z. The Analysis panel compares q·p and p·q.",
          nullptr, "Select two quaternions at once.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              int n = 0;
              for (auto id : app.scene().selection(scene::SpaceKind::Euclidean3D).ids) {
                  auto* o = app.space(AppMode::Space3D).find(id);
@@ -410,7 +406,7 @@ std::vector<Lesson> build() {
          "slerp(a, b, s) turns smoothly from a to b as s goes from 0 to 1: the shortest way, at constant "
          "speed. This is why animations and games store rotations as quaternions.",
          nullptr, "Add a quaternion that uses slerp.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects()) {
                  const scene::Field* f = o->field("value");
                  if (o->typeId() == "quaternion" && o->error().empty() && f && f->text.find("slerp") != std::string::npos)
@@ -425,7 +421,7 @@ std::vector<Lesson> build() {
         {"Boxes under a surface",
          "A double integral ∫∫ f dA is the volume between the floor and the surface z = f(x, y). Cut the floor "
          "into squares, stand a box on each one as tall as f, and add the boxes up: that is a Riemann sum.",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Space3D);
              app.restartTime(false);
              app.clearSpace(AppMode::Space3D);
@@ -439,7 +435,7 @@ std::vector<Lesson> build() {
         {"More boxes",
          "Thinner boxes follow the surface more closely, so their sum gets closer to the exact volume (40/3 here).",
          nullptr, "Use at least 12 boxes per side.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* v = dynamic_cast<scene::DoubleIntegralObject*>(app.object("V"));
              return v && v->boxesPerSide() >= 12;
          },
@@ -448,7 +444,7 @@ std::vector<Lesson> build() {
          "Each box takes the height of f at one point. The middle of the box is usually best; the corners make "
          "a bigger error.",
          nullptr, "Switch the rule to Left and compare the error.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* v = app.object("V");
              return v && v->prop("rule", "middle") == "left";
          },
@@ -457,7 +453,7 @@ std::vector<Lesson> build() {
          "A line integral ∫ F·dr adds up how much a vector field pushes along a path: the work. It is green "
          "where F helps the motion and red where it pushes back.",
          nullptr, "Add a work integral.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects())
                  if (o->typeId() == "lineintegral" && o->error().empty()) return true;
              return false;
@@ -466,7 +462,7 @@ std::vector<Lesson> build() {
         {"Against the flow",
          "Reverse the field and every step goes against it: the work becomes negative.",
          nullptr, "Make the work negative.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects())
                  if (o->typeId() == "lineintegral" && o->error().empty() && o->value().re < -0.1) return true;
              return false;
@@ -477,7 +473,7 @@ std::vector<Lesson> build() {
         {"Riding a curve",
          "At every point of a curve there is a natural frame: T points where the curve goes, N towards the center "
          "of the turn, and B = T × N. The circle that hugs the curve best has radius 1/κ: κ is the curvature.",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Space3D);
              app.restartTime(false);
              app.clearSpace(AppMode::Space3D);
@@ -489,7 +485,7 @@ std::vector<Lesson> build() {
         {"Slide along",
          "The point is where u = u0. A formula of t moves it with the scene clock.",
          nullptr, "Make P's \"At u\" follow the clock (use t).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = app.object("P");
              const scene::Field* f = p ? p->field("u0") : nullptr;
              return f && f->program.valid() && f->program.usesT();
@@ -499,7 +495,7 @@ std::vector<Lesson> build() {
          "Torsion τ measures how fast the curve leaves the plane it is turning in. A curve that stays in one "
          "plane has τ = 0.",
          nullptr, "Make the torsion 0 (keep it curved).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::FrameObject*>(app.object("P"));
              return p && p->error().empty() && p->frame().hasNormal && std::fabs(p->frame().tau) < 1e-4;
          },
@@ -507,7 +503,7 @@ std::vector<Lesson> build() {
         {"Tighter turns",
          "A small circle turns more sharply than a big one: κ = 1/radius.",
          nullptr, "Get the curvature above 1.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::FrameObject*>(app.object("P"));
              return p && p->error().empty() && p->frame().kappa > 1.0;
          },
@@ -515,7 +511,7 @@ std::vector<Lesson> build() {
         {"Comb the curvature",
          "The curvature comb draws κ all along the curve: long teeth where it bends sharply.",
          nullptr, "Switch on the curvature comb.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = app.object("P");
              return p && p->propBool("comb", false);
          },
@@ -525,7 +521,7 @@ std::vector<Lesson> build() {
         {"One wave",
          "Fourier's idea: any repeating shape is a sum of sine and cosine waves. Here a square wave (gray) is "
          "approximated by its first wave only: S₁ = (4/π) sin x.",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Space3D);
              app.restartTime(false);
              app.clearSpace(AppMode::Space3D);
@@ -539,7 +535,7 @@ std::vector<Lesson> build() {
          "Each new wave fixes some of the error. The corners get sharper, but a small overshoot stays at each "
          "jump (the Gibbs phenomenon).",
          nullptr, "Use at least 9 terms.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* s = dynamic_cast<scene::FourierSeriesObject*>(app.object("S"));
              return s && s->terms() >= 9;
          },
@@ -552,7 +548,7 @@ std::vector<Lesson> build() {
          "A closed curve in the plane is also a sum of waves: spinning circles, each turning k times per lap. "
          "Added end to end, they trace the curve (epicycles).",
          nullptr, "Add Fourier epicycles in the complex plane.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Complex).objects())
                  if (o->typeId() == "epicycles" && o->error().empty()) return true;
              return false;
@@ -561,7 +557,7 @@ std::vector<Lesson> build() {
         {"Sharper drawing",
          "With more circles the drawing follows the curve more closely.",
          nullptr, "Give the epicycles at least 30 circles.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Complex).objects())
                  if (auto* e = dynamic_cast<scene::EpicyclesObject*>(o.get()); e && e->circles() >= 30) return true;
              return false;
@@ -573,7 +569,7 @@ std::vector<Lesson> build() {
         {"The slope at a point",
          "The derivative f'(x0) is the slope of the tangent line: the straight line that touches the graph at x0. "
          "The triangle shows it: one step right along the tangent climbs f'(x0).",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Space3D);
              app.restartTime(false);
              app.clearSpace(AppMode::Space3D);
@@ -586,7 +582,7 @@ std::vector<Lesson> build() {
         {"Find a flat spot",
          "At the top of a hump or the bottom of a dip the tangent is flat: the slope is 0.",
          nullptr, "Move the point to where the tangent is flat (slope within 0.05 of 0).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* t = dynamic_cast<scene::TangentObject*>(app.object("T"));
              return t && t->error().empty() && std::fabs(t->slope()) < 0.05;
          },
@@ -595,7 +591,7 @@ std::vector<Lesson> build() {
          "Where does the slope come from? Take a second point at x0 + h and draw the line through both (a "
          "secant). As h shrinks, the secant turns into the tangent.",
          nullptr, "Set the secant width h to 0.1 or less (but not 0).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* t = dynamic_cast<scene::TangentObject*>(app.object("T"));
              return t && t->hasSecant() && std::fabs(t->secantH()) <= 0.1;
          },
@@ -604,7 +600,7 @@ std::vector<Lesson> build() {
          "Do this at every x and you get a new function, f'. It is above 0 where f climbs, below 0 where f "
          "falls, and crosses 0 at the flat spots.",
          nullptr, "Turn on Graph of f'.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* t = dynamic_cast<scene::TangentObject*>(app.object("T"));
              return t && t->showDerivative();
          },
@@ -612,7 +608,7 @@ std::vector<Lesson> build() {
         {"Slopes of a surface",
          "A surface z = f(x, y) has a slope in every direction. The red and green arrows climb ∂f/∂x and "
          "∂f/∂y; the arrow on the floor is the gradient, pointing the steepest way up.",
-         [](App& app) {
+         [](AppApi& app) {
              app.clearSpace(AppMode::Space3D);
              app.addObject(AppMode::Space3D, "tangentplane", "G",
                            {{"f", "3exp(-(x^2 + y^2)/4)"}, {"x0", "1.5"}, {"y0", "1"}, {"xmin", "-4"}, {"xmax", "4"},
@@ -621,7 +617,7 @@ std::vector<Lesson> build() {
              app.setCameraView({6.5f, 6.5f, 8.0f}, {0, 1.0f, 0});
          },
          "Move the point to the top of the hill, where the gradient is 0.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* g = dynamic_cast<scene::TangentPlaneObject*>(app.object("G"));
              return g && g->error().empty() && std::hypot(g->fx(), g->fy()) < 0.05;
          },
@@ -630,7 +626,7 @@ std::vector<Lesson> build() {
          "For a point moving along a curve r(u), the derivative r' is the velocity (where it heads, how fast) "
          "and r'' the acceleration.",
          nullptr, "Add a Velocity on a curve.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects())
                  if (o->typeId() == "velocity" && o->error().empty()) return true;
              return false;
@@ -640,7 +636,7 @@ std::vector<Lesson> build() {
          "The acceleration has two jobs: its part along the motion changes the speed, its part across the "
          "motion turns the point.",
          nullptr, "Turn on Split acceleration.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              for (const auto& o : app.space(AppMode::Space3D).objects())
                  if (auto* v = dynamic_cast<scene::VelocityObject*>(o.get()); v && v->splitAcceleration()) return true;
              return false;
@@ -652,7 +648,7 @@ std::vector<Lesson> build() {
         {"Degree 1 is the tangent",
          "A Taylor polynomial copies f near a center a: degree 0 matches the value, degree 1 also the slope (it is "
          "the tangent line), degree 2 also the bending, and so on.",
-         [](App& app) {
+         [](AppApi& app) {
              app.setMode(AppMode::Space3D);
              app.restartTime(false);
              app.clearSpace(AppMode::Space3D);
@@ -665,7 +661,7 @@ std::vector<Lesson> build() {
         {"Add terms",
          "Each new term matches one more derivative. Watch the polynomial hug e^x farther from the center.",
          nullptr, "Raise the degree to 5 or more.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::TaylorObject*>(app.object("p"));
              return p && p->error().empty() && p->degree() >= 5;
          },
@@ -673,7 +669,7 @@ std::vector<Lesson> build() {
         {"Move the center",
          "The polynomial is built from f's derivatives at the center, so it fits best there.",
          nullptr, "Move the center to x = 2.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::TaylorObject*>(app.object("p"));
              return p && p->error().empty() && std::fabs(p->series().center - 2.0) < 0.01;
          },
@@ -681,7 +677,7 @@ std::vector<Lesson> build() {
         {"Where it stops working",
          "Now f = 1/(1 + x²) about 0. It's smooth on the whole line, but the polynomials only fit for |x| < 1: "
          "1 + x² = 0 at x = ±i, one unit away in the complex plane, and the series can't reach past that.",
-         [](App& app) {
+         [](AppApi& app) {
              if (auto* p = app.object("p")) {
                  p->setField("f", "1/(1 + x^2)");
                  p->setField("a", "0");
@@ -690,7 +686,7 @@ std::vector<Lesson> build() {
              app.setCameraView({0.0f, 6.0f, 3.5f}, {0, 0, -0.5f});
          },
          "Raise the degree to 16: inside |x| < 1 it fits better, outside worse.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* p = dynamic_cast<scene::TaylorObject*>(app.object("p"));
              return p && p->error().empty() && p->degree() >= 16;
          },
@@ -698,7 +694,7 @@ std::vector<Lesson> build() {
         {"A Newton step",
          "Newton's method finds where f = 0: from a guess x0, follow the tangent at (x0, f(x0)) down to the x "
          "axis. Where it lands is the next guess.",
-         [](App& app) {
+         [](AppApi& app) {
              app.clearSpace(AppMode::Space3D);
              app.addObject(AppMode::Space3D, "newton", "r",
                            {{"f", "x^2 - 2"}, {"x0", "3"}, {"steps", "0"}, {"xmin", "-1"}, {"xmax", "3.2"}});
@@ -706,7 +702,7 @@ std::vector<Lesson> build() {
              app.setCameraView({1.2f, 13.0f, 2.0f}, {1.2f, 0, -3.2f});
          },
          "Take one step.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* r = dynamic_cast<scene::NewtonObject*>(app.object("r"));
              return r && r->error().empty() && r->stepsAsked() >= 1;
          },
@@ -714,7 +710,7 @@ std::vector<Lesson> build() {
         {"More steps",
          "Near the root each step roughly doubles the number of correct digits.",
          nullptr, "Take enough steps to get √2 to six decimals (1.414214).",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* r = dynamic_cast<scene::NewtonObject*>(app.object("r"));
              return r && r->error().empty() && std::fabs(r->value().re - std::sqrt(2.0)) < 5e-7;
          },
@@ -722,7 +718,7 @@ std::vector<Lesson> build() {
         {"A bad start",
          "Newton needs a tangent that meets the x axis. At the bottom of the parabola it's flat.",
          nullptr, "Start at x0 = 0 and see why it can't take a step.",
-         [](App& app, const TutorialContext&) {
+         [](AppApi& app, const TutorialContext&) {
              auto* r = dynamic_cast<scene::NewtonObject*>(app.object("r"));
              return r && r->run().stop == taylor::NewtonStop::FlatTangent;
          },

@@ -6,6 +6,7 @@
 // AppFiles.cpp (scene files, LaTeX files, preferences). Lower layers (math, scene, view) never include this.
 
 #include "animation/Playback.hpp"
+#include "app/AppApi.hpp"
 #include "app/Session.hpp"
 #include "math/Complex.hpp"
 #include "math/Matrix3D.hpp"
@@ -56,7 +57,7 @@ struct AppOptions {
 
 // Owns every component and runs the main loop. The public methods are the
 // API used by the gallery, tutorials and the screenshot tour.
-class App {
+class App : public AppApi {
 public:
     explicit App(const AppOptions& options);
     ~App();
@@ -64,43 +65,25 @@ public:
     void run();
 
     // --- Spaces and objects -----------------------------------------------------
-    AppMode mode() const { return m_mode; }
-    void setMode(AppMode mode);
-    scene::Scene& scene() { return m_scene; }
+    Session& session() override { return m_session; }
+    AppMode mode() const override { return m_mode; }
+    void setMode(AppMode mode) override;
     scene::SpaceKind spaceKind() const { return kindOf(m_mode); }
-    scene::Space& space(AppMode mode) { return m_scene.space(kindOf(mode)); }
     static scene::SpaceKind kindOf(AppMode mode);
 
-    // Find an object by name in a space (nullptr if missing)
-    scene::SceneObject* object(const std::string& name, AppMode mode = AppMode::Space3D);
-    // Add an object with preset fields and properties; it becomes selected. One undo step.
-    scene::SceneObject* addObject(AppMode mode, const std::string& typeId, const std::string& name,
-                                  const std::map<std::string, std::string>& fields = {},
-                                  const std::map<std::string, std::string>& props = {});
-    void select(const std::string& name, AppMode mode = AppMode::Space3D, bool add = false);
-    void clearSpace(AppMode mode);
-    void resetScene();  // both spaces back to the default objects
+    void clearSpace(AppMode mode) override;
+    void resetScene() override;  // both spaces back to the default objects
 
     // Shortcuts kept for examples and tutorials: they edit the objects M, a and b
-    void setMatrix3(const Matrix3D& m);
-    void setMatrix4(const Matrix4D& m);
-    void setVectors(const Vector3D& a, const Vector3D& b);
-    void applyMatrixPreset(const Matrix3D& m);  // to the selected matrix (or M)
 
     // --- View --------------------------------------------------------------------
-    void setCameraView(Vector3 position, Vector3 target) { m_camera.setView(position, target); }
-    void resetCamera();
+    void resetCamera() override;
     // Orbit camera helpers (also used by the tour): turn by a mouse drag in pixels, center on the selection
     void orbitBy(float dxPixels, float dyPixels);
     void focusSelection();
     void cameraTopView() { m_camera.topView(); }
     void setFlyCamera(bool fly) { m_uiSettings.flyCamera = fly; }
-    bool cameraMovedThisFrame() const { return m_cameraMoved; }  // orbit drag, pan or zoom
-    // Scene clock: back to t = 0, then play or stay paused
-    void restartTime(bool play) {
-        m_scene.timeline().time = 0.0;
-        m_scene.timeline().playing = play;
-    }
+    bool cameraMovedThisFrame() const override { return m_cameraMoved; }  // orbit drag, pan or zoom
     void setUiMode(bool ui);  // true: cursor visible, panels active
     void showHelp(bool show);
     void showSettings(bool show);
@@ -109,25 +92,19 @@ public:
     void closePopovers();
     void setTheme(bool dark);
     void setSurfaces(UiSettings::Surfaces mode) { m_uiSettings.surfaces = mode; }
-    void toast(const std::string& message, bool error = false);
+    void toast(const std::string& message, bool error = false) override;
 
     // Floating panels by id ("analysis", "animation" (the Time panel), ...)
     ui::FloatingPanel* panel(const std::string& id);
 
     // --- Read-only state (tutorial checks) ----------------------------------
-    // The matrix the breakdown and steps use: the selected matrix, else the first one
-    const scene::SceneObject* targetMatrix() const;
-    Matrix4D matrix() const;
-    bool using4x4() const;
-    Vector3D vectorValue(const std::string& name) const;
-    Vector3D vectorA() const { return vectorValue("a"); }
-    Vector3D vectorB() const { return vectorValue("b"); }
-    Complex complexValue(const std::string& name) const;
-    double parameterValue(const std::string& name, AppMode mode) const;
-    EigenResult eigen() const;
     ViewSettings& view() { return m_viewPanel.settings(); }
     const view::SceneView& sceneView() const { return m_sceneView; }
-    bool uiMode() const;
+    bool uiMode() const override;
+    void showPanel(const std::string& id, bool visible) override;
+    bool panelVisible(const std::string& id) const override;
+    void restartBreakdown() override;
+    bool breakdownFinished() const override;
     bool breakdownActive() const;
     BreakdownPanel& breakdownPanel() { return m_breakdownPanel; }
     TutorialPanel& tutorialPanel() { return m_tutorialPanel; }

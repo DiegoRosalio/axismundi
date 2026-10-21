@@ -9,7 +9,7 @@
 
 namespace linalg {
 
-class App;
+class AppApi;
 
 enum class ExampleCategory { Matrices, Complex, Plots };
 
@@ -17,7 +17,7 @@ struct Example {
     const char* title;
     ExampleCategory category;
     const char* description;  // what to look at, in a sentence or two
-    std::function<void(App&)> apply;
+    std::function<void(AppApi&)> apply;
 };
 
 // The curated example list shown by the gallery

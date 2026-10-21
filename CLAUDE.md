@@ -97,6 +97,14 @@ src/
                       edu/ and Tour. One class in four files: App.cpp (construction, scripting API, run,
                       update), AppInput.cpp (keys, shortcuts, picking), AppDraw.cpp (scene, UI, panels, HUD),
                       AppFiles.cpp (scene/LaTeX files, preferences)
+  app/Session         what both front ends share (no window, panels or input): the scene, the mode with one saved
+                      camera per space, ViewSettings (ViewPanel edits them by reference), the camera, SceneView,
+                      the grid, the drawing steps (drawOptions, drawGrid, draw3D, labels → gfx::Overlay) and the
+                      scripting functions (addObject, select, setMatrix3, values...). App holds one and forwards;
+                      m_scene/m_camera/m_sceneView in App are references into it
+  app/AppApi          the interface edu/ uses: scene work forwards to the Session, UI hooks are virtual (showPanel,
+                      panelVisible, uiMode, restartBreakdown, breakdownFinished, toast, cameraMovedThisFrame);
+                      App implements it, the GTK app will
   app/Tour            scripted screenshot tour (mouse positions come from ui anchors)
   math/               NO raylib: Vector3D, Matrix3D/4D, Decompositions (LU/QR/eigen3/svd3), Complex,
                       Quaternion, Breakdown (SVD steps), Explain (worked steps), Expression (scalar wrapper),
@@ -111,9 +119,10 @@ src/
   scene/              NO raylib: SceneObject (expression fields + props + value), Space (objects, unique
                       names, rename with reference rewrite, dependency-ordered evaluation, cycles),
                       Types (basic object classes + registry), TypesAdvanced (quaternions, fields, integrals,
-                      frames, derivatives, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import)
+                      frames, derivatives, Fourier), Scene (2 spaces, selection, undo, files v2 + v1 import),
+                      Templates (AddChoice, addTemplates from the selection, applyAddChoice)
   text/               NO raylib: TextLayout (wrapping formulas into lines, cursor ↔ line/column, UTF-8 steps),
-                      LabelLayout (placing screen labels without overlaps)
+                      LabelLayout (placing screen labels without overlaps), Numbers (formatNumber)
   export/             NO raylib: LatexExport (space -> black-and-white PGFPlots figure; shared style table; the
                       axis), LatexObjects (one export function per type + the type table), LatexFigure (pieces)
   view/SceneView      draws a space: axes, the plot/field caches, labels (laid out, no overlaps), selection
@@ -126,7 +135,7 @@ src/
   view/ViewStyle      view styles as data (Colorful, Paper, High contrast, Chalkboard): `styleFor(id, theme)`,
                       `activeStyle()` (set by App each frame, read by SceneView, Grid colors, the objects list)
   animation/          NO raylib: Playback (Once/Loop/PingPong + 9 easings; phaseAt(seconds) is pure; save/load)
-  edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on App API
+  edu/                Tutorial lessons (setup/check/anchor), Examples (gallery entries), built on AppApi
   rendering/          CameraController (Orbit = math/OrbitCamera around a pivot, or Fly = mouse look + WASD;
                       `camera.mode` preference; target = the real pivot, files with a 1-unit target get one
                       from `pivotAlong`), GridShader (the endless adaptive grid: one quad per
@@ -300,7 +309,7 @@ section order.
    Draw with `gfx::line/cylinder/sphere/...` (gfx/Canvas3D.hpp) and the helpers in SceneViewDraw, never raylib calls.
 4. Inspector: an `inspect<Type>` method in `ScenePanelInspectors.cpp` plus its row in `ScenePanel::typeUi`
    (inspector + list summary; reuse `fieldRow`, `rangeRow`, `toggleProp`; commit with `sc.commit()`);
-   optional templates in `AddMenu::templates`; optional analysis in `InfoPanel::update`.
+   optional templates in `addTemplates` (scene/Templates.cpp); optional analysis in `InfoPanel::update`.
 5. Tests in the topic file under `tests/` (model + evaluation; add the function to the list in `tests/main.cpp`),
    tour step + screenshots for the UI.
 6. LaTeX export: an `export<Type>` + its row in `export/LatexObjects.cpp` (with the flat test) + Paper drawing

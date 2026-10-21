@@ -5,7 +5,7 @@
 
 namespace linalg {
 
-class App;
+class AppApi;
 
 // What a step's check can look at besides the app itself
 struct TutorialContext {
@@ -15,9 +15,9 @@ struct TutorialContext {
 struct TutorialStep {
     const char* title;
     const char* body;
-    std::function<void(App&)> setup;                               // runs when the step starts (optional)
+    std::function<void(AppApi&)> setup;                               // runs when the step starts (optional)
     const char* task;                                              // nullptr: nothing to do, just read
-    std::function<bool(App&, const TutorialContext&)> check;      // task done? (optional)
+    std::function<bool(AppApi&, const TutorialContext&)> check;      // task done? (optional)
     const char* hint;                                              // shown until the task is done
     const char* anchor;                                            // UI element to highlight (optional)
 };
