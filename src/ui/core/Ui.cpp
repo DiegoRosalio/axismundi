@@ -70,8 +70,13 @@ Font loadTtf(const unsigned char* data, int size, int pixelSize, const int* code
     Font f{};
     f.baseSize = pixelSize;
     f.glyphCount = count;
+#if RAYLIB_VERSION_MAJOR >= 6  // raylib 6 also reports how many glyphs it loaded (Arch ships 6.x)
+    f.glyphs = LoadFontData(data, size, pixelSize, codepoints, count, FONT_DEFAULT, &f.glyphCount);
+#else
     f.glyphs = LoadFontData(data, size, pixelSize, const_cast<int*>(codepoints), count, FONT_DEFAULT);
+#endif
     if (!f.glyphs) return Font{};
+    count = f.glyphCount;
     f.glyphPadding = 4;  // raylib's FONT_TTF_DEFAULT_CHARS_PADDING
     Image atlas = GenImageFontAtlas(f.glyphs, &f.recs, count, pixelSize, f.glyphPadding, 0);
     f.texture = LoadTextureFromImage(atlas);

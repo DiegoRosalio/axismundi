@@ -133,8 +133,8 @@ Fields accept:
 
 - C++20 compiler (the Makefile uses `clang++`)
 - GNU Make
-- **raylib 5.5** with development headers. The bundled `include/raygui.h` (5.1-dev) uses `TextToFloat`, which
-  first appeared in raylib 5.5, so older distribution packages (5.0 and below) will not link.
+- **raylib 5.5 or 6.x** with development headers (Arch ships 6.2). The bundled `include/raygui.h` (5.1-dev) uses
+  `TextToFloat`, which first appeared in raylib 5.5, so older distribution packages (5.0 and below) will not link.
 - Linux
 
 ## Installation

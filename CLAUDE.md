@@ -61,6 +61,8 @@ make gtk     # bin/axismundi-gtk, the GTK4 front end in progress (also needs gtk
   `src/scene/*`, `src/export/*`, `src/ui/SceneIO.cpp` and `tests/*`.
 - **raylib 5.5 is required**: the bundled raygui 5.1-dev calls `TextToFloat` (new in 5.5), and the UI
   uses `DrawRectangleRoundedLinesEx` and `ToggleBorderlessWindowed`. Alpine's `raylib-dev` is 5.0: too old.
+  **raylib 6.x works too** (Arch ships 6.2): `LoadFontData` gained a glyph-count argument in 6.0, so `ui::loadTtf`
+  checks `RAYLIB_VERSION_MAJOR`. Both apps were checked against a 6.2 build (`$DEV/raylib62`); the dev scripts use 5.5.
 
 ### Visual verification (important for any UI change)
 
