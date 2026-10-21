@@ -923,3 +923,48 @@ void testTemplates() {
     CHECK(scene::polynomialText(shifted, 4) == "2 − (x − 1)");
     CHECK(scene::polynomialText(taylor::Series{}, 4) == "0");
 }
+
+void testAnalysis() {
+    using scene::SpaceKind;
+    scene::Scene sc;
+    sc.clearAll();
+    auto* a = sc.add(SpaceKind::Euclidean3D, "vector", "a");
+    auto* b = sc.add(SpaceKind::Euclidean3D, "vector", "b");
+    auto* m = sc.add(SpaceKind::Euclidean3D, "matrix", "M");
+    CHECK(a && b && m);
+    if (!a || !b || !m) return;
+    b->setField("x", "0");
+    b->setField("y", "1");
+    m->setField(scene::MatrixObject::cellKey(0, 0), "2");
+    sc.evaluate();
+    scene::Selection& sel = sc.selection(SpaceKind::Euclidean3D);
+    auto has = [](const scene::Analysis& an, const std::string& key, const std::string& text) {
+        for (const auto& s : an.sections)
+            if (s.key == key)
+                for (const auto& l : s.lines)
+                    if (l.text == text) return true;
+        return false;
+    };
+    // Nothing selected: one section that says so
+    sel.clear();
+    scene::Analysis none = scene::analyze(sc.space(SpaceKind::Euclidean3D), sel);
+    CHECK(none.sections.size() == 1 && none.sections[0].key == "empty" && !none.hasMatrix);
+    // Two vectors: products and the angle
+    sel.set(a->id());
+    sel.toggle(b->id());
+    scene::Analysis two = scene::analyze(sc.space(SpaceKind::Euclidean3D), sel);
+    CHECK(has(two, "vectors", "a · b = 0.000"));
+    CHECK(has(two, "vectors", "angle(a, b) = 90.0°"));
+    CHECK(has(two, "vectors", "a × b = (0.00, 0.00, 1.00)"));
+    // A matrix: determinant, eigenvalues, factorizations closed at first
+    sel.set(m->id());
+    scene::Analysis mat = scene::analyze(sc.space(SpaceKind::Euclidean3D), sel);
+    CHECK(mat.hasMatrix);
+    CHECK(has(mat, "matrix", "det M = 2.0000"));
+    CHECK(mat.eigen.values.size() == 3);
+    bool luClosed = false;
+    for (const auto& s : mat.sections)
+        if (s.key == "lu") luClosed = !s.expanded;
+    CHECK(luClosed);
+}
+

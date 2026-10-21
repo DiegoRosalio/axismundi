@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math/Decompositions.hpp"
+#include "scene/Analysis.hpp"
 #include "math/Matrix4D.hpp"
 #include "math/Vector3D.hpp"
 #include "scene/Scene.hpp"
@@ -11,9 +12,8 @@
 
 namespace linalg {
 
-// Content of the "Analysis" panel: computed results: dot/cross products,
-// determinant, trace, inverse, eigenvalues and LU / QR / SVD factorizations.
-// Sections collapse when their headers are clicked.
+// Content of the "Analysis" panel: the sections computed by scene::analyze (dot/cross products, determinant,
+// trace, inverse, eigenvalues, LU / QR / SVD...), drawn here. Sections collapse when their headers are clicked.
 class InfoPanel {
 public:
     InfoPanel();
@@ -30,22 +30,10 @@ public:
     bool hasMatrix() const { return m_hasMatrix; }
 
 private:
-    enum class Tone { Normal, Muted, Eigen, Danger };
-    struct Line {
-        std::string text;
-        Tone tone;
-        ui::FontRole role;
-        const char* tip = nullptr;
-    };
     struct Section {
-        std::string key;    // stable id (titles include object names)
-        std::string title;
-        bool expanded;
-        std::vector<Line> lines;
-        const char* tip = nullptr;
+        scene::AnalysisSection content;  // computed by scene::analyze
+        bool expanded;                   // clicked open or closed
     };
-
-    static void addMatrix(Section& s, const char* name, const float* values, int n);
 
     std::vector<Section> m_sections;
     EigenResult m_eigen;

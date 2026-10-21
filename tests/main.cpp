@@ -45,6 +45,7 @@ void testLatexExport();
 void testPdfCompile();
 void testUsability();
 void testTemplates();
+void testAnalysis();
 void testExplain();
 void testQuaternion();
 void testBreakdown();
@@ -85,6 +86,7 @@ int main() {
         {"PDF compile", testPdfCompile},
         {"Usability", testUsability},
         {"Add-menu templates", testTemplates},
+        {"Analysis panel content", testAnalysis},
         {"Explain", testExplain},
         {"Quaternion", testQuaternion},
         {"Breakdown", testBreakdown},
