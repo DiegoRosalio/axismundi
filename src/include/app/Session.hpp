@@ -16,7 +16,8 @@
 #include "rendering/GridShader.hpp"
 #include "scene/Scene.hpp"
 #include "ui/AppMode.hpp"
-#include "ui/ViewPanel.hpp"
+#include "ui/SceneIO.hpp"
+#include "view/ViewSettings.hpp"
 #include "view/SceneView.hpp"
 #include <map>
 #include <memory>
@@ -73,6 +74,9 @@ public:
                                   const std::map<std::string, std::string>& props = {});
     void select(const std::string& name, AppMode mode = AppMode::Space3D, bool add = false);
     void clearSpace(AppMode mode);
+    // On the current space's selection, one undo step each; false when nothing was selected
+    bool deleteSelection();
+    bool duplicateSelection();  // the copy of the primary object becomes the selection
     void resetScene();  // both spaces back to the default objects
     // The objects M, a and b (made when missing)
     void setMatrix3(const Matrix3D& m);
@@ -89,6 +93,17 @@ public:
         m_scene.timeline().playing = play;
     }
 
+    // --- Picking and files --------------------------------------------------------------
+    // The object whose pick segments (ObjectView::pick) pass closest to a screen point, within `radius` pixels;
+    // kNoObject when none. Screen size in pixels, as the camera projects onto it.
+    scene::ObjectId pickAt(Vector2 point, int screenWidth, int screenHeight, float radius,
+                           const view::DrawOptions& options) const;
+    // A scene file's contents: both spaces, the space shown, the camera and the view settings
+    void saveTo(SceneData& data) const;
+    // Replaces the scene (an undo step); false and `error` when the data can't be read. `note` tells about
+    // conversions (old keyframes), empty otherwise.
+    bool loadFrom(const SceneData& data, std::string& error, std::string& note);
+
     // --- Read-only state ------------------------------------------------------------------
     // The matrix the breakdown and steps use: the selected matrix, else the first visible one
     const scene::SceneObject* targetMatrix() const;
@@ -100,6 +115,8 @@ public:
     EigenResult eigen() const;
 
 private:
+    std::string convertOldKeyframes(const SceneData& data);
+
     scene::Scene m_scene;
     AppMode m_mode = AppMode::Space3D;
     ViewSettings m_view;

@@ -96,16 +96,7 @@ void App::writeLatex(const std::string& path) {
 
 void App::writeScene(const std::string& path) {
     SceneData data;
-    m_scene.save(data);
-    putInt(data, "mode", static_cast<int>(m_mode));
-    Vector3 p = m_camera.position(), t = m_camera.target();
-    putFloat(data, "camera.px", p.x);
-    putFloat(data, "camera.py", p.y);
-    putFloat(data, "camera.pz", p.z);
-    putFloat(data, "camera.tx", t.x);
-    putFloat(data, "camera.ty", t.y);
-    putFloat(data, "camera.tz", t.z);
-    m_viewPanel.saveState(data);
+    m_session.saveTo(data);
 
     std::string error;
     if (saveSceneFile(path, data, error)) {
@@ -116,83 +107,17 @@ void App::writeScene(const std::string& path) {
     }
 }
 
-void App::convertOldKeyframes(const SceneData& data) {
-    // Files from before the Time panel stored matrix keyframes for the old Animation
-    // panel; they become K = keys(s, ...) driven by an animated parameter s
-    int count = 0;
-    if (!getInt(data, "anim.keyframes", count) || count < 2) return;
-    std::vector<std::string> mats;
-    for (int k = 0; k < count; k++) {
-        auto it = data.find("anim.key" + std::to_string(k));
-        if (it == data.end()) continue;
-        std::istringstream in(it->second);
-        float m[4][4];
-        bool ok = true;
-        for (int i = 0; i < 4 && ok; i++)
-            for (int j = 0; j < 4 && ok; j++) ok = static_cast<bool>(in >> m[i][j]);
-        if (!ok) continue;
-        std::ostringstream text;
-        text << "[";
-        for (int i = 0; i < 4; i++) {
-            text << (i ? ", [" : "[");
-            for (int j = 0; j < 4; j++) text << (j ? ", " : "") << m[i][j];
-            text << "]";
-        }
-        text << "]";
-        mats.push_back(text.str());
-    }
-    if (mats.size() < 2) return;
-    scene::Space& sp = m_scene.space(SpaceKind::Euclidean3D);
-    SceneObject* s = m_scene.add(SpaceKind::Euclidean3D, "parameter", "s");
-    auto* p = static_cast<scene::ParameterObject*>(s);
-    p->setMode(scene::ParameterObject::Mode::Animate);
-    p->setProp("min", 0.0);
-    p->setProp("max", 1.0);
-    Playback pb = p->playback();
-    pb.repeat = Repeat::Loop;
-    pb.duration = 4.0f;
-    p->setPlayback(pb);
-    std::string formula = "keys(" + s->name();
-    for (const auto& m : mats) formula += ", " + m;
-    formula += ")";
-    SceneObject* k = m_scene.add(SpaceKind::Euclidean3D, "matrix", "K");
-    static_cast<scene::MatrixObject*>(k)->setSize(4);
-    static_cast<scene::MatrixObject*>(k)->setByFormula(true);
-    k->setField("value", formula);
-    (void)sp;
-    m_scene.evaluate();
-    m_scene.commit();
-    toast("Old keyframes became the matrix " + k->name() + " = keys(" + s->name() + ", ...)");
-}
-
 void App::readScene(const std::string& path) {
     SceneData data;
-    std::string error;
-    if (!loadSceneFile(path, data, error) || !m_scene.load(data, error)) {
+    std::string error, note;
+    if (!loadSceneFile(path, data, error) || !m_session.loadFrom(data, error, note)) {
         toast("Could not open " + std::filesystem::path(path).filename().string() + ": " + error, true);
         return;
     }
     m_scenePanel.cancelEditing();
-    int m = static_cast<int>(m_mode);
-    if (getInt(data, "mode", m) && m >= 0 && m < kAppModeCount) {
-        m_mode = static_cast<AppMode>(m);
-        m_session.adoptMode(m_mode);  // keep the saved camera instead of the mode default
-    }
-    Vector3 p = m_camera.position(), t = m_camera.target();
-    getFloat(data, "camera.px", p.x);
-    getFloat(data, "camera.py", p.y);
-    getFloat(data, "camera.pz", p.z);
-    getFloat(data, "camera.tx", t.x);
-    getFloat(data, "camera.ty", t.y);
-    getFloat(data, "camera.tz", t.z);
-    m_camera.setSpace(m_mode);
-    // Files saved in fly mode (and before the orbit camera) keep a target one unit ahead
-    if (Vector3Distance(p, t) < 1.05f) t = CameraController::pivotAlong(p, t, m_mode);
-    m_camera.setView(p, t);
-    convertOldKeyframes(data);
-    m_viewPanel.loadState(data);
+    m_mode = m_session.mode();
     rememberFile(path);
-    toast("Opened " + std::filesystem::path(path).filename().string() + " (Ctrl+Z goes back)");
+    toast(note.empty() ? "Opened " + std::filesystem::path(path).filename().string() + " (Ctrl+Z goes back)" : note);
 }
 
 void App::loadPreferences(SceneData& prefs) {

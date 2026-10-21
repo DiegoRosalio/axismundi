@@ -10,7 +10,7 @@
 #include "rendering/FieldRenderer.hpp"
 #include "rendering/PlotRenderer.hpp"
 #include "scene/Scene.hpp"
-#include "ui/ViewPanel.hpp"
+#include "view/ViewSettings.hpp"
 #include <map>
 #include <vector>
 

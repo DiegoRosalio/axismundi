@@ -28,21 +28,6 @@ namespace linalg {
 using scene::SceneObject;
 using scene::SpaceKind;
 
-namespace {
-
-// Distance from point p to segment ab (screen space)
-float distanceToSegment(Vector2 p, Vector2 a, Vector2 b) {
-    Vector2 ab = Vector2Subtract(b, a);
-    float len2 = Vector2LengthSqr(ab);
-    float t = len2 > 1e-6f ? std::clamp(Vector2DotProduct(Vector2Subtract(p, a), ab) / len2, 0.0f, 1.0f) : 0.0f;
-    return Vector2Distance(p, Vector2Add(a, Vector2Scale(ab, t)));
-}
-
-bool inFront(const Camera3D& cam, Vector3 p) {
-    return Vector3DotProduct(Vector3Subtract(cam.target, cam.position), Vector3Subtract(p, cam.position)) > 0.0f;
-}
-
-} // namespace
 bool App::isEditing() const {
     return m_scenePanel.isEditing() || m_referencePanel.isEditing() || m_fileDialog.isOpen() ||
            m_formulaEditor.isOpen();
@@ -215,24 +200,15 @@ void App::toggleSolo() {
 }
 
 void App::deleteSelection() {
-    SpaceKind kind = spaceKind();
-    auto ids = m_scene.selection(kind).ids;
-    if (ids.empty()) return;
+    if (m_scene.selection(spaceKind()).empty()) return;
     m_scenePanel.cancelEditing();
-    for (auto id : ids) m_scene.space(kind).remove(id);
-    m_scene.selection(kind).clear();
-    m_scene.commit();
+    m_session.deleteSelection();
 }
 
 void App::duplicateSelection() {
-    SpaceKind kind = spaceKind();
-    scene::ObjectId id = m_scene.selection(kind).primary();
-    if (id == scene::kNoObject) return;
+    if (m_scene.selection(spaceKind()).primary() == scene::kNoObject) return;
     m_scenePanel.cancelEditing();
-    if (SceneObject* copy = m_scene.space(kind).duplicate(id)) {
-        m_scene.selection(kind).set(copy->id());
-        m_scene.commit();
-    }
+    m_session.duplicateSelection();
 }
 
 void App::syncCameraMode() {
@@ -307,31 +283,8 @@ void App::focusSelection() {
 }
 
 void App::pickAt(Vector2 mouse) {
-    const Camera3D& cam = m_camera.camera();
     SpaceKind kind = spaceKind();
-    view::DrawOptions options = drawOptions();
-    float best = ui::px(12.0f);
-    scene::ObjectId hit = scene::kNoObject;
-    auto consider = [&](Vector3 a, Vector3 b, scene::ObjectId id) {
-        if (!inFront(cam, a) || !inFront(cam, b)) return;
-        float d = distanceToSegment(mouse, GetWorldToScreen(a, cam), GetWorldToScreen(b, cam));
-        if (d < best) {
-            best = d;
-            hit = id;
-        }
-    };
-
-    // Each type says which segments a click should be near (view/objects/*.cpp)
-    std::vector<view::Segment> segments;
-    for (const auto& obj : m_scene.space(kind).objects()) {
-        const SceneObject& o = *obj;
-        if (!view::SceneView::shown(options, o) || !o.value().ok()) continue;
-        const view::ObjectView* ov = view::objectView(o.typeId());
-        if (!ov || !ov->pick) continue;
-        segments.clear();
-        ov->pick(o, options, segments);
-        for (const auto& [a, b] : segments) consider(a, b, o.id());
-    }
+    scene::ObjectId hit = m_session.pickAt(mouse, GetScreenWidth(), GetScreenHeight(), ui::px(12.0f), drawOptions());
 
     bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
     scene::Selection& sel = m_scene.selection(kind);

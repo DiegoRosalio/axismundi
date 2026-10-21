@@ -149,38 +149,4 @@ bool ViewPanel::styleCard(Rectangle r, view::StyleId id, bool selected) {
     return ui::clicked(r);
 }
 
-void ViewPanel::saveState(SceneData& data) const {
-    putBool(data, "view.grid", m_settings.showGrid);
-    putBool(data, "view.axes", m_settings.showAxes);
-    putBool(data, "view.labels", m_settings.showLabels);
-    putFloat(data, "view.axis_length", m_settings.axisLength);
-    putBool(data, "view.grid_auto", m_settings.gridAuto);
-    putBool(data, "view.grid_floor", m_settings.gridFloor);
-    putBool(data, "view.grid_wall_xz", m_settings.gridWallXZ);
-    putBool(data, "view.grid_wall_yz", m_settings.gridWallYZ);
-    putBool(data, "view.grid_polar", m_settings.gridPolar);
-    putBool(data, "view.numbers", m_settings.showNumbers);
-    data["view.style"] = view::styleKey(m_settings.style);
-}
-
-void ViewPanel::loadState(const SceneData& data) {
-    getBool(data, "view.grid", m_settings.showGrid);
-    getBool(data, "view.axes", m_settings.showAxes);
-    getBool(data, "view.labels", m_settings.showLabels);
-    if (getFloat(data, "view.axis_length", m_settings.axisLength)) {
-        if (m_settings.axisLength < 1.0f) m_settings.axisLength = 1.0f;
-        if (m_settings.axisLength > 20.0f) m_settings.axisLength = 20.0f;
-    }
-    // view.grid_size (older files) is ignored: the grid is endless now
-    getBool(data, "view.grid_auto", m_settings.gridAuto);
-    getBool(data, "view.grid_floor", m_settings.gridFloor);
-    getBool(data, "view.grid_wall_xz", m_settings.gridWallXZ);
-    getBool(data, "view.grid_wall_yz", m_settings.gridWallYZ);
-    getBool(data, "view.grid_polar", m_settings.gridPolar);
-    getBool(data, "view.numbers", m_settings.showNumbers);
-    // Files without a style (older ones) keep the current style
-    std::string style;
-    if (getString(data, "view.style", style)) m_settings.style = view::styleFromKey(style, m_settings.style);
-}
-
 } // namespace linalg

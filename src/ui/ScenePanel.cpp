@@ -1,4 +1,5 @@
 #include "ui/ScenePanel.hpp"
+#include "scene/Summaries.hpp"
 #include "ui/ScenePanelDetail.hpp"
 #include "math/VectorField.hpp"
 #include "math/Decompositions.hpp"
@@ -27,12 +28,6 @@ std::string fmt(double v) {
     return buf;
 }
 
-// One-line description for the objects list (each type's summary is in ScenePanel::typeUi)
-std::string summaryOf(const SceneObject& o) {
-    if (!o.error().empty()) return o.error();
-    const ScenePanel::TypeUi* ui = ScenePanel::typeUi(o.typeId());
-    return ui && ui->summary ? ui->summary(o) : o.value().summary();
-}
 
 const char* typeLabel(const SceneObject& o) {
     const scene::ObjectTypeInfo* t = scene::findType(o.typeId());
@@ -321,7 +316,7 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
         float sx = tx + nameW + ui::px(8);
         float sw = eye.x - sx - ui::px(6);
         bool hasError = !o.error().empty();
-        std::string summary = ui::ellipsize(summaryOf(o).c_str(), ui::FontRole::Small, sw);
+        std::string summary = ui::ellipsize(scene::summaryOf(o).c_str(), ui::FontRole::Small, sw);
         ui::textIn({sx, row.y, sw, row.height}, summary.c_str(), ui::FontRole::Small, hasError ? t.danger : t.textMuted);
 
         if (ui::iconButton(eye, ui::Icon::Eye, false, true)) {
@@ -362,86 +357,30 @@ float ScenePanel::drawObjects(float x, float y, float width, scene::Scene& sc, S
 
 
 const ScenePanel::TypeUi* ScenePanel::typeUi(const std::string& typeId) {
-    using O = const SceneObject&;  // a short name for the parameter type below
-    // Lambdas with no capture ([]) convert to plain function pointers, so they fit TypeUi::summary.
-    // `static` builds the table once, the first time it is needed.
+    // `static` builds the table once, the first time it is needed (the summaries are in scene/Summaries.cpp)
     static const std::map<std::string, TypeUi> table = {
-        {"vector", {&ScenePanel::inspectVector, [](O o) -> std::string {
-             if (!static_cast<const scene::VectorObject&>(o).byFormula()) return o.value().summary();
-             return o.field("value")->text + " = " + o.value().summary();
-         }}},
-        {"matrix", {&ScenePanel::inspectMatrix, [](O o) -> std::string {
-             return static_cast<const scene::MatrixObject&>(o).byFormula() ? o.field("value")->text : o.value().summary();
-         }}},
-        {"eigen", {&ScenePanel::inspectEigen, [](O o) -> std::string { return "eigenvectors of " + o.field("of")->text; }}},
-        {"function", {&ScenePanel::inspectPlot, [](O o) -> std::string { return "y = " + o.field("f")->text; }}},
-        {"surface", {&ScenePanel::inspectPlot, [](O o) -> std::string { return "z = " + o.field("f")->text; }}},
-        {"implicit", {&ScenePanel::inspectPlot, [](O o) -> std::string { return o.field("f")->text + " = 0"; }}},
-        {"curve", {&ScenePanel::inspectPlot, [](O) -> std::string { return "curve in u"; }}},
-        {"field", {&ScenePanel::inspectField, [](O o) -> std::string { return "F = " + o.field("F")->text; }}},
-        {"parameter", {&ScenePanel::inspectParameter, [](O o) -> std::string {
-             const auto& p = static_cast<const scene::ParameterObject&>(o);
-             const char* how = p.mode() == scene::ParameterObject::Mode::Formula   ? "f(t)"
-                               : p.mode() == scene::ParameterObject::Mode::Animate ? "animated"
-                                                                                  : "slider";
-             return std::string(how) + " = " + fmt(p.number());
-         }}},
-        {"quaternion", {&ScenePanel::inspectQuaternion, [](O o) -> std::string {
-             expr::Rotation r;
-             if (!expr::rotationOf(o.value(), r)) return o.value().summary();
-             char buf[64];
-             snprintf(buf, sizeof(buf), "%.0f° rotation", r.angle * 180.0 / 3.14159265358979);
-             return buf;
-         }}},
-        {"doubleintegral", {&ScenePanel::inspectIntegral, [](O o) -> std::string { return "= " + o.value().summary(); }}},
-        {"lineintegral", {&ScenePanel::inspectIntegral, [](O o) -> std::string { return "= " + o.value().summary(); }}},
-        {"frame", {&ScenePanel::inspectFrame, [](O o) -> std::string {
-             const auto& f = static_cast<const scene::FrameObject&>(o);
-             char buf[64];
-             snprintf(buf, sizeof(buf), "κ = %.3g at u = %.3g", f.frame().kappa, f.u0());
-             return buf;
-         }}},
-        {"tangent", {&ScenePanel::inspectTangent, [](O o) -> std::string {
-             char buf[64];
-             snprintf(buf, sizeof(buf), "slope %.3g at x = %.3g", o.value().re,
-                      static_cast<const scene::TangentObject&>(o).x0());
-             return buf;
-         }}},
-        {"tangentplane", {&ScenePanel::inspectTangentPlane, [](O o) -> std::string {
-             const auto& g = static_cast<const scene::TangentPlaneObject&>(o);
-             char buf[64];
-             snprintf(buf, sizeof(buf), "grad f = (%.3g, %.3g)", g.fx(), g.fy());
-             return buf;
-         }}},
-        {"velocity", {&ScenePanel::inspectVelocity, [](O o) -> std::string {
-             char buf[64];
-             snprintf(buf, sizeof(buf), "speed %.3g at u = %.3g", o.value().vector.magnitude(),
-                      static_cast<const scene::VelocityObject&>(o).u0());
-             return buf;
-         }}},
-        {"taylor", {&ScenePanel::inspectTaylor, [](O o) -> std::string {
-             const auto& tp = static_cast<const scene::TaylorObject&>(o);
-             char buf[64];
-             snprintf(buf, sizeof(buf), "degree %d about %.3g", static_cast<int>(tp.series().coeffs.size()) - 1,
-                      tp.series().center);
-             return buf;
-         }}},
-        {"newton", {&ScenePanel::inspectNewton, [](O o) -> std::string {
-             const auto& nw = static_cast<const scene::NewtonObject&>(o);
-             char buf[64];
-             snprintf(buf, sizeof(buf), "x%d ≈ %.6g", static_cast<int>(nw.run().steps.size()) - 1, o.value().re);
-             return buf;
-         }}},
-        {"fourierseries", {&ScenePanel::inspectFourierSeries, [](O o) -> std::string {
-             return "N = " + std::to_string(static_cast<const scene::FourierSeriesObject&>(o).terms()) + " terms";
-         }}},
-        {"complex", {&ScenePanel::inspectComplex, nullptr}},
-        {"product", {&ScenePanel::inspectProduct, [](O o) -> std::string {
-             return o.field("a")->text + " · " + o.field("b")->text + " = " + o.value().summary();
-         }}},
-        {"epicycles", {&ScenePanel::inspectEpicycles, [](O o) -> std::string {
-             return std::to_string(static_cast<const scene::EpicyclesObject&>(o).circles()) + " circles";
-         }}},
+        {"vector", {&ScenePanel::inspectVector}},
+        {"matrix", {&ScenePanel::inspectMatrix}},
+        {"eigen", {&ScenePanel::inspectEigen}},
+        {"function", {&ScenePanel::inspectPlot}},
+        {"surface", {&ScenePanel::inspectPlot}},
+        {"implicit", {&ScenePanel::inspectPlot}},
+        {"curve", {&ScenePanel::inspectPlot}},
+        {"field", {&ScenePanel::inspectField}},
+        {"parameter", {&ScenePanel::inspectParameter}},
+        {"quaternion", {&ScenePanel::inspectQuaternion}},
+        {"doubleintegral", {&ScenePanel::inspectIntegral}},
+        {"lineintegral", {&ScenePanel::inspectIntegral}},
+        {"frame", {&ScenePanel::inspectFrame}},
+        {"tangent", {&ScenePanel::inspectTangent}},
+        {"tangentplane", {&ScenePanel::inspectTangentPlane}},
+        {"velocity", {&ScenePanel::inspectVelocity}},
+        {"taylor", {&ScenePanel::inspectTaylor}},
+        {"newton", {&ScenePanel::inspectNewton}},
+        {"fourierseries", {&ScenePanel::inspectFourierSeries}},
+        {"complex", {&ScenePanel::inspectComplex}},
+        {"product", {&ScenePanel::inspectProduct}},
+        {"epicycles", {&ScenePanel::inspectEpicycles}},
     };
     auto it = table.find(typeId);
     return it == table.end() ? nullptr : &it->second;

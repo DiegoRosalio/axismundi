@@ -1,5 +1,7 @@
 #include "app/Session.hpp"
+#include "gfx/Pure.hpp"
 #include "math/GridMath.hpp"
+#include "view/ObjectViews.hpp"
 #include "scene/Templates.hpp"
 #include "text/Numbers.hpp"
 #include "ui/core/Theme.hpp"
@@ -7,6 +9,8 @@
 #include "view/ViewStyle.hpp"
 #include <algorithm>
 #include <cmath>
+#include <raymath.h>
+#include <sstream>
 
 namespace linalg {
 
@@ -160,6 +164,27 @@ void Session::clearSpace(AppMode mode) {
 
 void Session::resetScene() { m_scene.loadDefaultScene(); }
 
+bool Session::deleteSelection() {
+    SpaceKind kind = spaceKind();
+    auto ids = m_scene.selection(kind).ids;
+    if (ids.empty()) return false;
+    for (auto id : ids) m_scene.space(kind).remove(id);
+    m_scene.selection(kind).clear();
+    m_scene.commit();
+    return true;
+}
+
+bool Session::duplicateSelection() {
+    SpaceKind kind = spaceKind();
+    scene::ObjectId id = m_scene.selection(kind).primary();
+    if (id == scene::kNoObject) return false;
+    SceneObject* copy = m_scene.space(kind).duplicate(id);
+    if (!copy) return false;
+    m_scene.selection(kind).set(copy->id());
+    m_scene.commit();
+    return true;
+}
+
 void Session::setMatrix3(const Matrix3D& m) {
     auto* obj = dynamic_cast<scene::MatrixObject*>(object("M"));
     if (!obj) obj = static_cast<scene::MatrixObject*>(addObject(AppMode::Space3D, "matrix", "M"));
@@ -235,6 +260,131 @@ bool Session::focusSelection(const view::DrawOptions& options) {
     bool found = o && view::SceneView::anchorPoint(*o, options, p);
     m_camera.focus(found ? p : Vector3{0, 0, 0});
     return found;
+}
+
+// --- Picking and files ----------------------------------------------------------------
+
+namespace {
+
+float distanceToSegment(Vector2 p, Vector2 a, Vector2 b) {
+    Vector2 ab = Vector2Subtract(b, a);
+    float len2 = Vector2LengthSqr(ab);
+    float t = len2 > 1e-6f ? std::clamp(Vector2DotProduct(Vector2Subtract(p, a), ab) / len2, 0.0f, 1.0f) : 0.0f;
+    return Vector2Distance(p, Vector2Add(a, Vector2Scale(ab, t)));
+}
+
+bool inFront(const Camera3D& cam, Vector3 p) {
+    return Vector3DotProduct(Vector3Subtract(cam.target, cam.position), Vector3Subtract(p, cam.position)) > 0.0f;
+}
+
+} // namespace
+
+scene::ObjectId Session::pickAt(Vector2 point, int screenWidth, int screenHeight, float radius,
+                                const view::DrawOptions& options) const {
+    const Camera3D& cam = m_camera.camera();
+    float best = radius;
+    scene::ObjectId hit = scene::kNoObject;
+    auto consider = [&](Vector3 a, Vector3 b, scene::ObjectId id) {
+        if (!inFront(cam, a) || !inFront(cam, b)) return;
+        float d = distanceToSegment(point, gfx::worldToScreen(a, cam, screenWidth, screenHeight),
+                                    gfx::worldToScreen(b, cam, screenWidth, screenHeight));
+        if (d < best) {
+            best = d;
+            hit = id;
+        }
+    };
+    // Each type says which segments a click should be near (view/objects/*.cpp)
+    std::vector<view::Segment> segments;
+    for (const auto& obj : m_scene.space(spaceKind()).objects()) {
+        const SceneObject& o = *obj;
+        if (!view::SceneView::shown(options, o) || !o.value().ok()) continue;
+        const view::ObjectView* ov = view::objectView(o.typeId());
+        if (!ov || !ov->pick) continue;
+        segments.clear();
+        ov->pick(o, options, segments);
+        for (const auto& [a, b] : segments) consider(a, b, o.id());
+    }
+    return hit;
+}
+
+void Session::saveTo(SceneData& data) const {
+    m_scene.save(data);
+    putInt(data, "mode", static_cast<int>(m_mode));
+    Vector3 p = m_camera.position(), t = m_camera.target();
+    putFloat(data, "camera.px", p.x);
+    putFloat(data, "camera.py", p.y);
+    putFloat(data, "camera.pz", p.z);
+    putFloat(data, "camera.tx", t.x);
+    putFloat(data, "camera.ty", t.y);
+    putFloat(data, "camera.tz", t.z);
+    saveViewSettings(m_view, data);
+}
+
+bool Session::loadFrom(const SceneData& data, std::string& error, std::string& note) {
+    if (!m_scene.load(data, error)) return false;
+    int m = static_cast<int>(m_mode);
+    if (getInt(data, "mode", m) && m >= 0 && m < kAppModeCount) adoptMode(static_cast<AppMode>(m));
+    Vector3 p = m_camera.position(), t = m_camera.target();
+    getFloat(data, "camera.px", p.x);
+    getFloat(data, "camera.py", p.y);
+    getFloat(data, "camera.pz", p.z);
+    getFloat(data, "camera.tx", t.x);
+    getFloat(data, "camera.ty", t.y);
+    getFloat(data, "camera.tz", t.z);
+    m_camera.setSpace(m_mode);
+    // Files saved in fly mode (and before the orbit camera) keep a target one unit ahead
+    if (Vector3Distance(p, t) < 1.05f) t = CameraController::pivotAlong(p, t, m_mode);
+    m_camera.setView(p, t);
+    note = convertOldKeyframes(data);
+    loadViewSettings(m_view, data);
+    return true;
+}
+
+std::string Session::convertOldKeyframes(const SceneData& data) {
+    // Files from before the Time panel stored matrix keyframes for the old Animation
+    // panel; they become K = keys(s, ...) driven by an animated parameter s
+    int count = 0;
+    if (!getInt(data, "anim.keyframes", count) || count < 2) return "";
+    std::vector<std::string> mats;
+    for (int k = 0; k < count; k++) {
+        auto it = data.find("anim.key" + std::to_string(k));
+        if (it == data.end()) continue;
+        std::istringstream in(it->second);
+        float m[4][4];
+        bool ok = true;
+        for (int i = 0; i < 4 && ok; i++)
+            for (int j = 0; j < 4 && ok; j++) ok = static_cast<bool>(in >> m[i][j]);
+        if (!ok) continue;
+        std::ostringstream text;
+        text << "[";
+        for (int i = 0; i < 4; i++) {
+            text << (i ? ", [" : "[");
+            for (int j = 0; j < 4; j++) text << (j ? ", " : "") << m[i][j];
+            text << "]";
+        }
+        text << "]";
+        mats.push_back(text.str());
+    }
+    if (mats.size() < 2) return "";
+    SceneObject* s = m_scene.add(SpaceKind::Euclidean3D, "parameter", "s");
+    auto* p = static_cast<scene::ParameterObject*>(s);
+    p->setMode(scene::ParameterObject::Mode::Animate);
+    p->setProp("min", 0.0);
+    p->setProp("max", 1.0);
+    Playback pb = p->playback();
+    pb.repeat = Repeat::Loop;
+    pb.duration = 4.0f;
+    p->setPlayback(pb);
+    std::string formula = "keys(" + s->name();
+    for (const auto& m : mats) formula += ", " + m;
+    formula += ")";
+    SceneObject* k = m_scene.add(SpaceKind::Euclidean3D, "matrix", "K");
+    static_cast<scene::MatrixObject*>(k)->setSize(4);
+    static_cast<scene::MatrixObject*>(k)->setByFormula(true);
+    k->setField("value", formula);
+    m_scene.evaluate();
+    m_scene.commit();
+    return "Old keyframes became the matrix " + k->name() + " = keys(" + s->name() + ", ...)";
 }
 
 // --- Read-only state -----------------------------------------------------------

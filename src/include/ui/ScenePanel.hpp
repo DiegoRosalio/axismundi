@@ -106,11 +106,10 @@ private:
     void inspectProduct(InspectorContext& c);
 
 public:
-    // One row per object type: how the inspector draws its own part, and the objects list's one-line
-    // summary. `inspect` points to one of the member functions above; call it as (this->*inspect)(ctx).
+    // One row per object type: how the inspector draws its own part. `inspect` points to one of the member
+    // functions above; call it as (this->*inspect)(ctx). (The objects list's summaries: scene/Summaries.cpp.)
     struct TypeUi {
         void (ScenePanel::*inspect)(InspectorContext&) = nullptr;
-        std::string (*summary)(const scene::SceneObject&) = nullptr;  // nullptr: the value's summary
     };
     static const TypeUi* typeUi(const std::string& typeId);  // nullptr for an unknown type
 

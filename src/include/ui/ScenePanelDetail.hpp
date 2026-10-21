@@ -13,7 +13,6 @@ namespace linalg::panel {
 constexpr float kPi = 3.14159265f;
 
 std::string fmt(double v);  // a short number: "0.5", "1e-05"
-std::string summaryOf(const scene::SceneObject& o);  // the objects list's one-line summary
 const char* typeLabel(const scene::SceneObject& o);
 // A wrapped note under the controls
 void note(ui::Column& col, const std::string& text, Color color, ui::FontRole role = ui::FontRole::Small);

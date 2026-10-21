@@ -163,7 +163,6 @@ private:
     StepsInput stepsInput() const;
     view::DrawOptions drawOptions() const;
 
-    void convertOldKeyframes(const SceneData& data);
     void applyModeChange();  // camera swap and cleanup when the space changes
     std::string currentFolder() const;
     void rememberFile(const std::string& path);
