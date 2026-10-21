@@ -1,35 +1,23 @@
 // The GTK inspectors of the basic object types: vector, matrix, eigenvectors, plots, parameter, complex number,
-// complex product. Each describes its rows with an InspectorBuilder (gtk/Inspector.hpp); the table at the end
-// maps type ids to them. They mirror the raylib app's ScenePanelInspectors.cpp.
+// complex product. Each describes its rows with an InspectorBuilder (gtk/Inspector.hpp); the table in
+// Inspector.cpp maps type ids to them. They mirror the raylib app's ScenePanelInspectors.cpp.
 #include "app/Session.hpp"
-#include "gtk/Inspector.hpp"
+#include "gtk/Inspectors.hpp"
 #include "rendering/PlotRenderer.hpp"
 #include "scene/Templates.hpp"
 #include "scene/Types.hpp"
 #include "view/SceneView.hpp"
 #include <cmath>
 #include <cstdio>
-#include <map>
 
 namespace linalg::gtk {
 
-namespace {
+namespace inspectors {
 
-using Object = scene::SceneObject;
-constexpr double kPi = 3.14159265358979;
-
-template <class... Args>
-std::string format(const char* pattern, Args... args) {
-    char buf[256];
-    std::snprintf(buf, sizeof(buf), pattern, args...);
-    return buf;
-}
-
-std::string shortNumber(double v) { return format("%.4g", std::fabs(v) < 5e-5 ? 0.0 : v); }
-
-void inspectVector(InspectorBuilder& b) {
+void vector(InspectorBuilder& b) {
     auto& v = static_cast<scene::VectorObject&>(b.object());
-    b.choice({"Components", "Formula"}, v.byFormula() ? 1 : 0,
+    b.choice({"Components", "Formula"},
+             [](const Object& o) { return static_cast<const scene::VectorObject&>(o).byFormula() ? 1 : 0; },
              {"Type the x, y and z components.",
               "Define it from other objects, e.g. a + b, cross(a, b), M*a, 2*normalize(a)."},
              [](Object& o, int mode) {
@@ -56,14 +44,15 @@ void inspectVector(InspectorBuilder& b) {
     });
 }
 
-void inspectMatrix(InspectorBuilder& b) {
+void matrix(InspectorBuilder& b) {
     auto& m = static_cast<scene::MatrixObject&>(b.object());
-    b.choice({"Cells", "Formula"}, m.byFormula() ? 1 : 0,
+    b.choice({"Cells", "Formula"},
+             [](const Object& o) { return static_cast<const scene::MatrixObject&>(o).byFormula() ? 1 : 0; },
              {"Type each entry. Entries may use parameters, e.g. cos(theta).",
               "One formula: rotz(theta), scale(2), inv(A), A*B, [a, b, cross(a, b)] (columns)..."},
              [](Object& o, int mode) { static_cast<scene::MatrixObject&>(o).setByFormula(mode == 1); });
     if (!m.byFormula()) {
-        b.choice({"3×3", "4×4"}, m.size() == 4 ? 1 : 0,
+        b.choice({"3×3", "4×4"}, [](const Object& o) { return static_cast<const scene::MatrixObject&>(o).size() == 4 ? 1 : 0; },
                  {"A linear map of 3D space.",
                   "Adds a fourth row and column (homogeneous coordinates); the last column translates."},
                  [](Object& o, int size) { static_cast<scene::MatrixObject&>(o).setSize(size == 1 ? 4 : 3); });
@@ -108,12 +97,12 @@ void inspectMatrix(InspectorBuilder& b) {
     }, "How much the matrix scales volumes; negative when it mirrors");
 }
 
-void inspectEigen(InspectorBuilder& b) {
+void eigen(InspectorBuilder& b) {
     b.group("", "Dashed lines show the directions this matrix only stretches; the dots mark λv.");
     b.formula("of");
 }
 
-void inspectPlot(InspectorBuilder& b) {
+void plot(InspectorBuilder& b) {
     auto& p = static_cast<scene::PlotObject&>(b.object());
     const std::string type = p.typeId();
     bool curve = type == "curve";
@@ -171,14 +160,14 @@ void inspectPlot(InspectorBuilder& b) {
     });
 }
 
-void inspectParameter(InspectorBuilder& b) {
+void parameter(InspectorBuilder& b) {
     using PMode = scene::ParameterObject::Mode;
     auto& p = static_cast<scene::ParameterObject&>(b.object());
     auto param = [](Object& o) -> scene::ParameterObject& { return static_cast<scene::ParameterObject&>(o); };
     auto cparam = [](const Object& o) -> const scene::ParameterObject& {
         return static_cast<const scene::ParameterObject&>(o);
     };
-    b.choice({"Slider", "Animate", "Formula"}, static_cast<int>(p.mode()),
+    b.choice({"Slider", "Animate", "Formula"}, [cparam](const Object& o) { return static_cast<int>(cparam(o).mode()); },
              {"Set the value by hand. It stays where you put it.",
               "Follows the scene clock from min to max, with a repeat style and an easing curve.",
               "A formula of t, the scene time in seconds, e.g. 2pi*t/5 or sin(t)."},
@@ -254,7 +243,7 @@ void inspectParameter(InspectorBuilder& b) {
     }
 }
 
-void inspectComplex(InspectorBuilder& b) {
+void complexNumber(InspectorBuilder& b) {
     b.group();
     b.formula("value");
     b.value("Polar Form", [](const Object& o) {
@@ -270,7 +259,7 @@ void inspectComplex(InspectorBuilder& b) {
     b.toggle("Helix of e^(it)", "helix", false, "The path r·e^(it) for t from 0 to its angle, rising along Z");
 }
 
-void inspectProduct(InspectorBuilder& b) {
+void product(InspectorBuilder& b) {
     b.group("", "Multiplying complex numbers multiplies their lengths and adds their angles.");
     b.formula("a");
     b.formula("b");
@@ -287,17 +276,6 @@ void inspectProduct(InspectorBuilder& b) {
     b.toggle("Show Rotation and Scaling", "angles", true, "The two angles and lengths drawn in the plane");
 }
 
-} // namespace
-
-InspectorFunction inspectorFor(const std::string& typeId) {
-    static const std::map<std::string, InspectorFunction> table = {
-        {"vector", inspectVector},     {"matrix", inspectMatrix},   {"eigen", inspectEigen},
-        {"function", inspectPlot},     {"surface", inspectPlot},    {"implicit", inspectPlot},
-        {"curve", inspectPlot},        {"parameter", inspectParameter}, {"complex", inspectComplex},
-        {"product", inspectProduct},
-    };
-    auto it = table.find(typeId);
-    return it == table.end() ? nullptr : it->second;
-}
+} // namespace inspectors
 
 } // namespace linalg::gtk

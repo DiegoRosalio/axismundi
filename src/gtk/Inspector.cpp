@@ -1,16 +1,20 @@
 #include "gtk/Inspector.hpp"
 #include "app/Session.hpp"
 #include "gtk/EditBinding.hpp"
+#include "gtk/Inspectors.hpp"
 #include "math/Expression.hpp"
 #include "scene/Types.hpp"
 #include "view/SceneView.hpp"
 #include <adwaita.h>
 #include <glibmm/main.h>
+#include <gtkmm/adjustment.h>
 #include <gtkmm/button.h>
 #include <gtkmm/colordialog.h>
 #include <gtkmm/colordialogbutton.h>
+#include <gtkmm/window.h>
 #include <cmath>
 #include <cstdio>
+#include <map>
 
 namespace linalg::gtk {
 
@@ -105,8 +109,9 @@ std::string Inspector::layoutKey() const {
     const SceneObject* o = sc.space(kind).find(sc.selection(kind).primary());
     if (!o) return "none";
     // What decides the rows: the object, its type, its active fields and the properties that switch modes
-    std::string key = std::to_string(static_cast<int>(kind)) + ";" + std::to_string(o->id()) + ";" + o->typeId() + ";" +
-                      o->prop("mode") + ";" + o->prop("size") + ";";
+    std::string key = std::to_string(static_cast<int>(kind)) + ";" + std::to_string(o->id()) + ";" + o->typeId() + ";";
+    if (const InspectorType* type = inspectorFor(o->typeId()))
+        for (const std::string& p : type->layoutProps) key += o->prop(p) + ";";
     for (const auto& f : o->fields())
         if (o->fieldActive(f)) key += f.key + ",";
     return key;
@@ -122,6 +127,11 @@ void Inspector::refresh() {
         return;
     }
     update();
+}
+
+void Inspector::scrollToEnd() {
+    auto adj = m_scroll.get_vadjustment();
+    adj->set_value(adj->get_upper() - adj->get_page_size());
 }
 
 SceneObject* Inspector::current() {
@@ -167,6 +177,15 @@ void Inspector::update() {
 void Inspector::rebuild() {
     m_rebuildQueued = false;
     flush();
+    // Where the keyboard focus was (which of the inspector's parts), so it comes back to the same place instead of
+    // jumping into the name field
+    int focusIndex = -1;
+    auto* window = dynamic_cast<Gtk::Window*>(get_root());
+    if (Gtk::Widget* focus = window ? window->get_focus() : nullptr) {
+        int i = 0;
+        for (Gtk::Widget* child = m_content.get_first_child(); child; child = child->get_next_sibling(), i++)
+            if (focus == child || focus->is_ancestor(*child)) focusIndex = i;
+    }
     m_edits.clear();
     m_updates.clear();
     while (Gtk::Widget* child = m_content.get_first_child()) m_content.remove(*child);
@@ -187,7 +206,8 @@ void Inspector::rebuild() {
 
     buildHeader(*o);
     InspectorBuilder b(*this, *o);
-    if (InspectorFunction f = inspectorFor(o->typeId())) f(b);
+    const InspectorType* type = inspectorFor(o->typeId());
+    if (type && type->inspect) type->inspect(b);
     else inspectFields(b);
     // The object's problem, when no field shows it
     b.line([](const SceneObject& ob) {
@@ -197,6 +217,11 @@ void Inspector::rebuild() {
     }, InspectorBuilder::Tone::Error);
     buildFooter();
     update();
+    if (focusIndex >= 0) {
+        Gtk::Widget* child = m_content.get_first_child();
+        for (int i = 0; child && i < focusIndex; i++) child = child->get_next_sibling();
+        if (child) child->grab_focus();
+    }
 }
 
 void Inspector::buildHeader(SceneObject& o) {
@@ -442,8 +467,8 @@ void InspectorBuilder::toggle(const std::string& label, const std::string& prop,
     add(row);
 }
 
-void InspectorBuilder::choice(const std::vector<std::string>& labels, int current, const std::vector<std::string>& tips,
-                              std::function<void(Object&, int)> pick) {
+void InspectorBuilder::choice(const std::vector<std::string>& labels, std::function<int(const Object&)> get,
+                              const std::vector<std::string>& tips, std::function<void(Object&, int)> pick) {
     AdwToggleGroup* group = ADW_TOGGLE_GROUP(adw_toggle_group_new());
     for (size_t i = 0; i < labels.size(); i++) {
         AdwToggle* t = adw_toggle_new();
@@ -451,12 +476,16 @@ void InspectorBuilder::choice(const std::vector<std::string>& labels, int curren
         if (i < tips.size()) adw_toggle_set_tooltip(t, tips[i].c_str());
         adw_toggle_group_add(group, t);
     }
-    adw_toggle_group_set_active(group, static_cast<guint>(current));
+    adw_toggle_group_set_active(group, static_cast<guint>(get(m_object)));
     Inspector* insp = &m_inspector;
     onSignal(group, "notify::active", [insp, group, pick] {
         if (insp->m_updating) return;
         int index = static_cast<int>(adw_toggle_group_get_active(group));
         insp->edit([&](Object& o) { pick(o, index); });
+    });
+    live([group, get](const Object& o) {
+        guint want = static_cast<guint>(get(o));
+        if (adw_toggle_group_get_active(group) != want) adw_toggle_group_set_active(group, want);
     });
     m_group = nullptr;  // rows after it start a new group
     gtk_box_append(m_inspector.m_content.gobj(), GTK_WIDGET(group));
@@ -596,12 +625,47 @@ void InspectorBuilder::buttonGrid(const std::vector<GridButton>& buttons, int co
     gtk_box_append(m_inspector.m_content.gobj(), grid);
 }
 
+void InspectorBuilder::widget(GtkWidget* child) { add(plainRow(child)); }
+
 void InspectorBuilder::live(std::function<void(const Object&)> update) { m_inspector.m_updates.push_back(std::move(update)); }
 
 void inspectFields(InspectorBuilder& b) {
     b.group("Fields");
     for (const auto& f : b.object().fields())
         if (b.object().fieldActive(f)) b.formula(f.key);
+}
+
+const InspectorType* inspectorFor(const std::string& typeId) {
+    using namespace inspectors;
+    static const std::map<std::string, InspectorType> table = {
+        // InspectorsBasic.cpp
+        {"vector", {vector, {"mode"}}},
+        {"matrix", {matrix, {"mode", "size"}}},
+        {"eigen", {eigen, {}}},
+        {"function", {plot, {}}},
+        {"surface", {plot, {}}},
+        {"implicit", {plot, {}}},
+        {"curve", {plot, {}}},
+        {"parameter", {parameter, {"mode"}}},
+        {"complex", {complexNumber, {}}},
+        {"product", {product, {}}},
+        // InspectorsCalculus.cpp
+        {"doubleintegral", {doubleIntegral, {}}},
+        {"lineintegral", {lineIntegral, {}}},
+        {"frame", {frame, {}}},
+        {"tangent", {tangent, {}}},
+        {"tangentplane", {tangentPlane, {}}},
+        {"velocity", {velocity, {}}},
+        {"taylor", {taylor, {}}},
+        {"newton", {newton, {}}},
+        // InspectorsMore.cpp
+        {"quaternion", {quaternion, {"act"}}},
+        {"field", {field, {"domain", "lines", "particles"}}},
+        {"epicycles", {epicycles, {}}},
+        {"fourierseries", {fourierSeries, {}}},
+    };
+    auto it = table.find(typeId);
+    return it == table.end() ? nullptr : &it->second;
 }
 
 } // namespace linalg::gtk

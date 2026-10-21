@@ -1,5 +1,6 @@
 #include "gtk/Tour.hpp"
 #include "gtk/Capture.hpp"
+#include "gtk/Inspector.hpp"
 #include "gtk/MainWindow.hpp"
 #include "gtk/SceneArea.hpp"
 #include "gtk/SceneRenderer.hpp"
@@ -92,6 +93,36 @@ Tour::Tour(MainWindow& window, Glib::RefPtr<Gtk::Application> app, std::string d
              m_window.sceneChanged();
          }},
     };
+    // The other types' inspectors (run 6): each alone in its space, dark theme
+    const char* more[][3] = {
+        {"20_gtk_quaternion", "quaternion", "space3d"},   {"21_gtk_field", "field", "space3d"},
+        {"22_gtk_double_integral", "doubleintegral", "space3d"}, {"23_gtk_line_integral", "lineintegral", "space3d"},
+        {"24_gtk_frame", "frame", "space3d"},             {"25_gtk_tangent", "tangent", "space3d"},
+        {"26_gtk_tangent_plane", "tangentplane", "space3d"}, {"27_gtk_velocity", "velocity", "space3d"},
+        {"28_gtk_taylor", "taylor", "space3d"},           {"29_gtk_newton", "newton", "space3d"},
+        {"30_gtk_fourier_series", "fourierseries", "space3d"}, {"31_gtk_epicycles", "epicycles", "complex"},
+    };
+    for (auto& m : more) {
+        std::string type = m[1], space = m[2];
+        m_steps.push_back({m[0], [this, &s, type, space] {
+                               m_window.setTheme("dark");
+                               m_window.setSpace(space);
+                               s.clearSpace(space == "complex" ? AppMode::Complex : AppMode::Space3D);
+                               m_window.addObject(AddChoice{type, "", {}, {}, ""});
+                           }});
+        // A switch that adds a row: the vector the rotation acts on
+        if (type == "quaternion") {
+            m_steps.push_back({"20b_gtk_quaternion_acts", [this, &s] {
+                                   if (scene::SceneObject* q = s.object("q")) q->setProp("act", true);
+                                   s.scene().commit();
+                                   m_window.sceneChanged();
+                               }});
+            m_steps.push_back({"20c_gtk_quaternion_acts_end", [this] { m_window.inspector().scrollToEnd(); }});
+        }
+        // Long inspectors: their last rows too (Newton's steps, the Fourier spectrum)
+        if (type == "newton" || type == "fourierseries")
+            m_steps.push_back({std::string(m[0]) + "_end", [this] { m_window.inspector().scrollToEnd(); }});
+    }
 }
 
 void Tour::start() {

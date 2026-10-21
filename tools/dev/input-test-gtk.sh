@@ -60,10 +60,16 @@ key ctrl+s;                    shot 28_saved
 click 1450 820; click 28 27; click 54 108
                                shot 29_parameter_added
 drag 172 510 260 510;          shot 30_slider_drag
+click 186 416;                 shot 31_animate_mode
+# The parameter's modes (a choice) and its repeat style (a drop-down), saved
+click 195 564;                 shot 32_repeat_menu
+click 340 676;                 shot 33_repeat_pingpong
+key ctrl+s; sleep 0.5; cp "$OUT/run/gtkscene.txt" "$OUT/run/gtkscene2.txt"
+                               shot 34_saved_again
 # Delete still works where it belongs: in the list and in the view
-click 160 122; key Delete;     shot 31_list_delete
-click 874 296;                 shot 32_view_pick
-key Delete;                    shot 33_view_delete
+click 160 122; key Delete;     shot 35_list_delete
+click 874 296;                 shot 36_view_pick
+key Delete;                    shot 37_view_delete
 input_stop
 python3 - "$OUT" <<'PY'
 import sys, hashlib, os
@@ -74,7 +80,8 @@ want = ["00_start", "01_orbit_drag", "02_pan_right_drag", "03_wheel_zoom_in", "0
         "12_pick_empty", "13_undo", "14_save_dialog", "15_saved", "16_new", "17_open_dialog", "18_opened", "19_pick_vector",
         "20_type_component", "21_delete_key_in_field", "22_escape_reverts", "23_formula_mode", "24_formula_typed",
         "25_bad_formula", "26_undo_button", "27_rename", "28_saved", "29_parameter_added", "30_slider_drag",
-        "31_list_delete", "32_view_pick", "33_view_delete"]
+        "31_animate_mode", "32_repeat_menu", "33_repeat_pingpong", "34_saved_again", "35_list_delete", "36_view_pick",
+        "37_view_delete"]
 def digest(n):
     p = os.path.join(out, n + ".png")
     return hashlib.sha1(open(p, "rb").read()).hexdigest() if os.path.exists(p) else None
@@ -95,5 +102,12 @@ for line in ["object.0.name = w", "object.0.prop.mode = formula", "object.0.fiel
     ok = line in text
     problems += not ok
     print(("ok      " if ok else "PROBLEM ") + "the saved file has " + line)
+# The second save has the parameter: animated, ping-pong
+again = os.path.join(out, "run", "gtkscene2.txt")
+text2 = open(again).read() if os.path.exists(again) else ""
+for line in ["object.1.prop.mode = animate", "object.1.prop.anim.repeat = 2"]:
+    ok = line in text2
+    problems += not ok
+    print(("ok      " if ok else "PROBLEM ") + "the second save has " + line)
 print("%d problems" % problems)
 PY

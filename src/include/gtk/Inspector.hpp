@@ -40,6 +40,8 @@ public:
     void flush();
 
     Session& session() { return m_session; }
+    // Show the last rows (the tour's screenshots of long inspectors)
+    void scrollToEnd();
 
 private:
     friend class InspectorBuilder;
@@ -103,9 +105,9 @@ public:
                  const std::string& tip = "");
     // A switch bound to a true/false property
     void toggle(const std::string& label, const std::string& prop, bool fallback, const std::string& tip = "");
-    // Segmented choice (e.g. Components / Formula), between groups; `pick` changes the object
-    void choice(const std::vector<std::string>& labels, int current, const std::vector<std::string>& tips,
-                std::function<void(Object&, int)> pick);
+    // Segmented choice (e.g. Components / Formula), between groups; `get` reads it, `pick` changes the object
+    void choice(const std::vector<std::string>& labels, std::function<int(const Object&)> get,
+                const std::vector<std::string>& tips, std::function<void(Object&, int)> pick);
     // A drop-down list row
     void combo(const std::string& label, const std::vector<std::string>& items, std::function<int(const Object&)> get,
                std::function<void(Object&, int)> set, const std::string& tip = "");
@@ -132,6 +134,8 @@ public:
         std::function<void(Object&)> run;
     };
     void buttonGrid(const std::vector<GridButton>& buttons, int columns);
+    // A widget built by hand (a chart), as a row
+    void widget(GtkWidget* child);
     // Run `update` on every refresh (for rows built by hand)
     void live(std::function<void(const Object&)> update);
 
@@ -145,9 +149,13 @@ private:
     GtkWidget* m_group = nullptr;
 };
 
-// The type's own part of the inspector (nullptr for types without one: the inspector then lists their fields)
-using InspectorFunction = void (*)(InspectorBuilder&);
-InspectorFunction inspectorFor(const std::string& typeId);
+// The type's own part of the inspector: the function that describes its rows (gtk/Inspectors*.cpp), and the
+// properties whose value changes which rows there are (a mode, a matrix size, a switch that shows more rows)
+struct InspectorType {
+    void (*inspect)(InspectorBuilder&) = nullptr;
+    std::vector<std::string> layoutProps;
+};
+const InspectorType* inspectorFor(const std::string& typeId);  // nullptr: the inspector lists the type's fields
 
 // Fallback for types without their own inspector yet: every active field as a formula row
 void inspectFields(InspectorBuilder& b);
